@@ -1,0 +1,206 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ */
+/* Brand tokens — editorial dark, brutalist, caro.                     */
+/* Base is strictly black & white. Gold is reserved for link hover,    */
+/* promo badges and input focus only.                                  */
+/* ------------------------------------------------------------------ */
+:root {
+  --bg: #0a0a0a;
+  --fg: #ffffff;
+  --muted: #8a8a8a;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #c9a227;
+
+  /* internal surfaces derived from the palette above, not part of the
+     literal brand token list but needed to theme shadcn components */
+  --surface: #111111;
+  --surface-2: #161616;
+  --surface-muted: #141414;
+  --surface-hover: #1a1a1a;
+  --danger: #e5484d;
+  --success: #4caf6f;
+  --warning: #d9a441;
+
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface);
+  --popover-foreground: var(--fg);
+  --primary: var(--fg);
+  --primary-foreground: var(--bg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--fg);
+  --muted-surface: var(--surface-muted);
+  --muted-foreground: var(--muted);
+  --accent-surface: var(--surface-hover);
+  --accent-foreground: var(--fg);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
+  --chart-1: var(--accent);
+  --chart-2: #d9d9d9;
+  --chart-3: #8a8a8a;
+  --chart-4: #4d4d4d;
+  --chart-5: #2a2a2a;
+  --radius: 0rem;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--fg);
+  --sidebar-primary: var(--fg);
+  --sidebar-primary-foreground: var(--bg);
+  --sidebar-accent: var(--surface-hover);
+  --sidebar-accent-foreground: var(--fg);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-ink-muted: var(--muted);
+  --color-hairline: var(--line);
+  --color-gold: var(--accent);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-archivo);
+  --font-display: var(--font-archivo);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent-surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted-surface);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+  --radius-3xl: 0rem;
+  --radius-4xl: 0rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans scroll-smooth;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  ::selection {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Editorial typography utilities                                      */
+/* ------------------------------------------------------------------ */
+@layer components {
+  .text-display {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.85;
+    text-transform: uppercase;
+    font-size: clamp(4rem, 18vw, 20rem);
+  }
+
+  .text-heading {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  .text-label {
+    font-size: 11px;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--line);
+  }
+
+  .hairline-v {
+    width: 1px;
+    background: var(--line);
+  }
+
+  /* "TEXTO UPPERCASE + linha horizontal longa + seta →" action link */
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--fg);
+    transition: color 200ms ease-out, gap 200ms ease-out;
+  }
+
+  .link-arrow::before {
+    content: "";
+    display: block;
+    height: 1px;
+    width: 3rem;
+    background: currentColor;
+    transition: width 200ms ease-out, background-color 200ms ease-out;
+  }
+
+  .link-arrow:hover {
+    color: var(--accent);
+    gap: 1rem;
+  }
+
+  .link-arrow:hover::before {
+    width: 5rem;
+  }
+
+  .link-arrow:focus-visible {
+    color: var(--accent);
+  }
+}

@@ -8,8 +8,7 @@ import { requireAdmin } from "./require-admin";
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
 function revalidateStorefront() {
-  revalidatePath("/");
-  revalidatePath("/colecao");
+  revalidatePath("/", "layout");
   revalidatePath("/admin/categorias");
 }
 

@@ -287,4 +287,32 @@ e a opção mais simples escolhida para resolvê-la.
   problema no provedor de e-mail não pode fazer o Mercado Pago achar que o
   webhook falhou e reenviar indefinidamente.
 
+## Bloco 8 — Pedidos, clientes, cupons e dashboard
+
+- **Impressão do pedido reaproveita a própria página de detalhe** com
+  `window.print()` e classes `print:hidden` na sidebar e nos controles do
+  formulário de status, em vez de uma rota/PDF dedicados. O conteúdo que
+  sobra ao imprimir (itens, cliente, endereço, pagamento) já é exatamente
+  o que uma via impressa de pedido precisa.
+- **Busca de pedidos aceita número do pedido OU nome do cliente no mesmo
+  campo** — se o termo digitado é numérico, filtra por `order_number`
+  exato; senão, faz `ilike` em `customer_snapshot->>name`. Evita dois
+  campos de busca separados para um caso de uso simples.
+- **`revalidatePath("/", "layout")` em vez de `revalidatePath("/")`** nas
+  actions de categorias, banners e configurações. Header/Footer moram no
+  layout de `(shop)`, compartilhado por todas as rotas da loja — revalidar
+  só `"/"` deixaria páginas estáticas como `/produto/[slug]` servindo nav/
+  rodapé desatualizados até o próximo ISR natural.
+- **Dashboard define "vendas" como pedidos com status `paid`, `processing`,
+  `shipped` ou `delivered`** (exclui `pending` e `canceled`) tanto para
+  vendas do dia/mês quanto para o ticket médio. Pedido pendente de
+  pagamento não é venda ainda; cancelado nunca foi.
+- **Gráfico de 30 dias é `recharts` puro, sem o wrapper `ChartContainer` do
+  shadcn.** O wrapper padroniza tema/legenda para múltiplas séries; aqui é
+  uma série única (receita/dia) com paleta da marca (dourado sobre fundo
+  escuro) — mais simples estilizar o `recharts` direto do que configurar o
+  `ChartConfig` do wrapper para um caso de uso tão pequeno. Fica para o
+  bloco de performance decidir se vale a pena isolar o gráfico atrás de
+  `next/dynamic`, já que `recharts` pesa bastante no bundle do `/admin`.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

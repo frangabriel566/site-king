@@ -11,7 +11,7 @@ type BannerInput = z.infer<typeof bannerSchema>;
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
 function revalidateStorefront() {
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/admin/banners");
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Copy, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
 import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/multi-image-uploader";
 import { InlineCategoryCreator } from "@/components/admin/inline-category-creator";
 import {
@@ -25,27 +25,61 @@ import {
 } from "@/components/admin/variant-editor";
 import { slugify } from "@/lib/format";
 import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
-import type { ActionResult } from "@/lib/actions/products";
+import { useUnsavedChangesGuard, confirmDiscardUnsavedChanges } from "@/lib/hooks/use-unsaved-changes-guard";
+import { useDraftAutosave, readDraft, clearDraft } from "@/lib/hooks/use-draft-autosave";
+import { duplicateProductAction, type ActionResult } from "@/lib/actions/products";
 import type { Category } from "@/lib/data/categories";
+import type { ProductStatus } from "@/lib/database.types";
 import type { ProductWithRelations } from "@/lib/data/products";
 
 const initialState: ActionResult = { status: "idle" };
+const NEW_CATEGORY_VALUE = "__new_category__";
+
+type DraftSnapshot = {
+  name: string;
+  slug: string;
+  description: string;
+  price: string;
+  compareAtPrice: string;
+  categoryId: string;
+  status: ProductStatus;
+  featured: boolean;
+  position: string;
+  images: ProductImageDraft[];
+  variants: VariantDraft[];
+  standardMeasurements: StandardMeasurements;
+};
 
 export function ProductForm({
   product,
   categories,
   action,
+  initialCategoryId,
+  initialStandardMeasurements,
 }: {
   product?: ProductWithRelations;
   categories: Category[];
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
+  initialCategoryId?: string;
+  initialStandardMeasurements?: StandardMeasurements;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
+  const draftKey = `king-store:product-draft:${product?.id ?? "new"}`;
+  const restoredRef = useRef(false);
 
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(product));
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [price, setPrice] = useState(product?.price != null ? String(product.price) : "");
+  const [compareAtPrice, setCompareAtPrice] = useState(
+    product?.compare_at_price != null ? String(product.compare_at_price) : "",
+  );
+  const [status, setStatus] = useState(product?.status ?? "draft");
+  const [featured, setFeatured] = useState(product?.featured ?? false);
+  const [position, setPosition] = useState(String(product?.position ?? 0));
+
   const [images, setImages] = useState<ProductImageDraft[]>(
     (product?.product_images ?? [])
       .slice()
@@ -68,42 +102,108 @@ export function ProductForm({
     })),
   );
 
-  const [standardMeasurements, setStandardMeasurements] = useState<StandardMeasurements>({
-    weight_grams: null,
-    length_cm: null,
-    width_cm: null,
-    height_cm: null,
-  });
+  const [standardMeasurements, setStandardMeasurements] = useState<StandardMeasurements>(
+    initialStandardMeasurements ?? {
+      weight_grams: null,
+      length_cm: null,
+      width_cm: null,
+      height_cm: null,
+    },
+  );
 
   const [publishIssues, setPublishIssues] = useState<PublishIssue[]>([]);
 
   const [categoryOptions, setCategoryOptions] = useState<Pick<Category, "id" | "name">[]>(
     categories,
   );
-  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? initialCategoryId ?? "");
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const NEW_CATEGORY_VALUE = "__new_category__";
+  const [duplicating, setDuplicating] = useState(false);
 
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
   }, [state]);
 
+  // ---- unsaved-changes guard + draft autosave --------------------------
+  const snapshot: DraftSnapshot = {
+    name,
+    slug,
+    description,
+    price,
+    compareAtPrice,
+    categoryId,
+    status,
+    featured,
+    position,
+    images,
+    variants,
+    standardMeasurements,
+  };
+  const initialSnapshotRef = useRef<string>(JSON.stringify(snapshot));
+  const snapshotStr = JSON.stringify(snapshot);
+  const isDirty = snapshotStr !== initialSnapshotRef.current;
+
+  useUnsavedChangesGuard(isDirty);
+  useDraftAutosave(draftKey, snapshot, { enabled: isDirty });
+
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const draft = readDraft<DraftSnapshot>(draftKey);
+    if (!draft) return;
+    toast("Encontramos um rascunho não salvo desta página.", {
+      duration: 15000,
+      action: {
+        label: "Restaurar",
+        onClick: () => {
+          const v = draft.value;
+          setName(v.name);
+          setSlug(v.slug);
+          setSlugTouched(true);
+          setDescription(v.description);
+          setPrice(v.price);
+          setCompareAtPrice(v.compareAtPrice);
+          setCategoryId(v.categoryId);
+          setStatus(v.status);
+          setFeatured(v.featured);
+          setPosition(v.position);
+          setImages(v.images);
+          setVariants(v.variants);
+          setStandardMeasurements(v.standardMeasurements);
+          toast.success("Rascunho restaurado.");
+        },
+      },
+    });
+  }, [draftKey]);
+
+  // ---- Ctrl/Cmd+S ------------------------------------------------------
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   function applyStandardMeasurements() {
     setVariants((prev) => prev.map((v) => ({ ...v, ...standardMeasurements })));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const formData = new FormData(event.currentTarget);
-    const candidate = {
-      name: formData.get("name"),
-      slug: formData.get("slug"),
-      description: formData.get("description"),
-      price: formData.get("price") || 0,
-      compare_at_price: formData.get("compare_at_price") || null,
-      category_id: formData.get("category_id") || null,
-      status: formData.get("status"),
-      featured: formData.get("featured") === "on",
-      position: formData.get("position"),
+  function buildValidationCandidate() {
+    return {
+      name,
+      slug,
+      description,
+      price: price || 0,
+      compare_at_price: compareAtPrice || null,
+      category_id: categoryId || null,
+      status,
+      featured,
+      position,
       images,
       variants: variants.map((v) => ({
         color: v.color,
@@ -117,8 +217,10 @@ export function ProductForm({
         height_cm: v.height_cm,
       })),
     };
+  }
 
-    const parsed = productSchema.safeParse(candidate);
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const parsed = productSchema.safeParse(buildValidationCandidate());
     if (!parsed.success) {
       // Basic shape errors (bad slug, etc.) surface via the server's toast
       // as before — the publish gate only concerns itself with
@@ -135,11 +237,39 @@ export function ProductForm({
       requestAnimationFrame(() => {
         document.getElementById("publish-issues")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
+      return;
     }
+
+    // Submission is proceeding — clear the local draft optimistically so
+    // a leftover "restore?" prompt doesn't appear after a successful save.
+    clearDraft(draftKey);
+  }
+
+  async function handleDuplicate() {
+    if (!product) return;
+    setDuplicating(true);
+    const result = await duplicateProductAction(product.id);
+    setDuplicating(false);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+    toast.success("Produto duplicado como rascunho.");
+    router.push(`/admin/produtos/${result.newId}`);
+  }
+
+  function handleCancel() {
+    if (!confirmDiscardUnsavedChanges(isDirty)) return;
+    router.push("/admin/produtos");
   }
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-8">
+    <form
+      ref={formRef}
+      action={formAction}
+      onSubmit={handleSubmit}
+      className="flex max-w-3xl flex-col gap-8"
+    >
       {publishIssues.length > 0 && (
         <div
           id="publish-issues"
@@ -183,6 +313,10 @@ export function ProductForm({
           })),
         )}
       />
+      <input type="hidden" name="std_weight_grams" value={standardMeasurements.weight_grams ?? ""} />
+      <input type="hidden" name="std_length_cm" value={standardMeasurements.length_cm ?? ""} />
+      <input type="hidden" name="std_width_cm" value={standardMeasurements.width_cm ?? ""} />
+      <input type="hidden" name="std_height_cm" value={standardMeasurements.height_cm ?? ""} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
@@ -219,7 +353,8 @@ export function ProductForm({
           id="description"
           name="description"
           rows={4}
-          defaultValue={product?.description ?? ""}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           className="rounded-none"
         />
       </div>
@@ -233,7 +368,8 @@ export function ProductForm({
             type="number"
             step="0.01"
             min={0}
-            defaultValue={product?.price ?? ""}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
             className="rounded-none"
           />
           <p className="text-xs text-ink-muted">Pode ficar em branco enquanto é rascunho.</p>
@@ -246,7 +382,8 @@ export function ProductForm({
             type="number"
             step="0.01"
             min={0}
-            defaultValue={product?.compare_at_price ?? ""}
+            value={compareAtPrice}
+            onChange={(e) => setCompareAtPrice(e.target.value)}
             className="rounded-none"
           />
         </div>
@@ -293,7 +430,8 @@ export function ProductForm({
             name="position"
             type="number"
             min={0}
-            defaultValue={product?.position ?? 0}
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
             className="rounded-none"
           />
         </div>
@@ -302,7 +440,11 @@ export function ProductForm({
       <div className="flex flex-wrap items-center gap-8">
         <div className="flex flex-col gap-2">
           <Label htmlFor="status">Status</Label>
-          <Select name="status" defaultValue={product?.status ?? "draft"}>
+          <Select
+            name="status"
+            value={status}
+            onValueChange={(value) => setStatus(value as ProductStatus)}
+          >
             <SelectTrigger id="status" className="w-40 rounded-none">
               <SelectValue />
             </SelectTrigger>
@@ -314,7 +456,12 @@ export function ProductForm({
           </Select>
         </div>
         <div className="flex items-center gap-3 pt-6">
-          <Switch id="featured" name="featured" defaultChecked={product?.featured ?? false} />
+          <Switch
+            id="featured"
+            name="featured"
+            checked={featured}
+            onCheckedChange={setFeatured}
+          />
           <Label htmlFor="featured">Destaque na home</Label>
         </div>
       </div>
@@ -417,18 +564,35 @@ export function ProductForm({
         standardMeasurements={standardMeasurements}
       />
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" size="lg" disabled={pending}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" name="intent" value="save" size="lg" disabled={pending}>
           {pending ? "Salvando…" : "Salvar produto"}
         </Button>
         <Button
-          type="button"
+          type="submit"
+          name="intent"
+          value="save_and_new"
           variant="outline"
           size="lg"
-          onClick={() => router.push("/admin/produtos")}
+          disabled={pending}
         >
+          Salvar e criar outro
+        </Button>
+        {product && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+          >
+            <Copy className="size-4" /> {duplicating ? "Duplicando…" : "Duplicar produto"}
+          </Button>
+        )}
+        <Button type="button" variant="ghost" size="lg" onClick={handleCancel}>
           Cancelar
         </Button>
+        <span className="text-xs text-ink-muted">Ctrl/Cmd + S para salvar</span>
       </div>
     </form>
   );

@@ -53,6 +53,40 @@ function friendlyDbError(error: { code?: string; message: string } | null): stri
   return error.message;
 }
 
+/**
+ * "Salvar e criar outro" always lands on a fresh /novo, carrying over
+ * category and standard measurements — whether the save that triggered
+ * it was a create or an edit.
+ */
+function redirectAfterSave(formData: FormData, categoryId: string | null | undefined): never {
+  if (formData.get("intent") !== "save_and_new") {
+    redirect("/admin/produtos");
+  }
+
+  const params = new URLSearchParams();
+  if (categoryId) params.set("categoria", categoryId);
+  for (const field of ["std_weight_grams", "std_length_cm", "std_width_cm", "std_height_cm"]) {
+    const value = formData.get(field);
+    if (value) params.set(field, String(value));
+  }
+
+  const query = params.toString();
+  redirect(`/admin/produtos/novo${query ? `?${query}` : ""}`);
+}
+
+function buildSku(slug: string, color: string, size: string): string {
+  const parts = [slug, color, size].filter((p) => p && p.trim());
+  if (parts.length === 0) return "";
+  return parts
+    .join(" ")
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+}
+
 export async function createProductAction(
   _prev: ActionResult,
   formData: FormData,
@@ -125,7 +159,7 @@ export async function createProductAction(
   }
 
   revalidateStorefront(slug);
-  redirect("/admin/produtos");
+  redirectAfterSave(formData, category_id);
 }
 
 export async function updateProductAction(
@@ -200,7 +234,7 @@ export async function updateProductAction(
   }
 
   revalidateStorefront(slug);
-  redirect("/admin/produtos");
+  redirectAfterSave(formData, category_id);
 }
 
 export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
@@ -209,6 +243,89 @@ export async function deleteProductAction(id: string): Promise<{ ok: boolean; me
   if (error) return { ok: false, message: error.message };
   revalidateStorefront();
   return { ok: true };
+}
+
+export type DuplicateProductResult =
+  | { ok: true; newId: string }
+  | { ok: false; message: string };
+
+export async function duplicateProductAction(id: string): Promise<DuplicateProductResult> {
+  const { supabase } = await requireAdmin();
+
+  const { data: original } = await supabase
+    .from("products")
+    .select("*, product_images(*), product_variants(*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!original) return { ok: false, message: "Produto não encontrado." };
+
+  let newSlug = `${original.slug}-copia`;
+  let attempt = 1;
+  while (true) {
+    const { data: existing } = await supabase
+      .from("products")
+      .select("id")
+      .eq("slug", newSlug)
+      .maybeSingle();
+    if (!existing) break;
+    attempt += 1;
+    newSlug = `${original.slug}-copia-${attempt}`;
+  }
+
+  const { data: created, error } = await supabase
+    .from("products")
+    .insert({
+      name: `${original.name} (cópia)`,
+      slug: newSlug,
+      description: original.description,
+      price: original.price,
+      compare_at_price: original.compare_at_price,
+      category_id: original.category_id,
+      status: "draft",
+      featured: false,
+      position: original.position,
+    })
+    .select("id")
+    .single();
+
+  if (error || !created) {
+    return { ok: false, message: friendlyDbError(error) ?? "Não foi possível duplicar." };
+  }
+
+  if (original.product_images.length > 0) {
+    await supabase.from("product_images").insert(
+      original.product_images.map((img) => ({
+        product_id: created.id,
+        url: img.url,
+        alt: img.alt,
+        position: img.position,
+      })),
+    );
+  }
+
+  if (original.product_variants.length > 0) {
+    // Stock is not copied — a duplicate is a new listing, not new
+    // physical inventory of the original. SKU is rebuilt from the new
+    // slug so it can't collide with the original's.
+    await supabase.from("product_variants").insert(
+      original.product_variants.map((v) => ({
+        product_id: created.id,
+        color: v.color,
+        color_hex: v.color_hex,
+        size: v.size,
+        sku: buildSku(newSlug, v.color, v.size),
+        stock: 0,
+        weight_grams: v.weight_grams,
+        length_cm: v.length_cm,
+        width_cm: v.width_cm,
+        height_cm: v.height_cm,
+      })),
+    );
+  }
+
+  revalidatePath("/admin/produtos");
+  return { ok: true, newId: created.id };
 }
 
 export async function updateVariantStockAction(

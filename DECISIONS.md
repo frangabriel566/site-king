@@ -194,4 +194,61 @@ e a opção mais simples escolhida para resolvê-la.
   Produtos (mesma tabela, mesmo formulário de edição inline); antecipar
   evita reabrir os mesmos arquivos depois.
 
+## Bloco 6 — Carrinho, conta e checkout
+
+- **Checkout exige conta (login ou cadastro) no passo "dados", em vez de
+  aceitar guest checkout.** O schema pede telefone e data de nascimento
+  obrigatórios no cadastro do cliente, e a RLS de `orders`/`addresses` é
+  literalmente "cliente lê e cria os próprios" (`customer_id = auth.uid()`).
+  Aceitar pedidos sem conta exigiria ou burlar essa RLS com service role em
+  todo pedido, ou uma segunda tabela de "convidado" fora do schema pedido.
+  Exigir conta é a opção mais simples que satisfaz a RLS como está escrita
+  — e o cadastro já é rápido (nome, e-mail, senha, telefone, nascimento)
+  dentro do próprio passo 1, sem sair do checkout.
+- **Ações de login/cadastro têm duas variantes: "page" (redireciona para
+  `/conta`) e "embedded" (não redireciona, só retorna sucesso).** Reusar a
+  action de `/conta` dentro do checkout faria o `redirect("/conta")`
+  tirar o cliente do fluxo de compra no meio do passo 1. A variante
+  embedded devolve o controle pro componente cliente, que avança para o
+  passo 2 sem sair da página.
+- **Criação da linha em `customers` no cadastro usa o cliente
+  service-role, não o cliente da sessão.** Dependendo da configuração do
+  projeto Supabase, `auth.signUp()` pode não devolver uma sessão
+  imediatamente (confirmação de e-mail pendente) — sem sessão, `auth.uid()`
+  é nulo e o insert em `customers` esbarraria na própria RLS que exige
+  `id = auth.uid()`. Usar o service role só para essa gravação pontual,
+  logo após um `signUp()` que já validou o usuário, evita depender de uma
+  configuração do projeto que não controlo a partir do código.
+- **Confirmação de pedido (`/pedido/[id]`) lê com o cliente service-role,
+  não com RLS de sessão.** O id do pedido é um UUID não adivinhável — é o
+  mesmo modelo de confiança que qualquer link de confirmação de pedido de
+  e-commerce usa. Isso também permite abrir o link de confirmação em outro
+  dispositivo/aba sem estar logado nele.
+- **`reviseCartAction` recalcula preço e estoque a partir do banco antes de
+  cada etapa relevante do checkout** (ao entrar na página e de novo dentro
+  de `createOrderAction`), e o resumo do pedido é renderizado a partir
+  desse resultado — nunca dos valores guardados no `localStorage`. Se um
+  item ficou sem estoque ou mudou de preço entre a sacola e o checkout, o
+  cliente vê a quantidade ajustada antes de pagar.
+- **Cupom nunca é validado no cliente.** `applyCouponAction` chama a
+  função `validate_coupon` do Postgres (criada no bloco de banco), então a
+  tabela `coupons` nunca precisa ser lida diretamente pelo navegador — só
+  o resultado (desconto calculado) trafega.
+- **Frete é uma tabela fixa de duas opções (`padrão`/`expressa`) definida
+  em `lib/constants.ts`, com frete grátis acima de R$ 399.** O pedido não
+  detalha integração com transportadora nem cálculo por CEP/peso; uma
+  tabela fixa é a opção mais simples que atende ao passo "frete" do
+  checkout.
+- **Endereço do checkout é sempre salvo em `addresses`** (e marcado padrão
+  se for o primeiro), além de gravado como snapshot em
+  `orders.shipping_address`. Assim o cliente já vê o endereço na aba
+  "Endereços" da conta sem precisar cadastrá-lo de novo, e o pedido
+  mantém seu próprio retrato do endereço mesmo que o cadastro mude depois.
+- **Pagamento (Mercado Pago/WhatsApp) ainda não é acionado ao final do
+  checkout neste bloco** — `createOrderAction` cria o pedido com
+  `status='pending'` e redireciona para `/pedido/[id]`. A integração real
+  com o provedor de pagamento é o próximo bloco ("pagamento e webhook"),
+  que vai trocar esse redirecionamento final por a preferência do Mercado
+  Pago ou o link do WhatsApp.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

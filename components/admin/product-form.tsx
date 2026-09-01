@@ -16,7 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/multi-image-uploader";
-import { VariantEditor, type VariantDraft } from "@/components/admin/variant-editor";
+import {
+  VariantEditor,
+  type StandardMeasurements,
+  type VariantDraft,
+} from "@/components/admin/variant-editor";
 import { slugify } from "@/lib/format";
 import type { ActionResult } from "@/lib/actions/products";
 import type { Category } from "@/lib/data/categories";
@@ -45,33 +49,56 @@ export function ProductForm({
       .sort((a, b) => a.position - b.position)
       .map((img) => ({ url: img.url, alt: img.alt ?? "" })),
   );
-  const [variants, setVariants] = useState<VariantDraft[]>(
+  const [variants, setVariants] = useState<VariantDraft[]>(() =>
     (product?.product_variants ?? []).map((v) => ({
+      clientId: v.id,
       color: v.color,
-      color_hex: v.color_hex ?? "#0A0A0A",
+      color_hex: v.color_hex ?? "",
       size: v.size,
       sku: v.sku ?? "",
+      skuManual: true, // existing variants keep their saved SKU as-is until touched
       stock: v.stock,
+      weight_grams: v.weight_grams,
+      length_cm: v.length_cm,
+      width_cm: v.width_cm,
+      height_cm: v.height_cm,
     })),
   );
+
+  const [standardMeasurements, setStandardMeasurements] = useState<StandardMeasurements>({
+    weight_grams: null,
+    length_cm: null,
+    width_cm: null,
+    height_cm: null,
+  });
 
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
   }, [state]);
 
+  function applyStandardMeasurements() {
+    setVariants((prev) => prev.map((v) => ({ ...v, ...standardMeasurements })));
+  }
+
   return (
     <form action={formAction} className="flex max-w-3xl flex-col gap-8">
       <input type="hidden" name="slug" value={slug} />
-      <input
-        type="hidden"
-        name="images_json"
-        value={JSON.stringify(images)}
-      />
+      <input type="hidden" name="images_json" value={JSON.stringify(images)} />
       <input
         type="hidden"
         name="variants_json"
         value={JSON.stringify(
-          variants.map((v) => ({ ...v, stock: Number(v.stock) || 0 })),
+          variants.map((v) => ({
+            color: v.color,
+            color_hex: v.color_hex,
+            size: v.size,
+            sku: v.sku,
+            stock: Number(v.stock) || 0,
+            weight_grams: v.weight_grams,
+            length_cm: v.length_cm,
+            width_cm: v.width_cm,
+            height_cm: v.height_cm,
+          })),
         )}
       />
 
@@ -104,7 +131,7 @@ export function ProductForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div id="field-description" className="flex scroll-mt-24 flex-col gap-2">
         <Label htmlFor="description">Descrição</Label>
         <Textarea
           id="description"
@@ -116,7 +143,7 @@ export function ProductForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="flex flex-col gap-2">
+        <div id="field-price" className="scroll-mt-24 flex flex-col gap-2">
           <Label htmlFor="price">Preço (R$)</Label>
           <Input
             id="price"
@@ -124,10 +151,10 @@ export function ProductForm({
             type="number"
             step="0.01"
             min={0}
-            required
             defaultValue={product?.price ?? ""}
             className="rounded-none"
           />
+          <p className="text-xs text-ink-muted">Pode ficar em branco enquanto é rascunho.</p>
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="compare_at_price">Preço &quot;de&quot; (R$)</Label>
@@ -141,7 +168,7 @@ export function ProductForm({
             className="rounded-none"
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div id="field-category" className="scroll-mt-24 flex flex-col gap-2">
           <Label htmlFor="category_id">Categoria</Label>
           <Select name="category_id" defaultValue={product?.category_id ?? undefined}>
             <SelectTrigger id="category_id" className="rounded-none">
@@ -189,9 +216,103 @@ export function ProductForm({
         </div>
       </div>
 
-      <MultiImageUploader images={images} onChange={setImages} />
+      <div id="field-images" className="scroll-mt-24">
+        <MultiImageUploader images={images} onChange={setImages} />
+      </div>
 
-      <VariantEditor variants={variants} onChange={setVariants} />
+      <div id="field-measurements" className="scroll-mt-24 border border-dashed border-line p-4">
+        <p className="text-label mb-3">Medidas padrão do produto</p>
+        <p className="mb-4 text-xs text-ink-muted">
+          Preenche peso e dimensões de todas as variações de uma vez — dá
+          para sobrescrever individualmente na grade abaixo.
+        </p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="std-weight">Peso (g)</Label>
+            <Input
+              id="std-weight"
+              type="number"
+              min={0}
+              value={standardMeasurements.weight_grams ?? ""}
+              onChange={(e) =>
+                setStandardMeasurements((prev) => ({
+                  ...prev,
+                  weight_grams: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              className="rounded-none"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="std-length">Comprimento (cm)</Label>
+            <Input
+              id="std-length"
+              type="number"
+              min={0}
+              step="0.1"
+              value={standardMeasurements.length_cm ?? ""}
+              onChange={(e) =>
+                setStandardMeasurements((prev) => ({
+                  ...prev,
+                  length_cm: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              className="rounded-none"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="std-width">Largura (cm)</Label>
+            <Input
+              id="std-width"
+              type="number"
+              min={0}
+              step="0.1"
+              value={standardMeasurements.width_cm ?? ""}
+              onChange={(e) =>
+                setStandardMeasurements((prev) => ({
+                  ...prev,
+                  width_cm: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              className="rounded-none"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="std-height">Altura (cm)</Label>
+            <Input
+              id="std-height"
+              type="number"
+              min={0}
+              step="0.1"
+              value={standardMeasurements.height_cm ?? ""}
+              onChange={(e) =>
+                setStandardMeasurements((prev) => ({
+                  ...prev,
+                  height_cm: e.target.value === "" ? null : Number(e.target.value),
+                }))
+              }
+              className="rounded-none"
+            />
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={applyStandardMeasurements}
+          disabled={variants.length === 0}
+        >
+          Aplicar a todas as variações
+        </Button>
+      </div>
+
+      <VariantEditor
+        productSlug={slug}
+        variants={variants}
+        onChange={setVariants}
+        standardMeasurements={standardMeasurements}
+      />
 
       <div className="flex items-center gap-3">
         <Button type="submit" size="lg" disabled={pending}>

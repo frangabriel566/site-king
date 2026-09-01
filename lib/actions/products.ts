@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { productSchema } from "@/lib/validations/product";
+import { collectPublishIssues, productSchema } from "@/lib/validations/product";
 import { requireAdmin } from "./require-admin";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
@@ -35,13 +35,22 @@ function parseFormData(formData: FormData) {
     description: formData.get("description"),
     price: formData.get("price"),
     compare_at_price: formData.get("compare_at_price") || null,
-    category_id: formData.get("category_id"),
+    category_id: formData.get("category_id") || null,
     status: formData.get("status"),
     featured: formData.get("featured") === "on",
     position: formData.get("position"),
     images,
     variants,
   });
+}
+
+function friendlyDbError(error: { code?: string; message: string } | null): string | undefined {
+  if (!error) return undefined;
+  if (error.code === "23505") {
+    if (error.message.includes("sku")) return "Um dos SKUs já está em uso por outra variação.";
+    if (error.message.includes("slug")) return "Já existe um produto com esse slug.";
+  }
+  return error.message;
 }
 
 export async function createProductAction(
@@ -54,6 +63,13 @@ export async function createProductAction(
   }
   const { name, slug, description, price, compare_at_price, category_id, status, featured, position, images, variants } =
     parsed.data;
+
+  // Defense in depth: the client already blocks publishing with missing
+  // fields, but the server must not trust that — this is the real gate.
+  const publishIssues = collectPublishIssues(parsed.data);
+  if (publishIssues.length > 0) {
+    return { status: "error", message: publishIssues[0].message };
+  }
 
   const { supabase } = await requireAdmin();
 
@@ -74,10 +90,7 @@ export async function createProductAction(
     .single();
 
   if (error || !product) {
-    return {
-      status: "error",
-      message: error?.code === "23505" ? "Já existe um produto com esse slug." : error?.message,
-    };
+    return { status: "error", message: friendlyDbError(error) };
   }
 
   if (images.length > 0) {
@@ -98,12 +111,16 @@ export async function createProductAction(
         color: v.color,
         color_hex: v.color_hex || null,
         size: v.size,
-        sku: v.sku || null,
+        sku: v.sku,
         stock: v.stock,
+        weight_grams: v.weight_grams ?? null,
+        length_cm: v.length_cm ?? null,
+        width_cm: v.width_cm ?? null,
+        height_cm: v.height_cm ?? null,
       })),
     );
     if (variantsError) {
-      return { status: "error", message: variantsError.message };
+      return { status: "error", message: friendlyDbError(variantsError) };
     }
   }
 
@@ -123,6 +140,11 @@ export async function updateProductAction(
   const { name, slug, description, price, compare_at_price, category_id, status, featured, position, images, variants } =
     parsed.data;
 
+  const publishIssues = collectPublishIssues(parsed.data);
+  if (publishIssues.length > 0) {
+    return { status: "error", message: publishIssues[0].message };
+  }
+
   const { supabase } = await requireAdmin();
 
   const { error } = await supabase
@@ -141,10 +163,7 @@ export async function updateProductAction(
     .eq("id", id);
 
   if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe um produto com esse slug." : error.message,
-    };
+    return { status: "error", message: friendlyDbError(error) };
   }
 
   await supabase.from("product_images").delete().eq("product_id", id);
@@ -167,12 +186,16 @@ export async function updateProductAction(
         color: v.color,
         color_hex: v.color_hex || null,
         size: v.size,
-        sku: v.sku || null,
+        sku: v.sku,
         stock: v.stock,
+        weight_grams: v.weight_grams ?? null,
+        length_cm: v.length_cm ?? null,
+        width_cm: v.width_cm ?? null,
+        height_cm: v.height_cm ?? null,
       })),
     );
     if (variantsError) {
-      return { status: "error", message: variantsError.message };
+      return { status: "error", message: friendlyDbError(variantsError) };
     }
   }
 

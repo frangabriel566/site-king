@@ -167,6 +167,10 @@ export interface Database {
           size: string;
           sku: string | null;
           stock: number;
+          weight_grams: number | null;
+          length_cm: number | null;
+          width_cm: number | null;
+          height_cm: number | null;
         };
         Insert: {
           id?: string;
@@ -176,6 +180,10 @@ export interface Database {
           size: string;
           sku?: string | null;
           stock?: number;
+          weight_grams?: number | null;
+          length_cm?: number | null;
+          width_cm?: number | null;
+          height_cm?: number | null;
         };
         Update: {
           id?: string;
@@ -185,6 +193,10 @@ export interface Database {
           size?: string;
           sku?: string | null;
           stock?: number;
+          weight_grams?: number | null;
+          length_cm?: number | null;
+          width_cm?: number | null;
+          height_cm?: number | null;
         };
         Relationships: [
           {

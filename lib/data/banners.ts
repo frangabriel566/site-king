@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/public";
+import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 import { safeQuery } from "./safe";
 
@@ -26,4 +27,30 @@ export async function getActiveBanner(): Promise<Banner | null> {
 
     return data as Banner | null;
   }, null);
+}
+
+/** Admin listing — all rows regardless of `active`, session-scoped RLS. */
+export async function getAllBannersAdmin(): Promise<Banner[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("banners")
+    .select(
+      "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
+    )
+    .order("position", { ascending: true });
+
+  return (data as Banner[] | null) ?? [];
+}
+
+export async function getBannerByIdAdmin(id: string): Promise<Banner | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("banners")
+    .select(
+      "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  return data as Banner | null;
 }

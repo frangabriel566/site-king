@@ -1,4 +1,5 @@
 ﻿import { createPublicClient } from "@/lib/supabase/public";
+import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 import { COLLECTION_PAGE_SIZE, SIZE_ORDER } from "@/lib/constants";
 import { safeQuery } from "./safe";
@@ -221,6 +222,55 @@ export async function getRelatedProducts(
 
     return (data ?? []).map(toListItem);
   }, []);
+}
+
+export type AdminProductListItem = Tables<"products"> & {
+  category: Pick<Category, "id" | "name"> | null;
+  product_images: Pick<ProductImage, "url">[];
+  product_variants: Pick<ProductVariant, "id" | "stock">[];
+};
+
+/** Admin listing — every status, session-scoped RLS. */
+export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select(
+      "*, category:categories(id, name), product_images(url), product_variants(id, stock)",
+    )
+    .order("position", { ascending: true });
+
+  return (data as AdminProductListItem[] | null) ?? [];
+}
+
+export type ProductOption = Pick<
+  Tables<"products">,
+  "id" | "name" | "slug" | "description" | "price"
+>;
+
+export async function getProductOptions(): Promise<ProductOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, slug, description, price")
+    .order("name", { ascending: true });
+
+  return data ?? [];
+}
+
+export async function getProductByIdAdmin(
+  id: string,
+): Promise<ProductWithRelations | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select(
+      "*, product_images(*), product_variants(*), category:categories(id, name, slug)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  return data as ProductWithRelations | null;
 }
 
 export async function getAllActiveProductSlugs(): Promise<string[]> {

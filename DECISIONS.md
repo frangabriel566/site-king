@@ -154,4 +154,44 @@ e a opção mais simples escolhida para resolvê-la.
   política inteira em cada produto. A política completa mora em uma única
   página, que é a fonte de verdade.
 
+## Bloco 5 — Auth e painel administrativo
+
+- **Rotas autenticadas do admin isoladas em `app/(admin)/admin/(dashboard)/`**,
+  um route group separado de `admin/login`. O layout com sidebar só deve
+  envolver as telas internas — login precisa renderizar sem a shell
+  autenticada (e sem checar sessão, senão vira loop de redirecionamento).
+- **Toda Server Action de escrita do admin chama `requireAdmin()`
+  independentemente do middleware.** O middleware barra a navegação para
+  `/admin/*`, mas uma Server Action pode ser invocada diretamente; a
+  autorização real tem que estar na própria mutação, não só na borda —
+  defesa em profundidade, não redundância.
+- **Upload de mídia sempre passa por `sharp` no servidor**, convertendo
+  para WebP (qualidade 82, redimensionado a no máx. 2400px de largura)
+  antes de gravar no bucket `media`. O cliente nunca fala direto com o
+  Storage — a Server Action valida tipo/tamanho do arquivo e usa o cliente
+  Supabase da sessão do admin (RLS já permite escrita a quem é
+  `is_admin()`; não precisou de service role para isso).
+- **Cutout de banner também vira WebP.** WebP preserva canal alfa
+  nativamente, então a conversão não quebra a transparência do recorte do
+  modelo — não foi necessário abrir exceção de formato para PNG.
+- **Preview ao vivo do hero reaproveita o componente `<Hero>` real do
+  site**, alimentado pelo estado local do formulário (não pelos dados
+  salvos), dentro de um `<CartProvider>` local só para o botão "adicionar
+  à sacola" do preview não quebrar (ele não tem provider de carrinho no
+  layout do admin). Escala via CSS (`transform: scale`) dentro de um
+  container com altura fixa e `overflow-hidden`, já que o Hero real usa
+  `100svh` e não daria pra encaixar em um card do painel sem isso.
+- **Editar um produto substitui imagens e variações por completo
+  (delete + insert)**, em vez de fazer diff item a item. Mais simples de
+  implementar corretamente que reconciliar arrays por id, e seguro porque
+  `order_items` guarda snapshot próprio — apagar uma variação antiga não
+  apaga nem corrompe pedidos já feitos (a FK é `on delete set null`).
+- **Reordenação de imagens do produto é drag-and-drop nativo do HTML5**
+  (`draggable` + `onDragStart/onDragOver/onDrop`), sem biblioteca extra —
+  suficiente para reordenar alguns cartões numa grade.
+- **Estoque incluído neste bloco, não no bloco de pedidos/clientes/cupons.**
+  É extensão direta do modelo de variações que acabou de ser construído em
+  Produtos (mesma tabela, mesmo formulário de edição inline); antecipar
+  evita reabrir os mesmos arquivos depois.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

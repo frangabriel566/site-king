@@ -125,7 +125,10 @@ where not exists (select 1 from public.product_images pi where pi.product_id = p
 -- ------------------------------------------------------------------
 insert into public.product_variants (product_id, color, color_hex, size, sku, stock)
 select p.id, v.color, v.color_hex, v.size,
-       upper(left(p.slug, 6)) || '-' || left(v.color, 3) || '-' || v.size,
+       -- last 3 chars of the (fixed, per-product) id are unique by
+       -- construction here, unlike a truncated slug prefix which can
+       -- collide between similarly-named products (e.g. two "moletom-*").
+       upper(right(p.id::text, 3)) || '-' || upper(left(v.color, 3)) || '-' || v.size,
        v.stock
 from public.products p
 join lateral (

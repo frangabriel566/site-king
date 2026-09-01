@@ -370,6 +370,52 @@ e a opção mais simples escolhida para resolvê-la.
   isso está sinalizado tanto no README quanto no comentário do bloco 9
   acima.
 
+## Bloco 11 — Conexão com projeto Supabase real e verificação ao vivo
+
+O usuário forneceu credenciais de um projeto Supabase real
+(`arcxhesbfcnwcngbxlmn.supabase.co`). Isso permitiu, pela primeira vez,
+testar contra infraestrutura de verdade em vez de só revisar o SQL:
+
+- **Migrations aplicadas com sucesso, nessa ordem**, via conexão direta
+  Postgres (`pg` a partir de um script descartável, já que não havia
+  `psql` nem a CLI do Supabase disponíveis no ambiente). As 5 migrations
+  passaram de primeira.
+- **Bug real encontrado e corrigido no `seed.sql`:** a geração de SKU
+  usava `upper(left(slug, 6))` como prefixo — "moletom-oversized-..." e
+  "moletom-careca-..." colidem nos 6 primeiros caracteres, então o
+  segundo produto violava a constraint `unique(sku)`. Como um script
+  multi-statement roda como uma transação implícita no protocolo simples
+  do Postgres, a falha não deixou nada parcial no banco — bastou corrigir
+  e rodar de novo. Troquei o prefixo para os 3 últimos caracteres do
+  `id` do produto (únicos por construção, já que os UUIDs do seed
+  terminam em 201..208), em vez de depender do texto do slug.
+- **RLS testada de verdade com a chave anon/publishable**, não só lida no
+  código: tentativas de `insert`/`update`/`delete` em `products`,
+  `categories`, `banners`, `site_settings`, `coupons`, `orders` e
+  `profiles` foram todas para 0 linhas afetadas (o comportamento correto
+  de RLS no Postgres — a policy filtra como um `WHERE`, então uma
+  escrita/leitura sem match não dá erro, só afeta/retorna zero linhas).
+  Confirmei consultando o estado real depois de cada tentativa. A tabela
+  `coupons` retorna 0 linhas para anon mesmo tendo 1 cupom cadastrado —
+  a validação só é possível pela função `validate_coupon`, que funcionou
+  normalmente.
+- **Storage testado de ponta a ponta**: login como o admin seedado →
+  upload num bucket `media` → URL pública retorna 200 com o conteúdo
+  certo → uma segunda tentativa de upload sem estar logado é negada pela
+  RLS. (`supabase.storage.getBucket()` retornou "Bucket not found" —
+  isolei que é só uma particularidade desse endpoint de metadata
+  específico: o bucket existe (`select * from storage.buckets` confirma),
+  as 4 policies existem, e as duas operações que o app realmente usa —
+  `upload()` e `getPublicUrl()` — funcionam perfeitamente. Não é usado em
+  nenhum lugar do código.)
+- **Login do admin seedado testado** (`admin@kingstore.com.br` /
+  `KingStore#2026`): autentica e a leitura de `profiles.role` retorna
+  `admin` corretamente.
+- **Home renderizada localmente contra o banco real**: banner, wordmark
+  "KING", produtos e categorias aparecem no HTML — o modo de fallback
+  (dados vazios) não é mais o caminho ativo agora que há credenciais
+  reais em `.env.local`.
+
 ### Nenhuma ambiguidade restante exigiu confirmação do usuário
 
 Todas as decisões de arquitetura ao longo dos 10 blocos foram resolvidas

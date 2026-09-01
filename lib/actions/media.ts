@@ -4,7 +4,9 @@ import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "./require-admin";
 
-export type UploadResult = { url: string } | { error: string };
+export type UploadResult =
+  | { url: string; width: number; height: number; sizeBytes: number }
+  | { error: string };
 
 const MAX_SIZE_BYTES = 15 * 1024 * 1024;
 
@@ -23,11 +25,13 @@ export async function uploadMediaAction(
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const webpBuffer = await sharp(Buffer.from(arrayBuffer))
-      .rotate()
-      .resize({ width: 2400, withoutEnlargement: true })
+    const image = sharp(Buffer.from(arrayBuffer)).rotate().resize({
+      width: 2400,
+      withoutEnlargement: true,
+    });
+    const { data: webpBuffer, info } = await image
       .webp({ quality: 82 })
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
 
     const path = `${folder}/${randomUUID()}.webp`;
     const { error } = await supabase.storage
@@ -37,7 +41,12 @@ export async function uploadMediaAction(
     if (error) return { error: error.message };
 
     const { data } = supabase.storage.from("media").getPublicUrl(path);
-    return { url: data.publicUrl };
+    return {
+      url: data.publicUrl,
+      width: info.width,
+      height: info.height,
+      sizeBytes: info.size,
+    };
   } catch {
     return { error: "Não foi possível enviar a imagem." };
   }

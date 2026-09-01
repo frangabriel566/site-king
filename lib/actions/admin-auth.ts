@@ -52,5 +52,5 @@ export async function adminLoginAction(
 export async function adminLogoutAction(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/admin/login");
+  redirect("/");
 }

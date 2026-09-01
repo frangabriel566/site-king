@@ -15,7 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Plus } from "lucide-react";
 import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/multi-image-uploader";
+import { InlineCategoryCreator } from "@/components/admin/inline-category-creator";
 import {
   VariantEditor,
   type StandardMeasurements,
@@ -74,6 +76,13 @@ export function ProductForm({
   });
 
   const [publishIssues, setPublishIssues] = useState<PublishIssue[]>([]);
+
+  const [categoryOptions, setCategoryOptions] = useState<Pick<Category, "id" | "name">[]>(
+    categories,
+  );
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const NEW_CATEGORY_VALUE = "__new_category__";
 
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
@@ -243,18 +252,39 @@ export function ProductForm({
         </div>
         <div id="field-category" className="scroll-mt-24 flex flex-col gap-2">
           <Label htmlFor="category_id">Categoria</Label>
-          <Select name="category_id" defaultValue={product?.category_id ?? undefined}>
+          <Select
+            name="category_id"
+            value={categoryId}
+            onValueChange={(value) => {
+              if (value === NEW_CATEGORY_VALUE) {
+                setCategoryDialogOpen(true);
+                return;
+              }
+              setCategoryId(value);
+            }}
+          >
             <SelectTrigger id="category_id" className="rounded-none">
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent className="rounded-none">
-              {categories.map((c) => (
+              {categoryOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
               ))}
+              <SelectItem value={NEW_CATEGORY_VALUE} className="!text-gold">
+                <Plus className="size-3.5" /> Criar nova categoria
+              </SelectItem>
             </SelectContent>
           </Select>
+          <InlineCategoryCreator
+            open={categoryDialogOpen}
+            onOpenChange={setCategoryDialogOpen}
+            onCreated={(category) => {
+              setCategoryOptions((prev) => [...prev, category]);
+              setCategoryId(category.id);
+            }}
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="position">Posição</Label>

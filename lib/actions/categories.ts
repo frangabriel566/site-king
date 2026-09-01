@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { categorySchema } from "@/lib/validations/category";
+import { slugify } from "@/lib/format";
 import { requireAdmin } from "./require-admin";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
@@ -39,6 +40,46 @@ export async function createCategoryAction(
 
   revalidateStorefront();
   redirect("/admin/categorias");
+}
+
+export type QuickCreateCategoryResult =
+  | { ok: true; category: { id: string; name: string; slug: string } }
+  | { ok: false; message: string };
+
+/**
+ * Embedded creation for the product form's "criar categoria" option —
+ * no redirect, just the created row, so the operator never leaves the
+ * product they're editing.
+ */
+export async function quickCreateCategoryAction(name: string): Promise<QuickCreateCategoryResult> {
+  const slugBase = slugify(name);
+  const parsed = categorySchema.safeParse({
+    name,
+    slug: slugBase,
+    position: 999,
+    active: true,
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Nome inválido." };
+  }
+
+  const { supabase } = await requireAdmin();
+  const { data, error } = await supabase
+    .from("categories")
+    .insert(parsed.data)
+    .select("id, name, slug")
+    .single();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      message: error?.code === "23505" ? "Já existe uma categoria com esse nome." : (error?.message ?? "Erro"),
+    };
+  }
+
+  revalidateStorefront();
+  return { ok: true, category: data };
 }
 
 export async function updateCategoryAction(

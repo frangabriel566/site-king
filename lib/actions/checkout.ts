@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { reviseCartItems, type ReviseCartResult } from "@/lib/data/checkout";
 import { addressSchema } from "@/lib/validations/address";
+import { getPaymentProvider, type PaymentInitResult } from "@/lib/payments";
 import {
   FREE_SHIPPING_THRESHOLD,
   SHIPPING_METHODS,
@@ -55,7 +56,7 @@ export type CreateOrderInput = {
 };
 
 export type CreateOrderResult =
-  | { ok: true; orderId: string; orderNumber: number }
+  | { ok: true; orderId: string; orderNumber: number; payment: PaymentInitResult | null }
   | { ok: false; message: string };
 
 export async function createOrderAction(
@@ -163,5 +164,31 @@ export async function createOrderAction(
     return { ok: false, message: "Não foi possível registrar os itens do pedido." };
   }
 
-  return { ok: true, orderId: order.id, orderNumber: order.order_number };
+  try {
+    const provider = getPaymentProvider();
+    const payment = await provider.createPayment({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      total,
+      customerName: customer.name,
+      customerEmail: user.email ?? "",
+      items: revision.items.map((item) => ({
+        name: item.name,
+        qty: item.availableQty,
+        unitPrice: item.price,
+      })),
+    });
+
+    return { ok: true, orderId: order.id, orderNumber: order.order_number, payment };
+  } catch {
+    // The order already exists — the shopper can still reach it and pay
+    // later (e.g. by re-visiting /pedido/[id]) even if the payment
+    // provider call itself failed.
+    return {
+      ok: true,
+      orderId: order.id,
+      orderNumber: order.order_number,
+      payment: null,
+    };
+  }
 }

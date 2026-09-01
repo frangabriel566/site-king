@@ -251,4 +251,40 @@ e a opção mais simples escolhida para resolvê-la.
   que vai trocar esse redirecionamento final por a preferência do Mercado
   Pago ou o link do WhatsApp.
 
+## Bloco 7 — Pagamento e webhook
+
+- **`PaymentProvider` é uma interface com duas implementações
+  (`MercadoPagoProvider`, `WhatsAppProvider`) selecionadas por
+  `PAYMENT_PROVIDER`**, chamada de dentro de `createOrderAction` logo após
+  o pedido e os itens serem gravados. Se a chamada ao provedor falhar (ex.:
+  token do Mercado Pago ausente), a Server Action ainda retorna sucesso
+  com `payment: null` — o pedido já existe e fica acessível em
+  `/pedido/[id]`, então uma falha de rede ao criar a preferência de
+  pagamento não derruba um pedido que já foi persistido.
+- **Assinatura do webhook validada manualmente** (`x-signature` /
+  `x-request-id` + HMAC-SHA256 do manifesto `id:...;request-id:...;ts:...;`
+  contra `MERCADOPAGO_WEBHOOK_SECRET`), replicando o algoritmo documentado
+  pelo Mercado Pago — o SDK oficial não expõe um helper de verificação de
+  assinatura pronto. Testado isoladamente com um script ad-hoc antes de
+  integrar (assinatura válida passa, secret errado/dataId adulterado/
+  assinatura ausente todos falham).
+- **Idempotência do webhook em duas camadas.** (1) O handler HTTP checa o
+  `status` atual do pedido antes de fazer qualquer coisa — se já está
+  `paid`/`processing`/`shipped`/`delivered`, responde 200 sem reprocessar.
+  (2) A função `fulfill_order_stock` no Postgres (bloco de banco) também é
+  idempotente por si só via `orders.stock_decremented_at`. Duas camadas
+  porque o webhook pode, em teoria, ser chamado fora de ordem ou por um
+  caminho diferente no futuro — a garantia real de "não duplicar baixa de
+  estoque" mora no banco, não no handler HTTP.
+- **Webhook sempre usa o cliente service-role.** Não existe sessão de
+  usuário numa notificação de servidor para servidor do Mercado Pago; o
+  RLS de `orders`/`order_items` não tem (nem deveria ter) uma policy que
+  cubra esse caso.
+- **E-mail de confirmação via Resend, silenciosamente desativado sem
+  `RESEND_API_KEY`.** Some caso a chave não esteja configurada, e uma
+  falha de envio é logada mas não derruba o processamento do webhook — o
+  pedido já foi marcado como pago antes do e-mail ser sequer tentado, e um
+  problema no provedor de e-mail não pode fazer o Mercado Pago achar que o
+  webhook falhou e reenviar indefinidamente.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

@@ -92,6 +92,16 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
 
     clear();
     toast.success("Pedido criado!");
+
+    if (result.payment?.kind === "mercadopago") {
+      window.location.href = result.payment.url;
+      return;
+    }
+
+    if (result.payment?.kind === "whatsapp") {
+      window.open(result.payment.url, "_blank", "noopener,noreferrer");
+    }
+
     router.push(`/pedido/${result.orderId}`);
   }
 

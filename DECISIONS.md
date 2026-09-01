@@ -127,4 +127,31 @@ e a opção mais simples escolhida para resolvê-la.
   um card que não tem espaço para essa UI, sem quebrar a promessa do rótulo
   quando há estoque de sobra.
 
+## Bloco 4 — Catálogo e produto
+
+- **Filtros de `/colecao` são um componente cliente que só escreve na URL**
+  (via `router.push`, sem `scroll: false`… com `scroll: false`, para não
+  pular a página a cada clique); a leitura e a query ao banco continuam
+  100% no Server Component da página, a partir de `searchParams`. Isso
+  cumpre "filtro é URL, não estado" sem duplicar a lógica de filtro em dois
+  lugares.
+- **Paginação implementada como Server Component com `<Link>` simples**, em
+  vez dos primitivos `Pagination`/`PaginationLink` do shadcn (que renderizam
+  `<a>` puro dentro de um `Button asChild`). Usar `next/link` diretamente dá
+  prefetch e navegação client-side; os primitivos do shadcn foram
+  instalados mas não usados aqui.
+- **Zoom da galeria é CSS puro (`transform: scale` + `transform-origin`
+  seguindo o mouse), sem biblioteca de zoom dedicada.** O swipe mobile usa
+  `embla-carousel-react` (já necessário para outros carrosséis). Evita mais
+  uma dependência só para o hover-zoom do desktop.
+- **Guia de medidas é uma tabela de medidas corporais genérica, hardcoded no
+  componente.** É conteúdo de referência utilitário (não "vitrine" — não é
+  copy de marca nem preço/estoque), então não precisa vir do banco; não há
+  tabela de guia de medidas no schema pedido e criar uma só para isso seria
+  desproporcional ao requisito.
+- **Acordeão "Trocas e devoluções" da PDP mostra uma linha curta fixa +
+  link para `/trocas-e-devolucoes`**, em vez de duplicar o conteúdo da
+  política inteira em cada produto. A política completa mora em uma única
+  página, que é a fonte de verdade.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

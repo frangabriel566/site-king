@@ -1,6 +1,6 @@
 ﻿import { createPublicClient } from "@/lib/supabase/public";
 import type { Tables } from "@/lib/database.types";
-import { COLLECTION_PAGE_SIZE } from "@/lib/constants";
+import { COLLECTION_PAGE_SIZE, SIZE_ORDER } from "@/lib/constants";
 import { safeQuery } from "./safe";
 
 export type ProductImage = Tables<"product_images">;
@@ -250,6 +250,41 @@ export async function searchProducts(term: string, limit = 8): Promise<ProductLi
 
     return (data ?? []).map(toListItem);
   }, []);
+}
+
+export type FilterOptions = {
+  sizes: string[];
+  colors: { color: string; color_hex: string | null }[];
+};
+
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const fallback: FilterOptions = { sizes: [], colors: [] };
+  return safeQuery(async () => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("product_variants")
+      .select("size, color, color_hex, products!inner(status)")
+      .eq("products.status", "active");
+
+    const sizeSet = new Set<string>();
+    const colorMap = new Map<string, string | null>();
+    for (const row of data ?? []) {
+      sizeSet.add(row.size);
+      if (!colorMap.has(row.color)) colorMap.set(row.color, row.color_hex);
+    }
+
+    return {
+      sizes: Array.from(sizeSet).sort((a, b) => {
+        const ai = SIZE_ORDER.indexOf(a as (typeof SIZE_ORDER)[number]);
+        const bi = SIZE_ORDER.indexOf(b as (typeof SIZE_ORDER)[number]);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      }),
+      colors: Array.from(colorMap, ([color, color_hex]) => ({ color, color_hex })),
+    };
+  }, fallback);
 }
 
 export async function getPriceRange(): Promise<{ min: number; max: number }> {

@@ -2,11 +2,13 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { Upload, X, Loader2, GripVertical, AlertTriangle } from "lucide-react";
+import { Upload, X, GripVertical, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { uploadMediaAction } from "@/lib/actions/media";
+import { Button } from "@/components/ui/button";
+import { uploadImageToStorage } from "@/lib/client-upload";
+import { deleteMediaAction } from "@/lib/actions/media";
 
 export type ProductImageDraft = {
   url: string;
@@ -14,6 +16,16 @@ export type ProductImageDraft = {
   width?: number;
   height?: number;
   sizeBytes?: number;
+  /** Uploaded during this editing session — safe to delete from Storage
+   * on removal/abandon since nothing references it yet. */
+  isNew?: boolean;
+};
+
+type PendingUpload = {
+  id: string;
+  fileName: string;
+  progress: number;
+  cancel: () => void;
 };
 
 const MIN_RECOMMENDED_WIDTH = 1200;
@@ -32,31 +44,45 @@ export function MultiImageUploader({
   images: ProductImageDraft[];
   onChange: (images: ProductImageDraft[]) => void;
 }) {
-  const [uploading, setUploading] = useState(false);
+  const [pending, setPending] = useState<PendingUpload[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
 
   async function handleFiles(files: FileList) {
-    setUploading(true);
-    const uploaded: ProductImageDraft[] = [];
     for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.set("file", file);
-      const result = await uploadMediaAction("products", formData);
-      if ("error" in result) {
-        toast.error(result.error);
+      const id = crypto.randomUUID();
+      setPending((prev) => [...prev, { id, fileName: file.name, progress: 0, cancel: () => {} }]);
+
+      const result = await uploadImageToStorage(file, "products", {
+        onProgress: (percent) => {
+          setPending((prev) => prev.map((p) => (p.id === id ? { ...p, progress: percent } : p)));
+        },
+        registerCancel: (cancel) => {
+          setPending((prev) => prev.map((p) => (p.id === id ? { ...p, cancel } : p)));
+        },
+      });
+
+      setPending((prev) => prev.filter((p) => p.id !== id));
+
+      if (!result.ok) {
+        if (!result.cancelled) toast.error(`${file.name}: ${result.error}`);
         continue;
       }
-      uploaded.push({
-        url: result.url,
-        alt: "",
-        width: result.width,
-        height: result.height,
-        sizeBytes: result.sizeBytes,
-      });
+
+      onChange([
+        ...imagesRef.current,
+        {
+          url: result.url,
+          alt: "",
+          width: result.width,
+          height: result.height,
+          sizeBytes: result.sizeBytes,
+          isNew: true,
+        },
+      ]);
     }
-    setUploading(false);
-    if (uploaded.length > 0) onChange([...images, ...uploaded]);
   }
 
   function updateAt(index: number, patch: Partial<ProductImageDraft>) {
@@ -64,7 +90,9 @@ export function MultiImageUploader({
   }
 
   function removeAt(index: number) {
+    const image = images[index];
     onChange(images.filter((_, i) => i !== index));
+    if (image?.isNew) void deleteMediaAction(image.url);
   }
 
   function reorder(from: number, to: number) {
@@ -149,18 +177,32 @@ export function MultiImageUploader({
           );
         })}
 
+        {pending.map((upload) => (
+          <div
+            key={upload.id}
+            className="flex aspect-[4/5] flex-col items-center justify-center gap-2 self-start border border-line bg-[#111111] p-3 text-center"
+          >
+            <p className="w-full truncate text-[10px] text-ink-muted">{upload.fileName}</p>
+            <div className="h-1 w-full bg-[#2a2a2a]">
+              <div
+                className="h-1 bg-gold transition-all duration-150 ease-out"
+                style={{ width: `${upload.progress}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-ink-muted">{upload.progress}%</p>
+            <Button type="button" variant="ghost" size="sm" onClick={upload.cancel}>
+              Cancelar
+            </Button>
+          </div>
+        ))}
+
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          disabled={uploading}
           className="flex aspect-[4/5] flex-col items-center justify-center gap-2 self-start border border-dashed border-line text-ink-muted hover:text-fg"
         >
-          {uploading ? (
-            <Loader2 className="size-5 animate-spin" />
-          ) : (
-            <Upload className="size-5" />
-          )}
-          <span className="text-xs">{uploading ? "Enviando…" : "Adicionar"}</span>
+          <Upload className="size-5" />
+          <span className="text-xs">Adicionar</span>
         </button>
       </div>
       <input

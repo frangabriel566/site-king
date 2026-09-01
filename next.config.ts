@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Safety net only — real image uploads bypass Server Actions
+      // entirely now (browser uploads straight to Supabase Storage,
+      // see lib/client-upload.ts). This just gives headroom to the
+      // small JSON payloads (images_json/variants_json) admin forms
+      // still submit through actions.
+      bodySizeLimit: "5mb",
+    },
+  },
   images: {
     remotePatterns: [
       // Supabase Storage — public "media" bucket.

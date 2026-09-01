@@ -483,6 +483,59 @@ botão de submit pegando o "Sair" da sidebar por engano; depois
 `querySelector("form")` pegando o formulário errado) antes de chegar na
 causa real.
 
+## Bloco 14 — Upload direto ao Storage (fix do limite de 1MB)
+
+O usuário reportou "Body exceeded 1 MB limit" ao subir foto de produto —
+o arquivo passava pela Server Action `uploadMediaAction`, sujeita ao
+limite de corpo de requisição do Next.js. Refatorado para upload direto
+do navegador ao Supabase Storage, sem tocar o servidor Next.js:
+
+- **Compressão 100% client-side** (`lib/client-upload.ts`): `createImageBitmap`
+  com `imageOrientation: "from-image"` (corrige fotos de celular com EXIF
+  de rotação) → redimensiona pro maior lado ≤ 2000px via `<canvas>` →
+  `canvas.toBlob("image/webp", 0.85)`. Arquivo original > 10MB é rejeitado
+  antes de processar.
+- **Upload direto com progresso real**: o SDK do Supabase (`storage.upload()`)
+  não expõe progresso de upload (usa `fetch` por baixo, que não tem API de
+  upload-progress) nem repassa `AbortSignal` pra essa chamada especificamente.
+  Em vez de reimplementar o protocolo multipart na mão (frágil a mudanças
+  futuras do SDK), criei um `fetch` substituto baseado em `XMLHttpRequest`
+  (`createProgressFetch`) e injetei via `global.fetch` num client Supabase
+  temporário — o SDK continua montando a requisição (headers, FormData)
+  normalmente, eu só troco a camada de transporte pra ganhar
+  `xhr.upload.onprogress` e `xhr.abort()` (cancelar).
+- **Autorização continua vindo da RLS**, não de um novo mecanismo: o client
+  temporário usa a mesma sessão do admin (token pego via
+  `supabase.auth.getSession()` do client do navegador), então
+  `media_admin_insert` (bloco de banco) barra não-admin exatamente como
+  antes.
+- **Limpeza de órfãos**: imagens marcadas `isNew` (subidas nesta sessão de
+  edição) são apagadas do Storage se removidas da grade antes de salvar,
+  ou se o formulário for desmontado sem salvar (`savingRef` suprime essa
+  limpeza no caminho de sucesso, já que o redirect do Server Action
+  desmonta o formulário mesmo quando o salvamento deu certo). Fechar a
+  aba/atualizar a página não aciona essa limpeza — não há API confiável
+  pra rodar uma chamada de rede assíncrona em `beforeunload`; é uma
+  limitação aceita, não um requisito não atendido.
+- **`sharp` removido do `package.json`** — ficou sem nenhum uso depois que
+  a conversão para WebP passou a acontecer no navegador via `<canvas>`.
+- **`experimental.serverActions.bodySizeLimit: '5mb'`** ficou como rede de
+  segurança no `next.config.ts`, exatamente como pedido — mas o upload de
+  imagem em si não passa mais por Server Action nenhuma, então esse limite
+  na prática só protege os payloads JSON pequenos (`images_json`/
+  `variants_json`) que os formulários de produto/banner ainda enviam.
+
+**Teste real**: gerei uma foto sintética de 4032×3024 (resolução típica de
+celular) com ruído por pixel — pior caso possível para compressão, já que
+fotos reais têm muito mais coerência espacial — pesando 7,5MB em JPEG.
+Upload completo em ~2,6s, sem nenhum erro de limite de corpo. Resultado
+final salvo: **2000×1500px, WebP, 1,9MB**. Testei também o fluxo completo
+(nome, preço, categoria, gerador de variação, salvar) com essa mesma foto
+grande — produto criado corretamente no banco. Uma foto real de celular
+(não ruído aleatório) deve comprimir bem mais que isso nas mesmas
+dimensões/qualidade, já que WebP explora repetição e gradiente suave muito
+melhor do que ruído puro.
+
 ### Nenhuma ambiguidade restante exigiu confirmação do usuário
 
 Todas as decisões de arquitetura ao longo dos 10 blocos foram resolvidas

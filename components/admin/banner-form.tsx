@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,8 +53,15 @@ export function BannerForm({
   const [active, setActive] = useState(banner?.active ?? false);
   const [position, setPosition] = useState(banner?.position ?? 0);
 
+  // Suppresses the ImageUploaders' unmount cleanup once a real submit is
+  // underway, so a successful save doesn't delete the image it just set.
+  const savingRef = useRef(false);
+
   useEffect(() => {
-    if (state.status === "error" && state.message) toast.error(state.message);
+    if (state.status === "error" && state.message) {
+      toast.error(state.message);
+      savingRef.current = false;
+    }
   }, [state]);
 
   const selectedProduct = useMemo(
@@ -64,7 +71,13 @@ export function BannerForm({
 
   return (
     <div className="grid grid-cols-1 gap-10 xl:grid-cols-[420px_1fr]">
-      <form action={formAction} className="flex flex-col gap-6">
+      <form
+        action={formAction}
+        onSubmit={() => {
+          savingRef.current = true;
+        }}
+        className="flex flex-col gap-6"
+      >
         <input type="hidden" name="eyebrow" value={eyebrow} />
         <input type="hidden" name="headline_line1" value={line1} />
         <input type="hidden" name="headline_line2" value={line2} />
@@ -114,12 +127,14 @@ export function BannerForm({
             value={imageUrl}
             onChange={setImageUrl}
             folder="banners"
+            savingRef={savingRef}
           />
           <ImageUploader
             label="Recorte (PNG, opcional)"
             value={cutoutUrl}
             onChange={setCutoutUrl}
             folder="banners"
+            savingRef={savingRef}
           />
         </div>
 

@@ -27,6 +27,7 @@ import { slugify } from "@/lib/format";
 import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
 import { useUnsavedChangesGuard, confirmDiscardUnsavedChanges } from "@/lib/hooks/use-unsaved-changes-guard";
 import { useDraftAutosave, readDraft, clearDraft } from "@/lib/hooks/use-draft-autosave";
+import { deleteMediaAction } from "@/lib/actions/media";
 import { duplicateProductAction, type ActionResult } from "@/lib/actions/products";
 import type { Category } from "@/lib/data/categories";
 import type { ProductStatus } from "@/lib/database.types";
@@ -176,6 +177,29 @@ export function ProductForm({
     });
   }, [draftKey]);
 
+  // ---- orphaned-upload cleanup ------------------------------------------
+  // Images the operator uploaded this session but never actually saved
+  // (abandoned edit, closed tab via in-app nav) shouldn't linger in
+  // Storage. `savingRef` is flipped right before a real submit so a
+  // *successful* save — which also unmounts this form via redirect()
+  // — doesn't trigger the same cleanup on the images it just persisted.
+  const savingRef = useRef(false);
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+  useEffect(() => {
+    return () => {
+      if (savingRef.current) return;
+      for (const image of imagesRef.current) {
+        if (image.isNew) void deleteMediaAction(image.url);
+      }
+    };
+  }, []);
+  useEffect(() => {
+    // A failed save keeps the form mounted — allow cleanup again if the
+    // operator abandons the page after that.
+    if (state.status === "error") savingRef.current = false;
+  }, [state]);
+
   // ---- Ctrl/Cmd+S ------------------------------------------------------
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -241,8 +265,11 @@ export function ProductForm({
     }
 
     // Submission is proceeding — clear the local draft optimistically so
-    // a leftover "restore?" prompt doesn't appear after a successful save.
+    // a leftover "restore?" prompt doesn't appear after a successful save,
+    // and suppress the orphaned-upload cleanup below since these images
+    // are about to become real.
     clearDraft(draftKey);
+    savingRef.current = true;
   }
 
   async function handleDuplicate() {

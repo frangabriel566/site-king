@@ -2,12 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Menu, Search, User, ShoppingBag, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart/context";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { SearchOverlay } from "./search-overlay";
 import type { Category } from "@/lib/data/categories";
+
+const SearchOverlay = dynamic(
+  () => import("./search-overlay").then((mod) => mod.SearchOverlay),
+  { ssr: false },
+);
 
 export function Header({
   storeName,

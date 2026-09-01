@@ -315,4 +315,44 @@ e a opção mais simples escolhida para resolvê-la.
   bloco de performance decidir se vale a pena isolar o gráfico atrás de
   `next/dynamic`, já que `recharts` pesa bastante no bundle do `/admin`.
 
+## Bloco 9 — SEO, acessibilidade e performance
+
+- **Conteúdo de `/sobre`, `/trocas-e-devolucoes` e `/politica-de-privacidade`
+  é hardcoded no código, ao contrário do resto da vitrine.** A regra
+  "nenhum texto de vitrine hardcoded" enumera explicitamente nav, frases,
+  headline e wordmark — conteúdo institucional/legal (política de
+  privacidade, prazos de troca) não é copy de vendas, é texto de
+  compliance, do mesmo jeito que o aviso de cookies já era. Os textos
+  atuais são um ponto de partida genérico: **o lojista precisa revisar
+  com um advogado antes de publicar em produção**, especialmente a
+  política de privacidade (LGPD) e o prazo de troca — isso está anotado
+  também no README.
+- **`/sacola` foi dividida em `page.tsx` (Server Component, só com a
+  `metadata`) + `BagView` (Client Component com o carrinho).** A página
+  original tinha `"use client"` no topo do arquivo, o que silenciosamente
+  descarta qualquer `export const metadata` — Next.js exige que o export
+  de metadata venha de um Server Component. Sem essa separação, `/sacola`
+  ficaria sem título/descrição próprios.
+- **`SearchOverlay` e o gráfico do dashboard (`recharts`) viram chunks
+  separados via `next/dynamic({ ssr: false })`**, carregados só quando o
+  usuário abre a busca ou visita `/admin`. No dashboard isso derrubou o
+  First Load JS de ~206kB para ~113kB — era de longe o maior contribuinte
+  do bundle do admin, e não é usado em nenhuma outra rota.
+- **`robots.ts` bloqueia `/admin`, `/api`, `/checkout`, `/conta` e
+  `/sacola` de indexação** — páginas autenticadas ou transacionais não têm
+  valor de SEO e não deveriam aparecer em busca.
+- **`sitemap.ts` é gerado dinamicamente a partir do banco** (produtos
+  ativos + categorias ativas), não uma lista estática — um produto novo
+  cadastrado no painel aparece no sitemap no próximo rebuild/revalidação,
+  sem precisar editar código.
+- **Lighthouse não pôde ser rodado neste ambiente de desenvolvimento.**
+  Duas limitações reais: (1) não há projeto Supabase real conectado, então
+  a home renderiza com dados de fallback (sem banner, sem produtos) — um
+  score aqui não seria representativo da loja real com o seed aplicado;
+  (2) o Chrome headless disponível neste sandbox recusou a página com uma
+  interstitial mesmo em `localhost`, provavelmente uma restrição do
+  próprio ambiente de execução, não da aplicação. Recomendo rodar
+  `npx lighthouse` (ou o painel do Chrome DevTools) contra o deploy real
+  no Vercel, já com o seed aplicado, como parte do checklist de deploy.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

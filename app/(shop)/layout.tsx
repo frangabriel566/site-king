@@ -18,8 +18,30 @@ export default async function ShopLayout({
     getActiveCategories(),
   ]);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: settings.store_name,
+    url: siteUrl,
+    logo: settings.logo_url ?? undefined,
+    sameAs: [
+      settings.instagram
+        ? `https://instagram.com/${settings.instagram.replace("@", "")}`
+        : null,
+      settings.tiktok ? `https://tiktok.com/${settings.tiktok.replace("@", "")}` : null,
+      settings.youtube
+        ? `https://youtube.com/${settings.youtube.replace("@", "")}`
+        : null,
+    ].filter(Boolean),
+  };
+
   return (
     <CartProvider>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <AnnouncementBar
         text={settings.announcement}
         active={settings.announcement_active}

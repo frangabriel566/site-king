@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 import { getDashboardStats } from "@/lib/data/dashboard";
 import { formatCurrency } from "@/lib/format";
-import { SalesChart } from "@/components/admin/sales-chart";
+import { SalesChartLazy } from "@/components/admin/sales-chart-lazy";
 
 export const metadata: Metadata = { title: "Dashboard — Painel" };
 
@@ -50,7 +50,7 @@ export default async function AdminDashboardPage() {
       <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
         <div className="border border-line p-6">
           <p className="text-label mb-6">Vendas — últimos 30 dias</p>
-          <SalesChart data={stats.dailySales} />
+          <SalesChartLazy data={stats.dailySales} />
         </div>
 
         <div className="border border-line p-6">

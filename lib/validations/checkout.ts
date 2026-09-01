@@ -14,7 +14,8 @@ export const checkoutContactSchema = z.object({
 });
 
 export const checkoutItemSchema = z.object({
-  variant_id: z.uuid(),
+  // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
+  variant_id: z.guid(),
   qty: z.coerce.number().int().positive(),
 });
 

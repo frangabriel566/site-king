@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const orderStatusSchema = z.object({
-  order_id: z.uuid(),
+  // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
+  order_id: z.guid(),
   status: z.enum([
     "pending",
     "paid",

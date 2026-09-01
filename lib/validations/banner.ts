@@ -9,7 +9,8 @@ export const bannerSchema = z.object({
   cta_href: z.string().trim().max(300).optional().or(z.literal("")),
   image_url: z.url("Envie a imagem de fundo").optional().or(z.literal("")),
   cutout_url: z.url().optional().or(z.literal("")),
-  featured_product_id: z.uuid().optional().nullable(),
+  // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
+  featured_product_id: z.guid().optional().nullable(),
   active: z.boolean().default(false),
   position: z.coerce.number().int().min(0).default(0),
 });

@@ -2,8 +2,14 @@ import { z } from "zod";
 
 const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+// z.guid() (8-4-4-4-12 hex, no version/variant constraint) rather than
+// z.uuid() (strict RFC 4122): the seed data's hand-assigned ids
+// (categories, products, etc.) aren't RFC-4122-compliant v4 UUIDs, but
+// they're still valid Postgres `uuid` column values — z.uuid() rejected
+// them outright.
+
 export const productVariantSchema = z.object({
-  id: z.uuid().optional(),
+  id: z.guid().optional(),
   color: z.string().trim().min(1, "Cor obrigatória").max(60),
   color_hex: z
     .string()
@@ -17,7 +23,7 @@ export const productVariantSchema = z.object({
 });
 
 export const productImageSchema = z.object({
-  id: z.uuid().optional(),
+  id: z.guid().optional(),
   url: z.url("URL de imagem inválida"),
   alt: z.string().trim().max(200).optional().or(z.literal("")),
   position: z.coerce.number().int().min(0).default(0),
@@ -35,7 +41,7 @@ export const productSchema = z
     description: z.string().trim().max(4000).optional().or(z.literal("")),
     price: z.coerce.number().positive("Preço deve ser maior que zero"),
     compare_at_price: z.coerce.number().positive().optional().nullable(),
-    category_id: z.uuid("Selecione uma categoria"),
+    category_id: z.guid("Selecione uma categoria"),
     status: z.enum(["draft", "active", "archived"]).default("draft"),
     featured: z.boolean().default(false),
     position: z.coerce.number().int().min(0).default(0),

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyOrders } from "@/lib/data/orders";
 import { getMyAddresses } from "@/lib/data/addresses";
@@ -22,6 +23,18 @@ export default async function AccountPage() {
         </div>
       </div>
     );
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Admins land here too (same login box) if their session is already
+  // active — send them straight to the panel instead of the customer view.
+  if (profile?.role === "admin") {
+    redirect("/admin");
   }
 
   const { data: customer } = await supabase

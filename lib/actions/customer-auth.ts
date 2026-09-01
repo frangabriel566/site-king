@@ -80,6 +80,23 @@ async function performSignIn(formData: FormData): Promise<AuthState> {
   return { status: "success" };
 }
 
+/** True when the currently-authenticated user has the admin role. */
+async function isCurrentUserAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return profile?.role === "admin";
+}
+
 /** Page variants — used on /conta, redirect there on success. */
 
 export async function customerSignUpAction(
@@ -98,6 +115,14 @@ export async function customerSignInAction(
 ): Promise<AuthState> {
   const result = await performSignIn(formData);
   if (result.status !== "success") return result;
+
+  // A store admin logging in through the public "Conta" entry point goes
+  // straight to the admin panel instead of the customer account page —
+  // one login box, no separate /admin/login URL to remember.
+  if (await isCurrentUserAdmin()) {
+    redirect("/admin");
+  }
+
   revalidatePath("/conta");
   redirect("/conta");
 }

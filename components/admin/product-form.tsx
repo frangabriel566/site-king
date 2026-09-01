@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   type VariantDraft,
 } from "@/components/admin/variant-editor";
 import { slugify } from "@/lib/format";
+import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
 import type { ActionResult } from "@/lib/actions/products";
 import type { Category } from "@/lib/data/categories";
 import type { ProductWithRelations } from "@/lib/data/products";
@@ -72,6 +73,8 @@ export function ProductForm({
     height_cm: null,
   });
 
+  const [publishIssues, setPublishIssues] = useState<PublishIssue[]>([]);
+
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
   }, [state]);
@@ -80,8 +83,78 @@ export function ProductForm({
     setVariants((prev) => prev.map((v) => ({ ...v, ...standardMeasurements })));
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const formData = new FormData(event.currentTarget);
+    const candidate = {
+      name: formData.get("name"),
+      slug: formData.get("slug"),
+      description: formData.get("description"),
+      price: formData.get("price") || 0,
+      compare_at_price: formData.get("compare_at_price") || null,
+      category_id: formData.get("category_id") || null,
+      status: formData.get("status"),
+      featured: formData.get("featured") === "on",
+      position: formData.get("position"),
+      images,
+      variants: variants.map((v) => ({
+        color: v.color,
+        color_hex: v.color_hex,
+        size: v.size,
+        sku: v.sku,
+        stock: v.stock,
+        weight_grams: v.weight_grams,
+        length_cm: v.length_cm,
+        width_cm: v.width_cm,
+        height_cm: v.height_cm,
+      })),
+    };
+
+    const parsed = productSchema.safeParse(candidate);
+    if (!parsed.success) {
+      // Basic shape errors (bad slug, etc.) surface via the server's toast
+      // as before — the publish gate only concerns itself with
+      // publish-readiness, not field formatting.
+      setPublishIssues([]);
+      return;
+    }
+
+    const issues = collectPublishIssues(parsed.data);
+    setPublishIssues(issues);
+    if (issues.length > 0) {
+      event.preventDefault();
+      toast.error("Faltam informações para publicar este produto.");
+      requestAnimationFrame(() => {
+        document.getElementById("publish-issues")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
+
   return (
-    <form action={formAction} className="flex max-w-3xl flex-col gap-8">
+    <form action={formAction} onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-8">
+      {publishIssues.length > 0 && (
+        <div
+          id="publish-issues"
+          role="alert"
+          className="scroll-mt-24 border border-[var(--danger)] bg-[var(--danger)]/10 p-4"
+        >
+          <p className="mb-2 text-sm font-medium text-[var(--danger)]">
+            Não é possível publicar — falta o seguinte:
+          </p>
+          <ul className="flex flex-col gap-1">
+            {publishIssues.map((issue) => (
+              <li key={issue.anchor + issue.message}>
+                <a
+                  href={`#${issue.anchor}`}
+                  className="text-sm text-[var(--danger)] underline underline-offset-4 hover:opacity-80"
+                >
+                  {issue.message}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="images_json" value={JSON.stringify(images)} />
       <input

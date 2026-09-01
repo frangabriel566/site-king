@@ -76,4 +76,55 @@ e a opção mais simples escolhida para resolvê-la.
   se aplica à vitrine pública; o painel administrativo é uma ferramenta de
   operação interna e precisa de sinalização de status legível.
 
+## Bloco 3 — Hero e home
+
+- **Cliente Supabase "público" separado do cliente com sessão.**
+  `lib/supabase/server.ts` chama `cookies()` para acompanhar a sessão do
+  usuário — mas no App Router, qualquer chamada a `cookies()` força a rota
+  inteira para renderização dinâmica, mesmo quando os dados lidos não
+  dependem de sessão nenhuma. Isso quebrava o requisito de
+  `generateStaticParams + ISR` na PDP e o ISR da home. Criado
+  `lib/supabase/public.ts` (`createPublicClient()`), sem `cookies()`, usado
+  por todas as leituras 100% públicas (produtos, categorias, banners,
+  site_settings) — a RLS dessas tabelas já não depende de `auth.uid()`
+  para o caminho público, então não há perda de segurança, só de
+  acoplamento desnecessário à sessão.
+- **Leituras públicas envolvidas em `safeQuery` com fallback.** Uma
+  instabilidade pontual do Supabase (ou, neste ambiente sem projeto Supabase
+  real conectado, a ausência de credenciais) não deve derrubar o build
+  estático nem a renderização da loja — "o site nunca pode aparecer vazio"
+  vale também para falhas de rede, não só para banco vazio. Cada função em
+  `lib/data/*` faz fallback para lista vazia / `null` / configurações
+  padrão e loga o erro no servidor.
+- **`.env.local` deste sandbox usa credenciais placeholder, não reais.**
+  Não há projeto Supabase provisionado neste ambiente de desenvolvimento;
+  os valores em `.env.local` (gitignored) existem só para permitir rodar
+  `next build`/`next dev` localmente e validar que a aplicação renderiza
+  corretamente em modo de fallback. Popule com as credenciais reais do seu
+  projeto antes de usar auth, checkout ou o painel admin — ver checklist de
+  deploy no README.
+- **Bloco editorial da home usa a primeira categoria ativa + foto de um
+  produto dela**, em vez de um parágrafo de texto de marca fixo. A regra
+  "nenhum texto de vitrine hardcoded" cobre explicitamente frases,
+  headline e wordmark; um parágrafo editorial persuasivo seria exatamente
+  esse tipo de "frase" hardcoded. Nome da categoria (banco) + link "Ver
+  coleção →" (rótulo de UI, não copy de marca) evita inventar prosa fixa
+  sem precisar de uma tabela nova só para isso.
+- **Seção de newsletter da home sem subtítulo de marketing.** Pelo mesmo
+  motivo acima: manter só o rótulo "Newsletter" (label de seção, como
+  "Buscar"/"Conta"/"Sacola" no header) e o formulário, sem frase de
+  vendas hardcoded.
+- **Tabela `newsletter_subscribers` adicionada em `0005_newsletter.sql`.**
+  Não estava no schema pedido, mas a home exige um bloco de newsletter
+  funcional — sem uma tabela, o formulário seria decorativo. Mantida como
+  migration separada para não misturar com o schema original, com RLS:
+  insert público, select só admin.
+- **CTA "ADICIONAR À SACOLA →" do card de produto em destaque do Hero faz
+  quick-add real**, usando a primeira variação com estoque do produto
+  (buscada no servidor). Se nenhuma variação tiver estoque, o botão vira
+  um link para a PDP ("Ver produto →") em vez de adicionar um item
+  indisponível. Evita forçar o cliente a escolher cor/tamanho a partir de
+  um card que não tem espaço para essa UI, sem quebrar a promessa do rótulo
+  quando há estoque de sobra.
+
 (Este arquivo continuará sendo atualizado a cada bloco funcional.)

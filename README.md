@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# King Store
 
-## Getting Started
+E-commerce completo (loja pública + painel administrativo) para uma loja
+de roupa masculina. Next.js 15 (App Router) + Tailwind CSS v4 + shadcn/ui
++ Supabase (Postgres, Auth, Storage, RLS) + Vercel.
 
-First, run the development server:
+Identidade visual: editorial dark, brutalista — preto e branco secos,
+tipografia enorme, dourado só em três lugares (hover de link, badge de
+promoção, foco de input).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Veja também:
+- [`DECISIONS.md`](./DECISIONS.md) — todas as decisões de arquitetura e
+  por quê, na ordem em que foram tomadas.
+- [`docs/OPERACAO.md`](./docs/OPERACAO.md) — guia curto do dia a dia da
+  loja: trocar banner, cadastrar produto, dar baixa em pedido.
+
+## Stack
+
+- **Next.js 15** (App Router, TypeScript estrito, Server Components por
+  padrão, Server Actions para toda mutação)
+- **Tailwind CSS v4** + **shadcn/ui** (Radix + Lucide)
+- **Supabase**: Postgres com RLS em toda tabela, Auth, Storage
+- **Pagamento**: Mercado Pago Checkout Pro (padrão) ou WhatsApp (fallback),
+  atrás de uma interface `PaymentProvider` — troca por env var
+- **E-mail**: Resend (opcional — sem `RESEND_API_KEY`, o e-mail de
+  confirmação simplesmente não é enviado, o resto do fluxo continua)
+- **Vercel** para deploy
+
+## Estrutura
+
+```
+app/(shop)/...        rotas públicas da loja
+app/(admin)/admin/...  painel administrativo (login fora da shell autenticada)
+app/api/webhooks/...   webhook do Mercado Pago
+components/ui/         shadcn/ui
+components/shop/       componentes da loja pública
+components/admin/      componentes do painel
+lib/supabase/          clientes Supabase (browser, server, admin/service-role, público sem cookies)
+lib/data/               leituras tipadas (Server Components)
+lib/actions/            Server Actions (toda escrita)
+lib/validations/        schemas Zod
+lib/payments/           PaymentProvider (Mercado Pago / WhatsApp) + webhook helpers
+lib/cart/               Context do carrinho (localStorage)
+supabase/migrations/    schema, RLS, funções, storage — nessa ordem
+supabase/seed.sql       admin + categorias + produtos + banner + settings de demonstração
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Configuração local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Copie `.env.example` para `.env.local` e preencha com as credenciais do
+   seu projeto Supabase (veja a seção seguinte) e, se for testar
+   pagamento, do Mercado Pago.
+2. `npm install`
+3. `npm run dev` — abre em `http://localhost:3000`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> Sem um projeto Supabase real conectado, o site ainda builda e roda: as
+> leituras públicas (`lib/data/*`) têm fallback para dados vazios em vez
+> de derrubar a página, mas nada de auth/checkout/admin funciona de fato.
+> Isso é intencional — ver `DECISIONS.md`, bloco "Hero e home".
 
-## Learn More
+## Configurando o projeto Supabase
 
-To learn more about Next.js, take a look at the following resources:
+1. Crie um projeto em [supabase.com](https://supabase.com).
+2. Rode as migrations **nessa ordem**, pelo SQL Editor do painel Supabase
+   ou via `supabase db push` com a CLI:
+   1. `supabase/migrations/0001_schema.sql`
+   2. `supabase/migrations/0002_rls.sql`
+   3. `supabase/migrations/0003_functions.sql`
+   4. `supabase/migrations/0004_storage.sql`
+   5. `supabase/migrations/0005_newsletter.sql`
+3. Rode `supabase/seed.sql` para popular o banco (1 admin, 4 categorias, 8
+   produtos com variações e fotos placeholder, 1 banner ativo,
+   configurações da loja, 1 cupom de boas-vindas). Isso sobe um ambiente
+   novo do zero em poucos minutos.
+   - Login do admin seedado: `admin@kingstore.com.br` / `KingStore#2026`
+     — **troque essa senha imediatamente** depois do primeiro login em
+     qualquer ambiente acessível por outra pessoa.
+4. Em **Authentication → Settings**, desative a confirmação de e-mail
+   obrigatória (ou aceite que o cadastro no checkout pode pedir para o
+   cliente confirmar o e-mail antes de conseguir logar — o código já
+   trata os dois casos, mas a experiência é mais fluida sem confirmação
+   obrigatória).
+5. Copie **Project URL**, **anon public key** e **service_role key** de
+   **Settings → API** para `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`.
+6. (Opcional, mas recomendado) Regenere `lib/database.types.ts` a partir
+   do projeto real depois de linkar a CLI:
+   ```bash
+   supabase gen types typescript --linked > lib/database.types.ts
+   ```
+   O arquivo atual foi escrito à mão espelhando exatamente as migrations
+   (não havia projeto Supabase real disponível durante a construção) —
+   regenerar garante que ele nunca diverge do schema de verdade.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configurando pagamento
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Escolha via `PAYMENT_PROVIDER` no `.env`:
 
-## Deploy on Vercel
+- **`mercadopago`** (padrão): preencha `MERCADOPAGO_ACCESS_TOKEN`. Para o
+  webhook (`/api/webhooks/mercadopago`) funcionar, configure a mesma URL
+  no painel do Mercado Pago (Suas integrações → Webhooks) e preencha
+  `MERCADOPAGO_WEBHOOK_SECRET` com a chave secreta mostrada lá — sem ela,
+  o webhook processa notificações sem validar assinatura (funciona, mas
+  não é seguro para produção).
+- **`whatsapp`**: preencha `NEXT_PUBLIC_WHATSAPP_NUMBER` (ou o WhatsApp em
+  Configurações do painel, que tem prioridade). O checkout monta a
+  mensagem do pedido e abre o `wa.me` correspondente.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Padrões do projeto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- TypeScript estrito, zero `any`, zero `@ts-ignore`.
+- RLS ativa em toda tabela (`is_admin()` como helper); leitura pública
+  restrita a conteúdo ativo/publicado, escrita restrita a admin.
+- `service_role` só em `lib/supabase/admin.ts` e só importado de arquivos
+  `'use server'` (Server Actions, Route Handlers) — nunca em Client
+  Components, nunca no bundle do navegador.
+- Toda mutação é uma Server Action; nenhuma escrita via `fetch` client-side.
+- Server Components por padrão; `"use client"` só onde há interatividade.
+- `npm run build` e `npm run lint` devem terminar limpos antes de cada commit.
+
+## Scripts
+
+```bash
+npm run dev     # desenvolvimento
+npm run build   # build de produção (roda type-check + lint)
+npm run start   # serve o build de produção
+npm run lint    # eslint
+```
+
+## Deploy
+
+Ver checklist completo no final da conversa/entrega do projeto, ou
+resumidamente:
+
+**Supabase**: projeto criado → migrations aplicadas na ordem → seed
+rodado → confirmação de e-mail configurada → chaves copiadas.
+
+**Vercel**: importar o repositório → colar todas as variáveis de
+`.env.example` (com valores reais) em Project Settings → Environment
+Variables → deploy → configurar o domínio final em
+`NEXT_PUBLIC_SITE_URL` e redeploy (ele é usado para montar links de
+retorno do Mercado Pago e URLs absolutas de metadata/sitemap) → registrar
+a URL do webhook do Mercado Pago apontando para
+`https://SEU_DOMINIO/api/webhooks/mercadopago`.

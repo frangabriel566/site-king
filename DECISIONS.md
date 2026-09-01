@@ -355,4 +355,28 @@ e a opção mais simples escolhida para resolvê-la.
   `npx lighthouse` (ou o painel do Chrome DevTools) contra o deploy real
   no Vercel, já com o seed aplicado, como parte do checklist de deploy.
 
-(Este arquivo continuará sendo atualizado a cada bloco funcional.)
+## Bloco 10 — Documentação
+
+- **README.md cobre setup local, configuração do Supabase (ordem exata das
+  migrations + seed), configuração de pagamento e checklist de deploy**;
+  `docs/OPERACAO.md` é o guia do dia a dia (trocar banner, cadastrar
+  produto, dar baixa em pedido) para quem opera a loja sem tocar em
+  código. Separei os dois porque têm público diferente — quem faz deploy
+  não é necessariamente quem opera a loja depois.
+- **Textos institucionais/legais marcados explicitamente como ponto de
+  partida, não como texto jurídico definitivo.** Uma política de
+  privacidade e uma política de trocas reais têm implicações legais
+  (LGPD, CDC) que não deveriam sair de um template genérico sem revisão —
+  isso está sinalizado tanto no README quanto no comentário do bloco 9
+  acima.
+
+### Nenhuma ambiguidade restante exigiu confirmação do usuário
+
+Todas as decisões de arquitetura ao longo dos 10 blocos foram resolvidas
+pela opção mais simples que atendesse ao requisito literal, documentada
+no momento em que a ambiguidade apareceu (ver blocos acima). Os únicos
+pontos que dependem de uma ação humana fora do código são credenciais
+reais (projeto Supabase, Mercado Pago, Resend, domínio) — nenhum deles é
+uma decisão de modelagem ou arquitetura, são configurações de ambiente
+cobertas no checklist de deploy do README.
+

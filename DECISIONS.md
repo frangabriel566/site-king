@@ -438,6 +438,51 @@ difícil, a nunca rodar `npm run build` com `npm run dev` ativo no mesmo
 diretório — os dois escrevem em `.next/` e um builda por cima do cache
 do outro, corrompendo o dev server em runtime até um restart limpo.)
 
+## Bloco 13 — Bug real: `z.uuid()` rejeitava os ids do seed
+
+O usuário reportou: ao criar/editar um produto e salvar, os campos
+desapareciam. Reproduzi de ponta a ponta com Puppeteer contra o servidor
+de dev real (login como admin, preencher o formulário, subir imagem,
+adicionar variação, submeter) e inspecionei o `FormData` exato que o
+navegador monta no clique do botão — não uma suposição sobre o React,
+o objeto real.
+
+**Causa raiz:** `category_id` (e `featured_product_id` de banner,
+`order_id`, `variant_id`) eram validados com `z.uuid()`, que no Zod v4
+exige um UUID **estritamente compatível com a RFC 4122** (dígitos de
+versão e variante corretos). Os ids que o seed atribui à mão —
+`11111111-1111-1111-1111-111111111101` e por aí — são valores `uuid`
+perfeitamente válidos para o Postgres (a coluna não impõe versão/variante
+nenhuma), mas **não passam** na checagem RFC do `z.uuid()`. Toda vez que
+o formulário submetia um `category_id` de uma categoria do seed, a
+validação falhava silenciosamente com "Selecione uma categoria" — o
+formulário nunca chegava a tocar no banco, e o que parecia "os dados
+sumindo" era a página inteira voltando ao estado vazio de erro.
+
+Troquei os cinco usos de `z.uuid()` (`lib/validations/product.ts` × 3,
+`banner.ts`, `order.ts`, `checkout.ts`) por `z.guid()`, que checa só o
+formato 8-4-4-4-12 em hex sem exigir versão/variante — aceita tanto os
+ids do seed quanto qualquer `gen_random_uuid()` real gerado pelo app.
+
+**Efeito colateral descoberto durante a investigação:** a tabela
+`products` estava com **0 linhas** no banco ao eu começar a investigar —
+alguém (ou o próprio usuário testando) tinha apagado os 8 produtos do
+seed antes de me pedir ajuda, provavelmente por causa do mesmo bug (o
+formulário nunca salvava, e alguma tentativa de "recomeçar" limpou os
+produtos existentes). Restaurei rodando `seed.sql` de novo (idempotente
+para categorias/banner/settings/cupom via `on conflict do nothing`) e
+corrigi manualmente `banners.featured_product_id`, que tinha sido zerado
+pelo `on delete set null` quando os produtos foram apagados.
+
+**Lição de processo:** quando um bug relatado pelo usuário não tem causa
+óbvia pela leitura do código, vale montar uma reprodução automatizada de
+verdade (aqui, Puppeteer contra o Chrome já instalado, mais um script
+`pg` direto no banco) em vez de ficar corrigindo hipóteses às cegas —
+inclusive corrigi duas hipóteses erradas minhas no caminho (o seletor do
+botão de submit pegando o "Sair" da sidebar por engano; depois
+`querySelector("form")` pegando o formulário errado) antes de chegar na
+causa real.
+
 ### Nenhuma ambiguidade restante exigiu confirmação do usuário
 
 Todas as decisões de arquitetura ao longo dos 10 blocos foram resolvidas

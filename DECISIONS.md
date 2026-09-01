@@ -416,6 +416,28 @@ testar contra infraestrutura de verdade em vez de só revisar o SQL:
   (dados vazios) não é mais o caminho ativo agora que há credenciais
   reais em `.env.local`.
 
+## Bloco 12 — Login do admin pelo "Conta" da vitrine
+
+A pedido do usuário: entrar pelo botão **CONTA** do header com um e-mail
+que tem `role = 'admin'` agora redireciona direto para `/admin`, em vez de
+cair no painel "Minha conta" do cliente — sem precisar guardar/digitar a
+URL `/admin/login` separadamente. Implementado em dois pontos:
+`customerSignInAction` checa a role logo após autenticar e redireciona
+para `/admin` antes de ir para `/conta`; e a própria página `/conta`
+redireciona um admin já autenticado (sessão existente, sem passar pelo
+formulário de novo) do mesmo jeito — cobre tanto o login quanto acessar
+`/conta` diretamente já logado. `/admin/login` continua existindo e
+funcionando como entrada alternativa.
+
+(Durante essa mudança, descobri por que `/conta` mostrava o painel de
+cliente pro admin: `customerSignInAction` nunca checava a role, só
+autenticava e sempre redirecionava para `/conta` — o admin conseguia
+logar ali porque é a mesma tabela `auth.users`, sem verificação de
+role no fluxo do cliente antes desta correção. Também aprendi, do jeito
+difícil, a nunca rodar `npm run build` com `npm run dev` ativo no mesmo
+diretório — os dois escrevem em `.next/` e um builda por cima do cache
+do outro, corrompendo o dev server em runtime até um restart limpo.)
+
 ### Nenhuma ambiguidade restante exigiu confirmação do usuário
 
 Todas as decisões de arquitetura ao longo dos 10 blocos foram resolvidas

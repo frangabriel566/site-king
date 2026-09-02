@@ -38,7 +38,7 @@ export function CookieBanner() {
         <p className="max-w-xl text-sm text-ink-muted">
           Usamos cookies para melhorar sua experiência. Ao continuar navegando,
           você concorda com nossa{" "}
-          <Link href="/politica-de-privacidade" className="text-fg underline underline-offset-4 hover:text-gold">
+          <Link href="/politica-de-privacidade" className="text-fg underline underline-offset-4 hover:text-gold-text">
             política de privacidade
           </Link>
           .

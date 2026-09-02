@@ -45,7 +45,7 @@ export function AddressManager({ addresses }: { addresses: Address[] }) {
       {addresses.length > 0 && (
         <ul className="mb-8 flex flex-col gap-4">
           {addresses.map((address) => (
-            <li key={address.id} className="border border-line p-4">
+            <li key={address.id} className="rounded-lg border border-line p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="text-sm">
                   <p>
@@ -57,7 +57,9 @@ export function AddressManager({ addresses }: { addresses: Address[] }) {
                   </p>
                   <p className="text-ink-muted">{address.cep}</p>
                   {address.is_default && (
-                    <p className="text-label mt-1 !text-gold">Padrão</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gold-text">
+                      Padrão
+                    </p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-2 text-xs">
@@ -77,7 +79,7 @@ export function AddressManager({ addresses }: { addresses: Address[] }) {
                   )}
                   <button
                     type="button"
-                    className="text-ink-muted hover:text-[var(--danger)]"
+                    className="text-ink-muted hover:text-alert"
                     onClick={() =>
                       startTransition(async () => {
                         await deleteAddressAction(address.id);

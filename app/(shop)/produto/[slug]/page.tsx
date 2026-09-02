@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Star } from "lucide-react";
 import {
   getAllActiveProductSlugs,
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/data/products";
 import { getSiteSettings } from "@/lib/data/settings";
-import { formatCurrency } from "@/lib/format";
-import { ProductGallery } from "@/components/shop/product-gallery";
-import { VariantSelector } from "@/components/shop/variant-selector";
-import { SizeGuideModal } from "@/components/shop/size-guide-modal";
-import { ProductAccordion } from "@/components/shop/product-accordion";
+import { ProductMedia } from "@/components/shop/product-media";
+import { ProductSpecs } from "@/components/shop/product-specs";
+import { ProductInfoTabs } from "@/components/shop/product-info-tabs";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
-import { ProductGrid } from "@/components/shop/product-grid";
+import { ProductRail } from "@/components/shop/product-rail";
 
 export const revalidate = 300;
 
@@ -55,10 +54,12 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [related, settings] = await Promise.all([
-    getRelatedProducts(product.category_id, product.id),
+  const [relatedPool, settings] = await Promise.all([
+    getRelatedProducts(product.category_id, product.id, 8),
     getSiteSettings(),
   ]);
+  const related = relatedPool.slice(0, 4);
+  const alsoViewed = relatedPool.slice(4, 8);
 
   const images = [...product.product_images].sort(
     (a, b) => a.position - b.position,
@@ -72,6 +73,7 @@ export default async function ProductPage({
     description: product.description ?? undefined,
     image: images.map((i) => i.url),
     sku: product.id,
+    brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
     offers: {
       "@type": "Offer",
       priceCurrency: "BRL",
@@ -103,7 +105,7 @@ export default async function ProductPage({
   };
 
   return (
-    <div className="px-8 pt-8 pb-24 md:px-12">
+    <div className="mx-auto max-w-[1400px] px-4 pt-6 pb-16 md:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -113,10 +115,10 @@ export default async function ProductPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <div className="mb-8">
+      <div className="mb-6">
         <Breadcrumbs
           items={[
-            { label: "Home", href: "/" },
+            { label: "Início", href: "/" },
             { label: "Coleção", href: "/colecao" },
             ...(product.category
               ? [
@@ -131,50 +133,41 @@ export default async function ProductPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
-        <ProductGallery images={images} productName={product.name} />
-
-        <div className="lg:max-w-md">
-          <h1 className="text-heading text-3xl sm:text-4xl">{product.name}</h1>
-          <div className="mt-4 flex items-center gap-3">
-            {product.compare_at_price && (
-              <span className="text-sm text-ink-muted line-through">
-                {formatCurrency(product.compare_at_price)}
-              </span>
-            )}
-            <span className="text-xl">{formatCurrency(product.price)}</span>
-          </div>
-
-          <div className="mt-8">
-            <VariantSelector
-              productId={product.id}
-              productSlug={product.slug}
-              productName={product.name}
-              price={product.price}
-              image={mainImage}
-              variants={product.product_variants}
-            />
-            <div className="mt-4">
-              <SizeGuideModal />
-            </div>
-          </div>
-
-          <div className="mt-10">
-            <ProductAccordion
-              description={product.description}
-              shippingNote={settings.shipping_note}
-              freeShippingNote={settings.free_shipping_note}
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:items-start lg:gap-8">
+        <div className="order-3 lg:order-1">
+          <ProductSpecs product={product} />
         </div>
+
+        <ProductMedia product={product} images={images} mainImage={mainImage} />
       </div>
 
-      {related.length > 0 && (
-        <section className="mt-24">
-          <h2 className="text-heading mb-10 text-3xl">Você também vai gostar</h2>
-          <ProductGrid products={related} />
+      <div className="mt-16 flex flex-col gap-16">
+        <ProductInfoTabs
+          description={product.description}
+          shippingNote={product.shipping_note ?? settings.shipping_note}
+          exchangeInfo={product.exchange_info}
+          freeShippingNote={settings.free_shipping_note}
+        />
+
+        <section>
+          <h2 className="mb-4 text-lg font-bold text-fg">Avaliações</h2>
+          <div className="flex flex-col items-start gap-3 rounded-lg border border-line bg-surface p-6">
+            <div className="flex items-center gap-1 text-line">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Star key={i} className="size-5" strokeWidth={1.5} />
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Este produto ainda não tem avaliações.
+            </p>
+          </div>
         </section>
-      )}
+      </div>
+
+      <div className="mt-4">
+        <ProductRail title="Você também vai gostar" products={related} />
+        <ProductRail title="Quem viu, também viu" products={alsoViewed} />
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { useThemePortalContainer } from "@/lib/hooks/use-theme-portal-container"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 function Select({
@@ -64,8 +65,9 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const themeContainer = useThemePortalContainer()
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={themeContainer}>
       <SelectPrimitive.Content
         data-slot="select-content"
         data-align-trigger={position === "item-aligned"}

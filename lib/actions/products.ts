@@ -18,6 +18,8 @@ function revalidateStorefront(slug?: string) {
 function parseFormData(formData: FormData) {
   let images: unknown = [];
   let variants: unknown = [];
+  let attributes: unknown = null;
+  let tags: unknown = [];
   try {
     images = JSON.parse(String(formData.get("images_json") ?? "[]"));
   } catch {
@@ -28,14 +30,36 @@ function parseFormData(formData: FormData) {
   } catch {
     variants = [];
   }
+  try {
+    const raw = formData.get("attributes_json");
+    attributes = raw ? JSON.parse(String(raw)) : null;
+  } catch {
+    attributes = null;
+  }
+  try {
+    tags = JSON.parse(String(formData.get("tags_json") ?? "[]"));
+  } catch {
+    tags = [];
+  }
 
   return productSchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug"),
+    short_description: formData.get("short_description") || "",
     description: formData.get("description"),
+    video_url: formData.get("video_url") || "",
+    tags,
+    collection: formData.get("collection") || "",
+    shipping_note: formData.get("shipping_note") || "",
+    exchange_info: formData.get("exchange_info") || "",
+    care_instructions: formData.get("care_instructions") || "",
     price: formData.get("price"),
     compare_at_price: formData.get("compare_at_price") || null,
     category_id: formData.get("category_id") || null,
+    brand_id: formData.get("brand_id") || null,
+    manufacturer_ref: formData.get("manufacturer_ref") || "",
+    attributes,
+    badge: formData.get("badge") || null,
     status: formData.get("status"),
     featured: formData.get("featured") === "on",
     position: formData.get("position"),
@@ -55,20 +79,21 @@ function friendlyDbError(error: { code?: string; message: string } | null): stri
 
 /**
  * "Salvar e criar outro" always lands on a fresh /novo, carrying over
- * category and standard measurements — whether the save that triggered
- * it was a create or an edit.
+ * category and brand — whether the save that triggered it was a create
+ * or an edit.
  */
-function redirectAfterSave(formData: FormData, categoryId: string | null | undefined): never {
+function redirectAfterSave(
+  formData: FormData,
+  categoryId: string | null | undefined,
+  brandId: string | null | undefined,
+): never {
   if (formData.get("intent") !== "save_and_new") {
     redirect("/admin/produtos");
   }
 
   const params = new URLSearchParams();
   if (categoryId) params.set("categoria", categoryId);
-  for (const field of ["std_weight_grams", "std_length_cm", "std_width_cm", "std_height_cm"]) {
-    const value = formData.get(field);
-    if (value) params.set(field, String(value));
-  }
+  if (brandId) params.set("marca", brandId);
 
   const query = params.toString();
   redirect(`/admin/produtos/novo${query ? `?${query}` : ""}`);
@@ -95,8 +120,30 @@ export async function createProductAction(
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
-  const { name, slug, description, price, compare_at_price, category_id, status, featured, position, images, variants } =
-    parsed.data;
+  const {
+    name,
+    slug,
+    short_description,
+    description,
+    video_url,
+    tags,
+    collection,
+    shipping_note,
+    exchange_info,
+    care_instructions,
+    price,
+    compare_at_price,
+    category_id,
+    brand_id,
+    manufacturer_ref,
+    attributes,
+    badge,
+    status,
+    featured,
+    position,
+    images,
+    variants,
+  } = parsed.data;
 
   // Defense in depth: the client already blocks publishing with missing
   // fields, but the server must not trust that — this is the real gate.
@@ -112,10 +159,21 @@ export async function createProductAction(
     .insert({
       name,
       slug,
+      short_description: short_description || null,
       description: description || null,
+      video_url: video_url || null,
+      tags: tags.length > 0 ? tags : null,
+      collection: collection || null,
+      shipping_note: shipping_note || null,
+      exchange_info: exchange_info || null,
+      care_instructions: care_instructions || null,
       price,
       compare_at_price: compare_at_price ?? null,
       category_id,
+      brand_id,
+      manufacturer_ref: manufacturer_ref || null,
+      attributes: attributes ?? null,
+      badge: badge ?? null,
       status,
       featured,
       position,
@@ -147,10 +205,7 @@ export async function createProductAction(
         size: v.size,
         sku: v.sku,
         stock: v.stock,
-        weight_grams: v.weight_grams ?? null,
-        length_cm: v.length_cm ?? null,
-        width_cm: v.width_cm ?? null,
-        height_cm: v.height_cm ?? null,
+        image_url: v.image_url || null,
       })),
     );
     if (variantsError) {
@@ -159,7 +214,7 @@ export async function createProductAction(
   }
 
   revalidateStorefront(slug);
-  redirectAfterSave(formData, category_id);
+  redirectAfterSave(formData, category_id, brand_id);
 }
 
 export async function updateProductAction(
@@ -171,8 +226,30 @@ export async function updateProductAction(
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
-  const { name, slug, description, price, compare_at_price, category_id, status, featured, position, images, variants } =
-    parsed.data;
+  const {
+    name,
+    slug,
+    short_description,
+    description,
+    video_url,
+    tags,
+    collection,
+    shipping_note,
+    exchange_info,
+    care_instructions,
+    price,
+    compare_at_price,
+    category_id,
+    brand_id,
+    manufacturer_ref,
+    attributes,
+    badge,
+    status,
+    featured,
+    position,
+    images,
+    variants,
+  } = parsed.data;
 
   const publishIssues = collectPublishIssues(parsed.data);
   if (publishIssues.length > 0) {
@@ -186,10 +263,21 @@ export async function updateProductAction(
     .update({
       name,
       slug,
+      short_description: short_description || null,
       description: description || null,
+      video_url: video_url || null,
+      tags: tags.length > 0 ? tags : null,
+      collection: collection || null,
+      shipping_note: shipping_note || null,
+      exchange_info: exchange_info || null,
+      care_instructions: care_instructions || null,
       price,
       compare_at_price: compare_at_price ?? null,
       category_id,
+      brand_id,
+      manufacturer_ref: manufacturer_ref || null,
+      attributes: attributes ?? null,
+      badge: badge ?? null,
       status,
       featured,
       position,
@@ -222,10 +310,7 @@ export async function updateProductAction(
         size: v.size,
         sku: v.sku,
         stock: v.stock,
-        weight_grams: v.weight_grams ?? null,
-        length_cm: v.length_cm ?? null,
-        width_cm: v.width_cm ?? null,
-        height_cm: v.height_cm ?? null,
+        image_url: v.image_url || null,
       })),
     );
     if (variantsError) {
@@ -234,7 +319,7 @@ export async function updateProductAction(
   }
 
   revalidateStorefront(slug);
-  redirectAfterSave(formData, category_id);
+  redirectAfterSave(formData, category_id, brand_id);
 }
 
 export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
@@ -278,10 +363,21 @@ export async function duplicateProductAction(id: string): Promise<DuplicateProdu
     .insert({
       name: `${original.name} (cópia)`,
       slug: newSlug,
+      short_description: original.short_description,
       description: original.description,
+      video_url: original.video_url,
+      tags: original.tags,
+      collection: original.collection,
+      shipping_note: original.shipping_note,
+      exchange_info: original.exchange_info,
+      care_instructions: original.care_instructions,
       price: original.price,
       compare_at_price: original.compare_at_price,
       category_id: original.category_id,
+      brand_id: original.brand_id,
+      manufacturer_ref: original.manufacturer_ref,
+      attributes: original.attributes,
+      badge: null,
       status: "draft",
       featured: false,
       position: original.position,
@@ -316,10 +412,7 @@ export async function duplicateProductAction(id: string): Promise<DuplicateProdu
         size: v.size,
         sku: buildSku(newSlug, v.color, v.size),
         stock: 0,
-        weight_grams: v.weight_grams,
-        length_cm: v.length_cm,
-        width_cm: v.width_cm,
-        height_cm: v.height_cm,
+        image_url: v.image_url,
       })),
     );
   }

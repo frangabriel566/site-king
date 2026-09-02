@@ -5,9 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* Brand tokens — editorial dark, brutalist, caro.                     */
-/* Base is strictly black & white. Gold is reserved for link hover,    */
-/* promo badges and input focus only.                                  */
+/* :root — admin panel palette. Editorial dark, brutalist, square      */
+/* corners. This is now ONLY the admin theme (and the pre-hydration    */
+/* default) — the public storefront overrides every one of these      */
+/* tokens inside .storefront-theme below. Do not add public-storefront */
+/* styling here; add it to the scoped block instead.                   */
 /* ------------------------------------------------------------------ */
 :root {
   --bg: #0a0a0a;
@@ -15,6 +17,7 @@
   --muted: #8a8a8a;
   --line: rgba(255, 255, 255, 0.12);
   --accent: #c9a227;
+  --gold: var(--accent);
 
   /* internal surfaces derived from the palette above, not part of the
      literal brand token list but needed to theme shadcn components */
@@ -60,12 +63,87 @@
   --sidebar-ring: var(--accent);
 }
 
+/* ------------------------------------------------------------------ */
+/* .storefront-theme — public storefront palette. Retail/conversion    */
+/* model: white ground, warm off-white surfaces, charcoal ink, gold    */
+/* reserved for fills/borders/badges (never body text — see            */
+/* --gold-text). Applied once, on the shop layout's root wrapper; the  */
+/* admin panel never receives this class and keeps the :root palette   */
+/* above untouched.                                                    */
+/* ------------------------------------------------------------------ */
+.storefront-theme {
+  --bg: #ffffff;
+  --surface: #f7f6f4;
+  --fg: #1a1d21;
+  --muted: #6b6f76;
+  --line: #e3e1dd;
+
+  --gold: #c9a227;
+  --gold-soft: #f0dfa0;
+  --gold-text: #8a6a15;
+  --chrome: #3a3f45;
+
+  --cta: #1a1d21;
+  --cta-gold: #c9a227;
+  --price: #1a1d21;
+  /* #0F8A3C (the spec's literal value) is 4.45:1 on white — just under the
+     4.5:1 body-text minimum. Darkened slightly to 5.45:1; visually almost
+     identical. */
+  --discount: #0d7a34;
+  --alert: #c0392b;
+
+  --accent: var(--gold-text);
+
+  --surface-2: #efede8;
+  --surface-muted: #f1f0ec;
+  --surface-hover: #ece9e2;
+  --danger: var(--alert);
+  --success: var(--discount);
+  --warning: #9a5b00;
+
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: #ffffff;
+  --card-foreground: var(--fg);
+  --popover: #ffffff;
+  --popover-foreground: var(--fg);
+  --primary: var(--cta);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface);
+  --secondary-foreground: var(--fg);
+  --muted-surface: var(--surface);
+  --muted-foreground: var(--muted);
+  --accent-surface: var(--gold-soft);
+  --accent-foreground: var(--fg);
+  --destructive: var(--alert);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--gold-text);
+  --radius: 0.5rem;
+
+  color-scheme: light;
+}
+
+.storefront-theme ::selection {
+  background: var(--gold-soft);
+  color: var(--fg);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-fg: var(--fg);
   --color-ink-muted: var(--muted);
   --color-hairline: var(--line);
-  --color-gold: var(--accent);
+  --color-surface: var(--surface);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-text: var(--gold-text);
+  --color-chrome: var(--chrome);
+  --color-cta: var(--cta);
+  --color-cta-gold: var(--cta-gold);
+  --color-price: var(--price);
+  --color-discount: var(--discount);
+  --color-alert: var(--alert);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warning: var(--warning);
@@ -103,13 +181,17 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: 0rem;
-  --radius-md: 0rem;
-  --radius-lg: 0rem;
-  --radius-xl: 0rem;
-  --radius-2xl: 0rem;
-  --radius-3xl: 0rem;
-  --radius-4xl: 0rem;
+  /* Derived proportionally (not by fixed px offset) from --radius so that
+     the admin panel's --radius: 0rem collapses every step to exactly 0 —
+     a fixed-offset scale (var(--radius) + 4px etc.) would leak rounding
+     into the admin's larger steps even when the base radius is 0. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
+  --radius-4xl: calc(var(--radius) * 3);
 }
 
 @layer base {

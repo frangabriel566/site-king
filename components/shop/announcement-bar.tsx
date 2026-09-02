@@ -9,7 +9,7 @@ export function AnnouncementBar({
 
   return (
     <div className="border-b border-line bg-bg px-8 py-2 text-center">
-      <p className="text-label !text-fg">{text}</p>
+      <p className="text-xs font-medium text-fg">{text}</p>
     </div>
   );
 }

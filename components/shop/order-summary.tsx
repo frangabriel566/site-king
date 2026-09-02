@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { applyCouponAction } from "@/lib/actions/checkout";
@@ -44,13 +44,15 @@ export function OrderSummary({
   }
 
   return (
-    <div className="h-fit border border-line p-6">
-      <p className="text-label mb-4">Resumo do pedido</p>
+    <div className="h-fit rounded-lg border border-line p-6">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Resumo do pedido
+      </p>
 
       <ul className="mb-6 flex flex-col gap-4">
         {items.map((item) => (
           <li key={item.variantId} className="flex items-center gap-3 text-sm">
-            <div className="relative size-14 shrink-0 overflow-hidden bg-[#111111]">
+            <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-surface">
               {item.image && (
                 <Image src={item.image} alt="" fill sizes="56px" className="object-cover" />
               )}
@@ -58,7 +60,9 @@ export function OrderSummary({
             <div className="min-w-0 flex-1">
               <p className="truncate">{item.name}</p>
               <p className="text-xs text-ink-muted">
-                {item.color} · {item.size} · Qtd. {item.availableQty}
+                {[formatVariantLabel(item.color, item.size), `Qtd. ${item.availableQty}`]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
             <span>{formatCurrency(item.price * item.availableQty)}</span>
@@ -71,15 +75,14 @@ export function OrderSummary({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="Cupom de desconto"
-          className="rounded-none"
         />
         <Button type="submit" variant="outline" size="sm" disabled={pending}>
           {pending ? "…" : "Aplicar"}
         </Button>
       </form>
-      {error && <p className="mb-4 text-xs text-[var(--danger)]">{error}</p>}
+      {error && <p className="mb-4 text-xs text-alert">{error}</p>}
       {coupon && (
-        <p className="mb-4 text-xs text-gold">Cupom {coupon.code} aplicado.</p>
+        <p className="mb-4 text-xs text-gold-text">Cupom {coupon.code} aplicado.</p>
       )}
 
       <div className="flex flex-col gap-2 text-sm">

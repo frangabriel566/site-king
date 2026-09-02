@@ -12,7 +12,7 @@ export type FeaturedBannerProduct = Pick<
   "id" | "slug" | "name" | "description" | "price" | "compare_at_price"
 >;
 
-export async function getActiveBanner(): Promise<Banner | null> {
+export async function getActiveBanners(): Promise<Banner[]> {
   return safeQuery(async () => {
     const supabase = createPublicClient();
     const { data } = await supabase
@@ -21,12 +21,10 @@ export async function getActiveBanner(): Promise<Banner | null> {
         "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
       )
       .eq("active", true)
-      .order("position", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order("position", { ascending: true });
 
-    return data as Banner | null;
-  }, null);
+    return (data as Banner[] | null) ?? [];
+  }, []);
 }
 
 /** Admin listing — all rows regardless of `active`, session-scoped RLS. */

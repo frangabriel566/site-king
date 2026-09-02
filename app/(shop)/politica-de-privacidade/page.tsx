@@ -12,14 +12,16 @@ export default async function PrivacyPolicyPage() {
   return (
     <div className="px-8 py-20 md:px-12">
       <div className="mx-auto max-w-2xl">
-        <p className="text-label mb-6">Institucional</p>
-        <h1 className="text-heading mb-12 text-4xl sm:text-5xl">
+        <p className="mb-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Institucional
+        </p>
+        <h1 className="mb-12 text-2xl font-bold text-fg md:text-3xl">
           Política de privacidade
         </h1>
 
         <div className="flex flex-col gap-10 text-sm leading-relaxed text-ink-muted">
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Dados que coletamos</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Dados que coletamos</h2>
             <p>
               Coletamos os dados que você fornece ao criar uma conta ou
               fazer um pedido — nome, e-mail, telefone, data de
@@ -29,7 +31,7 @@ export default async function PrivacyPolicyPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Como usamos</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Como usamos</h2>
             <p>
               Seus dados são usados para processar pedidos, calcular
               frete, enviar atualizações sobre o status da compra e,
@@ -38,7 +40,7 @@ export default async function PrivacyPolicyPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Cookies</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Cookies</h2>
             <p>
               Usamos cookies essenciais para o funcionamento da sacola e
               da sessão de login, e cookies analíticos para entender o
@@ -47,7 +49,7 @@ export default async function PrivacyPolicyPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Seus direitos</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Seus direitos</h2>
             <p>
               Você pode solicitar acesso, correção ou exclusão dos seus
               dados pessoais a qualquer momento, conforme a Lei Geral de
@@ -56,7 +58,7 @@ export default async function PrivacyPolicyPage() {
           </section>
           {settings.email && (
             <section>
-              <h2 className="text-heading mb-3 text-lg text-fg">Contato</h2>
+              <h2 className="mb-3 text-lg font-bold text-fg">Contato</h2>
               <p>Para questões sobre privacidade, escreva para {settings.email}.</p>
             </section>
           )}

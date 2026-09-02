@@ -8,7 +8,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="px-8 py-12 md:px-12">
-      <h1 className="text-heading mb-10 text-4xl">Checkout</h1>
+      <h1 className="mb-10 text-2xl font-bold text-fg md:text-3xl">Checkout</h1>
       <CheckoutWizard paymentProvider={paymentProvider} />
     </div>
   );

@@ -30,18 +30,18 @@ export function PaginationBar({
       className="mt-16 flex items-center justify-center gap-6"
     >
       {page > 1 && (
-        <Link href={buildHref(searchParams, page - 1)} className="text-label !text-fg hover:!text-gold">
+        <Link href={buildHref(searchParams, page - 1)} className="text-sm font-medium text-fg hover:text-gold-text">
           ← Anterior
         </Link>
       )}
-      <ul className="flex items-center gap-3">
+      <ul className="flex items-center gap-2">
         {pages.map((p) => (
           <li key={p}>
             <Link
               href={buildHref(searchParams, p)}
               aria-current={p === page ? "page" : undefined}
-              className={`flex size-8 items-center justify-center text-xs ${
-                p === page ? "bg-fg text-bg" : "text-ink-muted hover:text-fg"
+              className={`flex size-8 items-center justify-center rounded-md text-sm ${
+                p === page ? "bg-cta text-white" : "text-muted-foreground hover:text-fg"
               }`}
             >
               {p}
@@ -50,7 +50,7 @@ export function PaginationBar({
         ))}
       </ul>
       {page < totalPages && (
-        <Link href={buildHref(searchParams, page + 1)} className="text-label !text-fg hover:!text-gold">
+        <Link href={buildHref(searchParams, page + 1)} className="text-sm font-medium text-fg hover:text-gold-text">
           Próxima →
         </Link>
       )}

@@ -8,8 +8,6 @@ const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 // they're still valid Postgres `uuid` column values — z.uuid() rejected
 // them outright.
 
-const measurementField = z.coerce.number().positive().optional().nullable();
-
 export const productVariantSchema = z.object({
   id: z.guid().optional(),
   color: z.string().trim().min(1, "Cor obrigatória").max(60),
@@ -24,13 +22,10 @@ export const productVariantSchema = z.object({
   // see components/admin/variant-editor.tsx.
   sku: z.string().trim().min(1, "SKU obrigatório").max(80),
   stock: z.coerce.number().int().min(0, "Estoque não pode ser negativo").default(0),
-  // Logistics — optional at save time, required to publish (see
-  // publishableProductSchema below). Weight varies by size, so it lives
-  // per-variant rather than on the product itself.
-  weight_grams: z.coerce.number().int().positive().optional().nullable(),
-  length_cm: measurementField,
-  width_cm: measurementField,
-  height_cm: measurementField,
+  // Photo for this specific color — same URL repeated across every size
+  // row of that color (colors aren't a first-class table, just a shared
+  // value across variant rows).
+  image_url: z.url().optional().or(z.literal("")),
 });
 
 export const productImageSchema = z.object({
@@ -49,12 +44,23 @@ export const productSchema = z
       .min(2, "Slug muito curto")
       .max(160)
       .regex(slugRegex, "Use apenas letras minúsculas, números e hífen"),
+    short_description: z.string().trim().max(300).optional().or(z.literal("")),
     description: z.string().trim().max(4000).optional().or(z.literal("")),
+    video_url: z.url("URL de vídeo inválida").optional().or(z.literal("")),
+    tags: z.array(z.string().trim().min(1).max(40)).default([]),
+    collection: z.string().trim().max(80).optional().or(z.literal("")),
+    shipping_note: z.string().trim().max(300).optional().or(z.literal("")),
+    exchange_info: z.string().trim().max(500).optional().or(z.literal("")),
+    care_instructions: z.string().trim().max(500).optional().or(z.literal("")),
     // A draft can be saved with no price yet — 0 is the placeholder until
     // it's set. Publishing requires a real price (publishableProductSchema).
     price: z.coerce.number().min(0, "Preço não pode ser negativo").default(0),
     compare_at_price: z.coerce.number().positive().optional().nullable(),
     category_id: z.guid().optional().nullable(),
+    brand_id: z.guid().optional().nullable(),
+    manufacturer_ref: z.string().trim().max(80).optional().or(z.literal("")),
+    attributes: z.record(z.string(), z.string()).optional().nullable(),
+    badge: z.enum(["lancamento", "oferta", "mais_vendido"]).optional().nullable(),
     status: z.enum(["draft", "active", "archived"]).default("draft"),
     featured: z.boolean().default(false),
     position: z.coerce.number().int().min(0).default(0),
@@ -107,7 +113,7 @@ export const publishableProductSchema = productSchema.superRefine((data, ctx) =>
     ctx.addIssue({
       code: "custom",
       path: ["description"],
-      message: "Descrição precisa de pelo menos 30 caracteres",
+      message: "Descrição completa precisa de pelo menos 30 caracteres",
     });
   }
   if (data.images.length === 0) {
@@ -121,27 +127,14 @@ export const publishableProductSchema = productSchema.superRefine((data, ctx) =>
     ctx.addIssue({
       code: "custom",
       path: ["variants"],
-      message: "Adicione ao menos 1 variação",
+      message: "Adicione ao menos 1 variação (ou marque como produto sem variações)",
     });
-  } else {
-    if (data.variants.some((v) => !v.color.trim() || !v.size.trim() || !v.sku.trim())) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["variants"],
-        message: "Toda variação precisa de cor, tamanho e SKU preenchidos",
-      });
-    }
-    if (
-      data.variants.some(
-        (v) => !v.weight_grams || !v.length_cm || !v.width_cm || !v.height_cm,
-      )
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["variants"],
-        message: "Preencha peso e dimensões de todas as variações",
-      });
-    }
+  } else if (data.variants.some((v) => !v.color.trim() || !v.size.trim() || !v.sku.trim())) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["variants"],
+      message: "Toda variação precisa de cor, tamanho e SKU preenchidos",
+    });
   }
 });
 

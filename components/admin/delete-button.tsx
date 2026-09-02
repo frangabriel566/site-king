@@ -19,10 +19,12 @@ import { Button } from "@/components/ui/button";
 export function DeleteButton({
   action,
   itemLabel,
+  description,
   onDeleted,
 }: {
   action: () => Promise<{ ok: boolean; message?: string }>;
   itemLabel: string;
+  description?: string;
   onDeleted?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -52,7 +54,7 @@ export function DeleteButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir {itemLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação não pode ser desfeita.
+            {description ?? "Esta ação não pode ser desfeita."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

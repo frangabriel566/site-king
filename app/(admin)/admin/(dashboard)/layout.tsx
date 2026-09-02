@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminSidebar } from "@/components/admin/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function AdminDashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default async function AdminDashboardLayout({
       <main className="min-w-0 flex-1 overflow-x-hidden px-8 py-8 md:px-10">
         {children}
       </main>
+      <Toaster position="bottom-right" />
     </div>
   );
 }

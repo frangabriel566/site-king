@@ -1,8 +1,19 @@
+import { isSimpleVariant } from "@/lib/constants";
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
   }).format(value);
+}
+
+/** Fixed 3x-no-interest convention — there's no per-product/store
+ *  installment config in the schema, so this is a single sitewide rule
+ *  used everywhere a price is shown (card, product page). */
+export const MAX_INSTALLMENTS = 3;
+
+export function formatInstallments(price: number, installments = MAX_INSTALLMENTS): string {
+  return `ou ${installments}x de ${formatCurrency(price / installments)} sem juros`;
 }
 
 export function formatDate(value: string | Date): string {
@@ -49,6 +60,19 @@ export function formatPhone(value: string): string {
   if (digits.length <= 10)
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+/** "Cor · Tamanho" for display — null for a "produto sem variações" item
+ *  (stored under the sentinel color/size from lib/constants), since there's
+ *  nothing meaningful to show the shopper for those. */
+export function formatVariantLabel(
+  color: string | null | undefined,
+  size: string | null | undefined,
+): string | null {
+  if (isSimpleVariant(color ?? "", size ?? "")) return null;
+  if (!color) return size || null;
+  if (!size) return color;
+  return `${color} · ${size}`;
 }
 
 export function formatCep(value: string): string {

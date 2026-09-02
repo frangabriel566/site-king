@@ -14,6 +14,7 @@ export type Json =
   | Json[];
 
 export type ProductStatus = "draft" | "active" | "archived";
+export type ProductBadge = "lancamento" | "oferta" | "mais_vendido";
 export type ProfileRole = "customer" | "admin";
 export type OrderStatus =
   | "pending"
@@ -81,9 +82,20 @@ export interface Database {
           slug: string;
           name: string;
           description: string | null;
+          short_description: string | null;
+          video_url: string | null;
+          tags: string[] | null;
+          collection: string | null;
+          shipping_note: string | null;
+          exchange_info: string | null;
+          care_instructions: string | null;
           price: number;
           compare_at_price: number | null;
           category_id: string | null;
+          brand_id: string | null;
+          manufacturer_ref: string | null;
+          attributes: Json | null;
+          badge: ProductBadge | null;
           status: ProductStatus;
           featured: boolean;
           position: number;
@@ -95,9 +107,20 @@ export interface Database {
           slug: string;
           name: string;
           description?: string | null;
+          short_description?: string | null;
+          video_url?: string | null;
+          tags?: string[] | null;
+          collection?: string | null;
+          shipping_note?: string | null;
+          exchange_info?: string | null;
+          care_instructions?: string | null;
           price: number;
           compare_at_price?: number | null;
           category_id?: string | null;
+          brand_id?: string | null;
+          manufacturer_ref?: string | null;
+          attributes?: Json | null;
+          badge?: ProductBadge | null;
           status?: ProductStatus;
           featured?: boolean;
           position?: number;
@@ -109,9 +132,20 @@ export interface Database {
           slug?: string;
           name?: string;
           description?: string | null;
+          short_description?: string | null;
+          video_url?: string | null;
+          tags?: string[] | null;
+          collection?: string | null;
+          shipping_note?: string | null;
+          exchange_info?: string | null;
+          care_instructions?: string | null;
           price?: number;
           compare_at_price?: number | null;
           category_id?: string | null;
+          brand_id?: string | null;
+          manufacturer_ref?: string | null;
+          attributes?: Json | null;
+          badge?: ProductBadge | null;
           status?: ProductStatus;
           featured?: boolean;
           position?: number;
@@ -125,7 +159,46 @@ export interface Database {
             referencedRelation: "categories";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "products_brand_id_fkey";
+            columns: ["brand_id"];
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
         ];
+      };
+      brands: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          logo_url: string | null;
+          description: string | null;
+          position: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          logo_url?: string | null;
+          description?: string | null;
+          position?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          logo_url?: string | null;
+          description?: string | null;
+          position?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       product_images: {
         Row: {
@@ -167,6 +240,7 @@ export interface Database {
           size: string;
           sku: string | null;
           stock: number;
+          image_url: string | null;
           weight_grams: number | null;
           length_cm: number | null;
           width_cm: number | null;
@@ -180,6 +254,7 @@ export interface Database {
           size: string;
           sku?: string | null;
           stock?: number;
+          image_url?: string | null;
           weight_grams?: number | null;
           length_cm?: number | null;
           width_cm?: number | null;
@@ -193,6 +268,7 @@ export interface Database {
           size?: string;
           sku?: string | null;
           stock?: number;
+          image_url?: string | null;
           weight_grams?: number | null;
           length_cm?: number | null;
           width_cm?: number | null;

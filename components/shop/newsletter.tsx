@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 
 const initialState: NewsletterState = { status: "idle" };
 
-export function Newsletter() {
+export function Newsletter({ variant = "light" }: { variant?: "light" | "dark" }) {
   const [state, formAction, pending] = useActionState(
     subscribeNewsletterAction,
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const dark = variant === "dark";
 
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();
@@ -24,7 +25,10 @@ export function Newsletter() {
       className="flex flex-col gap-4 sm:flex-row sm:items-end"
     >
       <div className="flex-1">
-        <label htmlFor="newsletter-email" className="text-label mb-2 block">
+        <label
+          htmlFor="newsletter-email"
+          className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${dark ? "text-bg/60" : "text-muted-foreground"}`}
+        >
           Newsletter
         </label>
         <input
@@ -33,7 +37,11 @@ export function Newsletter() {
           type="email"
           required
           placeholder="seu@email.com"
-          className="w-full border-b border-line bg-transparent py-3 text-sm text-fg outline-none placeholder:text-ink-muted focus:border-gold"
+          className={`w-full border-b py-3 text-sm outline-none focus:border-gold ${
+            dark
+              ? "border-white/20 bg-transparent text-bg placeholder:text-bg/40"
+              : "border-line bg-transparent text-fg placeholder:text-muted-foreground"
+          }`}
         />
       </div>
       <Button type="submit" size="xl" disabled={pending}>
@@ -45,11 +53,13 @@ export function Newsletter() {
       </p>
       {state.status !== "idle" && (
         <p
-          className={
+          className={`text-xs ${
             state.status === "success"
-              ? "text-xs text-ink-muted"
-              : "text-xs text-[var(--danger)]"
-          }
+              ? dark
+                ? "text-bg/60"
+                : "text-muted-foreground"
+              : "text-alert"
+          }`}
         >
           {state.message}
         </p>

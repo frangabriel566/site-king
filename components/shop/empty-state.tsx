@@ -12,9 +12,9 @@ export function EmptyState({
   actionHref?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 border border-line px-8 py-24 text-center">
-      <p className="text-heading text-2xl">{title}</p>
-      {description && <p className="max-w-sm text-sm text-ink-muted">{description}</p>}
+    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-line bg-surface px-8 py-24 text-center">
+      <p className="text-xl font-bold text-fg">{title}</p>
+      {description && <p className="max-w-sm text-sm text-muted-foreground">{description}</p>}
       {actionLabel && actionHref && (
         <Link href={actionHref} className="link-arrow mt-4">
           {actionLabel} →

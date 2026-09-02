@@ -23,7 +23,7 @@ export function AddressFields({
   idPrefix = "address",
 }: {
   value: AddressFieldsValue;
-  onChange: (value: AddressFieldsValue) => void;
+  onChange: (value: AddressFieldsValue | ((prev: AddressFieldsValue) => AddressFieldsValue)) => void;
   idPrefix?: string;
 }) {
   const [pending, startTransition] = useTransition();
@@ -40,13 +40,19 @@ export function AddressFields({
     startTransition(async () => {
       const result = await lookupCepAction(digits);
       if (result.ok) {
-        onChange({
-          ...value,
-          street: result.street || value.street,
-          district: result.district || value.district,
-          city: result.city || value.city,
-          state: result.state || value.state,
-        });
+        // Functional update — the CEP lookup is async and this closure's
+        // `value` is a snapshot from the moment the field lost focus. By
+        // the time the response lands, the shopper may have already typed
+        // the house number; merging onto the *current* state (via the
+        // updater form) instead of that stale snapshot keeps it from being
+        // silently wiped back to empty.
+        onChange((prev) => ({
+          ...prev,
+          street: result.street || prev.street,
+          district: result.district || prev.district,
+          city: result.city || prev.city,
+          state: result.state || prev.state,
+        }));
       } else {
         setCepError(result.message);
       }
@@ -66,13 +72,12 @@ export function AddressFields({
             onChange={(e) => update("cep", formatCep(e.target.value))}
             onBlur={handleCepBlur}
             placeholder="00000-000"
-            className="rounded-none"
           />
           {pending && (
             <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-ink-muted" />
           )}
         </div>
-        {cepError && <p className="text-xs text-[var(--danger)]">{cepError}</p>}
+        {cepError && <p className="text-xs text-alert">{cepError}</p>}
       </div>
       <div className="flex flex-col gap-2 sm:col-span-2">
         <Label htmlFor={`${idPrefix}-street`}>Endereço</Label>
@@ -82,7 +87,6 @@ export function AddressFields({
           required
           value={value.street}
           onChange={(e) => update("street", e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -93,7 +97,6 @@ export function AddressFields({
           required
           value={value.number}
           onChange={(e) => update("number", e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -103,7 +106,6 @@ export function AddressFields({
           name="complement"
           value={value.complement}
           onChange={(e) => update("complement", e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -114,7 +116,6 @@ export function AddressFields({
           required
           value={value.district}
           onChange={(e) => update("district", e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -125,7 +126,6 @@ export function AddressFields({
           required
           value={value.city}
           onChange={(e) => update("city", e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -137,7 +137,6 @@ export function AddressFields({
           maxLength={2}
           value={value.state}
           onChange={(e) => update("state", e.target.value.toUpperCase())}
-          className="rounded-none"
         />
       </div>
     </div>

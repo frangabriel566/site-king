@@ -123,7 +123,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
           {([1, 2, 3, 4] as Step[]).map((s) => (
             <li key={s} className="flex items-center gap-2">
               <span
-                className={`flex size-7 items-center justify-center border text-xs ${
+                className={`flex size-7 items-center justify-center rounded-full border text-xs ${
                   s === step
                     ? "border-fg bg-fg text-bg"
                     : s < step
@@ -133,7 +133,11 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
               >
                 {s}
               </span>
-              <span className={`text-label ${s === step ? "!text-fg" : ""}`}>
+              <span
+                className={`text-xs font-semibold uppercase tracking-wide ${
+                  s === step ? "text-fg" : "text-muted-foreground"
+                }`}
+              >
                 {STEP_LABELS[s]}
               </span>
             </li>
@@ -148,7 +152,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
 
         {step === 1 && (
           <div>
-            <h2 className="text-heading mb-6 text-2xl">Seus dados</h2>
+            <h2 className="mb-6 text-xl font-bold text-fg">Seus dados</h2>
             {loadingContext ? (
               <p className="text-sm text-ink-muted">Carregando…</p>
             ) : (
@@ -173,7 +177,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
 
         {step === 2 && (
           <div>
-            <h2 className="text-heading mb-6 text-2xl">Endereço de entrega</h2>
+            <h2 className="mb-6 text-xl font-bold text-fg">Endereço de entrega</h2>
             <AddressFields value={address} onChange={setAddress} idPrefix="checkout" />
             <div className="mt-8 flex gap-3">
               <Button variant="outline" size="lg" onClick={() => setStep(1)}>
@@ -192,7 +196,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
 
         {step === 3 && (
           <div>
-            <h2 className="text-heading mb-6 text-2xl">Frete</h2>
+            <h2 className="mb-6 text-xl font-bold text-fg">Frete</h2>
             <div className="flex flex-col gap-3">
               {(Object.keys(SHIPPING_METHODS) as ShippingMethod[]).map((method) => {
                 const info = SHIPPING_METHODS[method];
@@ -200,7 +204,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
                 return (
                   <label
                     key={method}
-                    className={`flex cursor-pointer items-center justify-between border p-4 text-sm transition-colors duration-150 ease-out ${
+                    className={`flex cursor-pointer items-center justify-between rounded-lg border p-4 text-sm transition-colors duration-150 ease-out ${
                       shippingMethod === method ? "border-fg" : "border-line hover:border-ink-muted"
                     }`}
                   >
@@ -210,7 +214,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
                         name="shipping"
                         checked={shippingMethod === method}
                         onChange={() => setShippingMethod(method)}
-                        className="accent-white"
+                        className="accent-fg"
                       />
                       <span>
                         {info.label}
@@ -235,7 +239,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
 
         {step === 4 && (
           <div>
-            <h2 className="text-heading mb-6 text-2xl">Pagamento</h2>
+            <h2 className="mb-6 text-xl font-bold text-fg">Pagamento</h2>
             <p className="max-w-sm text-sm text-ink-muted">
               {paymentProvider === "whatsapp"
                 ? "Ao confirmar, você será direcionado ao WhatsApp para concluir o pagamento com a King Store."

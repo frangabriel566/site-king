@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FocusEvent } from "react";
+import Image from "next/image";
 import { Plus, Trash2, Wand2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { ImageUploader } from "@/components/admin/image-uploader";
 import { slugify } from "@/lib/format";
 
 export type VariantDraft = {
@@ -17,33 +19,11 @@ export type VariantDraft = {
    * auto-generator then leaves it alone. */
   skuManual: boolean;
   stock: number;
-  weight_grams: number | null;
-  length_cm: number | null;
-  width_cm: number | null;
-  height_cm: number | null;
+  image_url: string;
 };
 
-export type StandardMeasurements = {
-  weight_grams: number | null;
-  length_cm: number | null;
-  width_cm: number | null;
-  height_cm: number | null;
-};
-
-const SIZE_PRESETS = {
-  numeric: {
-    label: "Numérico (36–44)",
-    sizes: ["36", "37", "38", "39", "40", "41", "42", "43", "44"],
-  },
-  letters: {
-    label: "Letras (PP–XGG)",
-    sizes: ["PP", "P", "M", "G", "GG", "XGG"],
-  },
-  single: {
-    label: "Único",
-    sizes: ["U"],
-  },
-} as const;
+const LETTER_SIZES = ["P", "M", "G", "GG", "XG"];
+const NUMERIC_SIZES = ["34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44"];
 
 function newClientId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -63,6 +43,14 @@ function withUniqueSuffix(base: string, clientId: string, taken: Set<string>): s
   return `${base}-${suffix}`;
 }
 
+/** Selects the field's full text on focus so typing a new number always
+ * replaces it — without this, a plain number input inserts at the cursor,
+ * so retyping over a stale value silently produces garbage (e.g. typing
+ * "8" into a field still showing "10" can yield "108" or "1080", not 8). */
+function selectOnFocus(e: FocusEvent<HTMLInputElement>) {
+  e.target.select();
+}
+
 function autoSku(
   row: Pick<VariantDraft, "clientId" | "color" | "size">,
   productSlug: string,
@@ -72,7 +60,7 @@ function autoSku(
   return withUniqueSuffix(base, row.clientId, siblingSkus);
 }
 
-export function makeEmptyVariant(defaults: StandardMeasurements): VariantDraft {
+export function makeEmptyVariant(): VariantDraft {
   return {
     clientId: newClientId(),
     color: "",
@@ -81,7 +69,7 @@ export function makeEmptyVariant(defaults: StandardMeasurements): VariantDraft {
     sku: "",
     skuManual: false,
     stock: 0,
-    ...defaults,
+    image_url: "",
   };
 }
 
@@ -89,19 +77,20 @@ export function VariantEditor({
   productSlug,
   variants,
   onChange,
-  standardMeasurements,
 }: {
   productSlug: string;
   variants: VariantDraft[];
   onChange: (variants: VariantDraft[]) => void;
-  standardMeasurements: StandardMeasurements;
 }) {
   const [genColor, setGenColor] = useState("");
   const [genHex, setGenHex] = useState("#0A0A0A");
-  const [activePreset, setActivePreset] = useState<keyof typeof SIZE_PRESETS | null>(null);
+  const [genImageUrl, setGenImageUrl] = useState<string | null>(null);
+  const [sizeMode, setSizeMode] = useState<"letter" | "numeric">("letter");
   const [genSizes, setGenSizes] = useState<string[]>([]);
   const [genStock, setGenStock] = useState(0);
   const [bulkStockValue, setBulkStockValue] = useState(0);
+
+  const sizeOptions = sizeMode === "letter" ? LETTER_SIZES : NUMERIC_SIZES;
 
   const groups = useMemo(() => {
     const map = new Map<string, VariantDraft[]>();
@@ -149,17 +138,16 @@ export function VariantEditor({
     onChange(variants.filter((v) => v.color !== color));
   }
 
+  function setColorPhoto(color: string, url: string) {
+    onChange(variants.map((v) => (v.color === color ? { ...v, image_url: url } : v)));
+  }
+
   function addBlankRow() {
-    onChange([...variants, makeEmptyVariant(standardMeasurements)]);
+    onChange([...variants, makeEmptyVariant()]);
   }
 
   function applyBulkStock() {
     onChange(variants.map((v) => ({ ...v, stock: bulkStockValue })));
-  }
-
-  function togglePreset(key: keyof typeof SIZE_PRESETS) {
-    setActivePreset(key);
-    setGenSizes([...SIZE_PRESETS[key].sizes]);
   }
 
   function toggleSize(size: string) {
@@ -190,24 +178,24 @@ export function VariantEditor({
         sku: autoSku({ clientId, color: genColor, size }, productSlug, taken),
         skuManual: false,
         stock: genStock,
-        ...standardMeasurements,
+        image_url: genImageUrl ?? "",
       });
     }
 
     if (created.length > 0) onChange([...variants, ...created]);
 
     setGenColor("");
-    setActivePreset(null);
+    setGenImageUrl(null);
     setGenSizes([]);
+    setGenStock(0);
   }
 
   return (
-    <div id="field-variants" className="scroll-mt-24">
-      <p className="text-label mb-3">Gerar variações</p>
+    <div>
       <div className="mb-8 flex flex-col gap-4 border border-dashed border-line p-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_auto]">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="gen-color">Cor</Label>
+            <Label htmlFor="gen-color">Nome da cor</Label>
             <Input
               id="gen-color"
               value={genColor}
@@ -217,7 +205,7 @@ export function VariantEditor({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="gen-hex">Hex</Label>
+            <Label htmlFor="gen-hex">Código hex</Label>
             <div className="flex items-center gap-2">
               <input
                 id="gen-hex-picker"
@@ -243,45 +231,53 @@ export function VariantEditor({
               min={0}
               value={genStock}
               onChange={(e) => setGenStock(Number(e.target.value) || 0)}
+              onFocus={selectOnFocus}
               className="w-28 rounded-none"
             />
           </div>
         </div>
 
+        <div className="max-w-40">
+          <ImageUploader
+            label="Foto desta cor (opcional)"
+            value={genImageUrl}
+            onChange={setGenImageUrl}
+            folder="products"
+            aspect="aspect-square"
+          />
+        </div>
+
         <div>
-          <p className="text-label mb-2">Tamanhos</p>
-          <div className="mb-2 flex flex-wrap gap-2">
-            {(Object.keys(SIZE_PRESETS) as (keyof typeof SIZE_PRESETS)[]).map((key) => (
-              <Button
-                key={key}
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-label">Tamanhos disponíveis</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSizeMode((m) => (m === "letter" ? "numeric" : "letter"));
+                setGenSizes([]);
+              }}
+              className="text-xs text-ink-muted underline underline-offset-4 hover:text-fg"
+            >
+              {sizeMode === "letter" ? "Usar numeração (calçados)" : "Usar letras (P–XG)"}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {sizeOptions.map((size) => (
+              <button
+                key={size}
                 type="button"
-                variant={activePreset === key ? "default" : "outline"}
-                size="sm"
-                onClick={() => togglePreset(key)}
+                onClick={() => toggleSize(size)}
+                aria-pressed={genSizes.includes(size)}
+                className={`flex h-10 min-w-10 items-center justify-center border px-2 text-sm font-medium uppercase transition-colors duration-150 ease-out ${
+                  genSizes.includes(size)
+                    ? "border-fg bg-fg text-bg"
+                    : "border-line text-ink-muted hover:border-ink-muted"
+                }`}
               >
-                {SIZE_PRESETS[key].label}
-              </Button>
+                {size}
+              </button>
             ))}
           </div>
-          {activePreset && (
-            <div className="flex flex-wrap gap-2">
-              {SIZE_PRESETS[activePreset].sizes.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => toggleSize(size)}
-                  aria-pressed={genSizes.includes(size)}
-                  className={`h-8 min-w-9 border px-2 text-xs uppercase transition-colors duration-150 ease-out ${
-                    genSizes.includes(size)
-                      ? "border-fg bg-fg text-bg"
-                      : "border-line text-ink-muted hover:border-ink-muted"
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <Button
@@ -299,7 +295,7 @@ export function VariantEditor({
       </div>
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-        <p className="text-label">Variações cadastradas</p>
+        <p className="text-label">Estoque por variação</p>
         <div className="flex items-end gap-2">
           <div className="flex flex-col gap-1">
             <Label htmlFor="bulk-stock" className="text-[10px]">
@@ -311,6 +307,7 @@ export function VariantEditor({
               min={0}
               value={bulkStockValue}
               onChange={(e) => setBulkStockValue(Number(e.target.value) || 0)}
+              onFocus={selectOnFocus}
               className="w-24 rounded-none"
             />
           </div>
@@ -337,8 +334,8 @@ export function VariantEditor({
               key={color}
               className={`border ${!color ? "border-[var(--danger)]" : "border-line"}`}
             >
-              <div className="flex items-center justify-between border-b border-line bg-[#111111] px-4 py-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-[#111111] px-4 py-2">
+                <div className="flex items-center gap-3">
                   <span
                     className="size-4 rounded-full border border-line"
                     style={{ backgroundColor: rows[0]?.color_hex || "#8A8A8A" }}
@@ -361,16 +358,12 @@ export function VariantEditor({
                 </Button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[820px] border-collapse text-sm">
+                <table className="w-full min-w-[480px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-line text-label">
                       <th className="p-3 text-left">Tamanho</th>
                       <th className="p-3 text-left">SKU</th>
                       <th className="p-3 text-left">Estoque</th>
-                      <th className="p-3 text-left">Peso (g)</th>
-                      <th className="p-3 text-left">C (cm)</th>
-                      <th className="p-3 text-left">L (cm)</th>
-                      <th className="p-3 text-left">A (cm)</th>
                       <th className="p-3" />
                     </tr>
                   </thead>
@@ -406,66 +399,8 @@ export function VariantEditor({
                             onChange={(e) =>
                               updateRow(variant.clientId, { stock: Number(e.target.value) || 0 })
                             }
+                            onFocus={selectOnFocus}
                             aria-label="Estoque"
-                            className="w-20 rounded-none"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            value={variant.weight_grams ?? ""}
-                            onChange={(e) =>
-                              updateRow(variant.clientId, {
-                                weight_grams: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                            aria-label="Peso em gramas"
-                            className="w-24 rounded-none"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={variant.length_cm ?? ""}
-                            onChange={(e) =>
-                              updateRow(variant.clientId, {
-                                length_cm: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                            aria-label="Comprimento em centímetros"
-                            className="w-20 rounded-none"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={variant.width_cm ?? ""}
-                            onChange={(e) =>
-                              updateRow(variant.clientId, {
-                                width_cm: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                            aria-label="Largura em centímetros"
-                            className="w-20 rounded-none"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.1"
-                            value={variant.height_cm ?? ""}
-                            onChange={(e) =>
-                              updateRow(variant.clientId, {
-                                height_cm: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                            aria-label="Altura em centímetros"
                             className="w-20 rounded-none"
                           />
                         </td>
@@ -485,7 +420,7 @@ export function VariantEditor({
                   </tbody>
                 </table>
               </div>
-              {/* Cor / hex editable at the group level too, for quick fixes */}
+              {/* Cor / hex / foto editáveis no nível do grupo, para ajustes rápidos */}
               <div className="flex flex-wrap items-center gap-4 border-t border-line px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Label htmlFor={`color-${color}`} className="text-[10px]">
@@ -533,6 +468,29 @@ export function VariantEditor({
                     className="size-8 shrink-0 border border-line bg-transparent"
                     aria-label={`Cor (hex) de ${color}`}
                   />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[10px]">Foto da cor</Label>
+                  {rows[0]?.image_url ? (
+                    <div className="flex items-center gap-2">
+                      <Image
+                        src={rows[0].image_url}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="size-8 rounded-sm border border-line object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setColorPhoto(color, "")}
+                        className="text-[10px] text-ink-muted underline underline-offset-4 hover:text-fg"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-ink-muted">Nenhuma</span>
+                  )}
                 </div>
               </div>
             </div>

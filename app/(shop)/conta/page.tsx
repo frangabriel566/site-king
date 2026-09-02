@@ -18,7 +18,7 @@ export default async function AccountPage() {
     return (
       <div className="px-8 py-16 md:px-12">
         <div className="mx-auto max-w-sm">
-          <h1 className="text-heading mb-8 text-4xl">Minha conta</h1>
+          <h1 className="mb-8 text-2xl font-bold text-fg md:text-3xl">Minha conta</h1>
           <AuthTabs />
         </div>
       </div>
@@ -47,7 +47,7 @@ export default async function AccountPage() {
 
   return (
     <div className="px-8 py-16 md:px-12">
-      <h1 className="text-heading mb-10 text-4xl">Minha conta</h1>
+      <h1 className="mb-10 text-2xl font-bold text-fg md:text-3xl">Minha conta</h1>
       <AccountDashboard
         email={user.email ?? ""}
         customer={customer}

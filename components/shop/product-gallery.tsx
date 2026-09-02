@@ -1,20 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import useEmblaCarousel from "embla-carousel-react";
 import type { ProductImage } from "@/lib/data/products";
 
+type GalleryImage = Pick<ProductImage, "id" | "url" | "alt">;
+
 export function ProductGallery({
   images,
   productName,
+  activeColorImage,
 }: {
   images: ProductImage[];
   productName: string;
+  /** The selected color's own photo (product_variants.image_url), if the
+   * operator uploaded one — shown as the active slide so picking a color
+   * actually changes the photo instead of leaving the gallery untouched. */
+  activeColorImage?: string | null;
 }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
   const [selected, setSelected] = useState(0);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
+
+  // The color photo isn't part of product_images (it lives on the variant
+  // row instead), so it's merged in here rather than being a real gallery
+  // entry — inserted at the front, or just reused in place if the operator
+  // happened to upload the exact same file to both places.
+  const displayImages: GalleryImage[] = useMemo(() => {
+    if (!activeColorImage) return images;
+    if (images.some((img) => img.url === activeColorImage)) return images;
+    return [{ id: `color-photo-${activeColorImage}`, url: activeColorImage, alt: null }, ...images];
+  }, [images, activeColorImage]);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -24,16 +41,26 @@ export function ProductGallery({
   useEffect(() => {
     if (!emblaApi) return;
     emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
     onSelect();
     return () => {
       emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
     };
   }, [emblaApi, onSelect]);
 
-  if (images.length === 0) {
+  useEffect(() => {
+    if (!activeColorImage || !emblaApi) return;
+    const index = displayImages.findIndex((img) => img.url === activeColorImage);
+    if (index >= 0) emblaApi.scrollTo(index);
+  }, [activeColorImage, displayImages, emblaApi]);
+
+  if (displayImages.length === 0) {
     return (
-      <div className="flex aspect-[4/5] items-center justify-center bg-[#111111]">
-        <span className="text-label">Sem imagem</span>
+      <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-surface">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Sem imagem
+        </span>
       </div>
     );
   }
@@ -42,15 +69,15 @@ export function ProductGallery({
     <div>
       <div className="flex gap-4">
         <div className="hidden w-20 shrink-0 flex-col gap-3 md:flex">
-          {images.map((image, index) => (
+          {displayImages.map((image, index) => (
             <button
               key={image.id}
               type="button"
               onClick={() => emblaApi?.scrollTo(index)}
-              className={`relative aspect-[4/5] overflow-hidden border transition-colors duration-200 ease-out ${
+              className={`relative aspect-[4/5] overflow-hidden rounded-md border transition-colors duration-200 ease-out ${
                 selected === index ? "border-fg" : "border-line hover:border-ink-muted"
               }`}
-              aria-label={`Ver imagem ${index + 1} de ${images.length}`}
+              aria-label={`Ver imagem ${index + 1} de ${displayImages.length}`}
               aria-current={selected === index}
             >
               <Image
@@ -66,10 +93,10 @@ export function ProductGallery({
 
         <div className="min-w-0 flex-1 overflow-hidden" ref={emblaRef}>
           <div className="flex">
-            {images.map((image, index) => (
+            {displayImages.map((image, index) => (
               <div key={image.id} className="min-w-0 flex-[0_0_100%]">
                 <div
-                  className="relative aspect-[4/5] cursor-zoom-in overflow-hidden bg-[#111111]"
+                  className="relative aspect-[4/5] cursor-zoom-in overflow-hidden rounded-lg bg-surface"
                   onMouseMove={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     setZoom({
@@ -111,12 +138,12 @@ export function ProductGallery({
       </div>
 
       <div className="mt-4 flex justify-center gap-2 md:hidden">
-        {images.map((image, index) => (
+        {displayImages.map((image, index) => (
           <button
             key={image.id}
             type="button"
             onClick={() => emblaApi?.scrollTo(index)}
-            aria-label={`Ver imagem ${index + 1} de ${images.length}`}
+            aria-label={`Ver imagem ${index + 1} de ${displayImages.length}`}
             aria-current={selected === index}
             className={`size-1.5 rounded-full transition-colors duration-200 ease-out ${
               selected === index ? "bg-fg" : "bg-line"

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderForConfirmation } from "@/lib/data/orders";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -38,13 +38,13 @@ export default async function OrderConfirmationPage({
     <div className="px-8 py-16 md:px-12">
       <div className="mx-auto max-w-2xl">
         <p className="text-label mb-3">Pedido confirmado</p>
-        <h1 className="text-heading text-4xl">#{order.order_number}</h1>
+        <h1 className="text-2xl font-bold text-fg md:text-3xl">#{order.order_number}</h1>
         <p className="mt-3 text-sm text-ink-muted">
           {formatDateTime(order.created_at)} · {STATUS_LABEL[order.status] ?? order.status}
         </p>
 
         {order.status === "pending" && (
-          <p className="mt-6 border border-line bg-[#111111] p-4 text-sm text-ink-muted">
+          <p className="mt-6 rounded-md border border-line bg-surface p-4 text-sm text-muted-foreground">
             Assim que o pagamento for confirmado, você recebe um e-mail e o
             status deste pedido é atualizado automaticamente.
           </p>
@@ -58,7 +58,9 @@ export default async function OrderConfirmationPage({
                 <div>
                   <p>{item.name}</p>
                   <p className="text-xs text-ink-muted">
-                    {item.color} · {item.size} · Qtd. {item.qty}
+                    {[formatVariantLabel(item.color, item.size), `Qtd. ${item.qty}`]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
                 <span>{formatCurrency(item.unit_price * item.qty)}</span>
@@ -102,7 +104,10 @@ export default async function OrderConfirmationPage({
           </div>
         )}
 
-        <Link href="/colecao" className="link-arrow mt-12">
+        <Link
+          href="/colecao"
+          className="mt-12 inline-block text-sm font-medium text-gold-text hover:underline"
+        >
           Continuar comprando →
         </Link>
       </div>

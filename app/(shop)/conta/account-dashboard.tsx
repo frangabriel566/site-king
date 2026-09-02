@@ -33,10 +33,10 @@ export function AccountDashboard({
   return (
     <Tabs defaultValue="pedidos">
       <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <TabsList className="rounded-none">
-          <TabsTrigger value="pedidos" className="rounded-none">Pedidos</TabsTrigger>
-          <TabsTrigger value="enderecos" className="rounded-none">Endereços</TabsTrigger>
-          <TabsTrigger value="dados" className="rounded-none">Dados</TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
+          <TabsTrigger value="enderecos">Endereços</TabsTrigger>
+          <TabsTrigger value="dados">Dados</TabsTrigger>
         </TabsList>
         <form action={customerSignOutAction}>
           <Button type="submit" variant="outline" size="sm">
@@ -60,7 +60,10 @@ export function AccountDashboard({
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-sm">{formatCurrency(order.total)}</span>
-                  <Link href={`/pedido/${order.id}`} className="link-arrow">
+                  <Link
+                    href={`/pedido/${order.id}`}
+                    className="text-sm font-medium text-gold-text hover:underline"
+                  >
                     Ver →
                   </Link>
                 </div>

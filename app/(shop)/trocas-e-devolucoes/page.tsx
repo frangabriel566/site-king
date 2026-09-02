@@ -12,14 +12,16 @@ export default async function ExchangesPage() {
   return (
     <div className="px-8 py-20 md:px-12">
       <div className="mx-auto max-w-2xl">
-        <p className="text-label mb-6">Institucional</p>
-        <h1 className="text-heading mb-12 text-4xl sm:text-5xl">
+        <p className="mb-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Institucional
+        </p>
+        <h1 className="mb-12 text-2xl font-bold text-fg md:text-3xl">
           Trocas e devoluções
         </h1>
 
         <div className="flex flex-col gap-10 text-sm leading-relaxed text-ink-muted">
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Prazo</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Prazo</h2>
             <p>
               Você tem até 30 dias corridos após o recebimento do pedido
               para solicitar troca ou devolução, conforme o Código de
@@ -27,7 +29,7 @@ export default async function ExchangesPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Condições</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Condições</h2>
             <p>
               As peças devem ser devolvidas sem uso, com etiquetas
               originais e na embalagem original. Itens em promoção também
@@ -35,7 +37,7 @@ export default async function ExchangesPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Como solicitar</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Como solicitar</h2>
             <p>
               Entre em contato pelo WhatsApp ou e-mail informando o número
               do pedido. Nossa equipe envia as instruções de postagem e
@@ -44,7 +46,7 @@ export default async function ExchangesPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-heading mb-3 text-lg text-fg">Reembolso</h2>
+            <h2 className="mb-3 text-lg font-bold text-fg">Reembolso</h2>
             <p>
               Após recebermos e conferirmos a peça devolvida, o reembolso
               é processado em até 10 dias úteis, no mesmo método de
@@ -53,7 +55,7 @@ export default async function ExchangesPage() {
           </section>
           {(settings.whatsapp || settings.email) && (
             <section>
-              <h2 className="text-heading mb-3 text-lg text-fg">Contato</h2>
+              <h2 className="mb-3 text-lg font-bold text-fg">Contato</h2>
               <p>
                 {settings.email && <>E-mail: {settings.email}<br /></>}
                 {settings.whatsapp && <>WhatsApp: {settings.whatsapp}</>}

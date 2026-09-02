@@ -4,6 +4,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { updateProductAction } from "@/lib/actions/products";
 import { getProductByIdAdmin } from "@/lib/data/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
+import { getAllBrandsAdmin } from "@/lib/data/brands";
 
 export const metadata: Metadata = { title: "Editar produto — Painel" };
 
@@ -13,9 +14,10 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [product, categories] = await Promise.all([
+  const [product, categories, brands] = await Promise.all([
     getProductByIdAdmin(id),
     getAllCategoriesAdmin(),
+    getAllBrandsAdmin(),
   ]);
 
   if (!product) notFound();
@@ -27,6 +29,7 @@ export default async function EditProductPage({
       <ProductForm
         product={product}
         categories={categories}
+        brands={brands}
         action={updateProductAction.bind(null, product.id)}
       />
     </div>

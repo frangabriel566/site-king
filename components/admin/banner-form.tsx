@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ImageUploader } from "@/components/admin/image-uploader";
-import { Hero } from "@/components/shop/hero";
-import { CartProvider } from "@/lib/cart/context";
 import type { ActionResult } from "@/lib/actions/banners";
 import type { Banner } from "@/lib/data/banners";
 import type { ProductOption } from "@/lib/data/products";
-import type { SiteSettings } from "@/lib/data/settings";
 
 const initialState: ActionResult = { status: "idle" };
 const NONE = "__none__";
@@ -29,12 +27,10 @@ export function BannerForm({
   banner,
   action,
   productOptions,
-  settings,
 }: {
   banner?: Banner;
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   productOptions: ProductOption[];
-  settings: SiteSettings;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
@@ -63,11 +59,6 @@ export function BannerForm({
       savingRef.current = false;
     }
   }, [state]);
-
-  const selectedProduct = useMemo(
-    () => productOptions.find((p) => p.id === featuredProductId) ?? null,
-    [productOptions, featuredProductId],
-  );
 
   return (
     <div className="grid grid-cols-1 gap-10 xl:grid-cols-[420px_1fr]">
@@ -195,45 +186,34 @@ export function BannerForm({
       </form>
 
       <div>
-        <p className="text-label mb-3">Preview ao vivo</p>
-        <div
-          className="relative overflow-hidden border border-line"
-          style={{ height: 460 }}
-        >
-          <div
-            className="origin-top-left"
-            style={{ transform: "scale(0.42)", width: "238%" }}
-          >
-          <CartProvider>
-            <Hero
-              eyebrow={eyebrow || null}
-              headlineLine1={line1 || null}
-              headlineLine2={line2 || null}
-              wordmark={wordmark || null}
-              ctaLabel={ctaLabel || null}
-              ctaHref={ctaHref || null}
-              imageUrl={imageUrl}
-              cutoutUrl={cutoutUrl}
-              featuredProduct={
-                selectedProduct
-                  ? {
-                      slug: selectedProduct.slug,
-                      name: selectedProduct.name,
-                      description: selectedProduct.description,
-                      price: selectedProduct.price,
-                      cartItem: null,
-                    }
-                  : null
-              }
-              socialLinks={{
-                instagram: settings.instagram,
-                tiktok: settings.tiktok,
-                youtube: settings.youtube,
-              }}
-              shippingNote={settings.shipping_note}
-              freeShippingNote={settings.free_shipping_note}
-            />
-          </CartProvider>
+        <p className="text-label mb-3">Preview ao vivo (como aparece no carrossel da home)</p>
+        <div className="storefront-theme relative h-[300px] w-full overflow-hidden rounded-lg bg-surface">
+          {imageUrl && (
+            <Image src={imageUrl} alt="" fill sizes="600px" className="object-cover" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+            {eyebrow && (
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold">
+                {eyebrow}
+              </p>
+            )}
+            {(line1 || line2) && (
+              <p className="max-w-lg text-2xl font-bold leading-tight">
+                {line1}
+                {line2 && (
+                  <>
+                    <br />
+                    {line2}
+                  </>
+                )}
+              </p>
+            )}
+            {ctaLabel && (
+              <span className="mt-4 inline-block rounded-md bg-white px-5 py-2 text-sm font-semibold text-fg">
+                {ctaLabel}
+              </span>
+            )}
           </div>
         </div>
       </div>

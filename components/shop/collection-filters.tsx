@@ -4,8 +4,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { X, SlidersHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
+import { formatCurrency } from "@/lib/format";
 import type { Category } from "@/lib/data/categories";
+import type { Brand } from "@/lib/data/brands";
 import type { FilterOptions } from "@/lib/data/products";
 
 function toggleValue(current: string[], value: string): string[] {
@@ -16,10 +19,12 @@ function toggleValue(current: string[], value: string): string[] {
 
 export function CollectionFilters({
   categories,
+  brands,
   options,
   priceBounds,
 }: {
   categories: Category[];
+  brands: Brand[];
   options: FilterOptions;
   priceBounds: { min: number; max: number };
 }) {
@@ -28,13 +33,26 @@ export function CollectionFilters({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const activeCategory = searchParams.get("categoria") ?? "";
+  const activeBrand = searchParams.get("marca") ?? "";
   const activeSizes = (searchParams.get("tamanho") ?? "").split(",").filter(Boolean);
   const activeColors = (searchParams.get("cor") ?? "").split(",").filter(Boolean);
-  const priceMin = searchParams.get("preco_min") ?? "";
-  const priceMax = searchParams.get("preco_max") ?? "";
+  const onSale = searchParams.get("promocao") === "1";
+  const priceMin = searchParams.get("preco_min")
+    ? Number(searchParams.get("preco_min"))
+    : Math.floor(priceBounds.min);
+  const priceMax = searchParams.get("preco_max")
+    ? Number(searchParams.get("preco_max"))
+    : Math.ceil(priceBounds.max);
+  const [priceRange, setPriceRange] = useState<[number, number]>([priceMin, priceMax]);
 
   const hasActiveFilters =
-    activeCategory || activeSizes.length > 0 || activeColors.length > 0 || priceMin || priceMax;
+    activeCategory ||
+    activeBrand ||
+    activeSizes.length > 0 ||
+    activeColors.length > 0 ||
+    onSale ||
+    searchParams.get("preco_min") ||
+    searchParams.get("preco_max");
 
   function updateParams(mutate: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
@@ -47,6 +65,13 @@ export function CollectionFilters({
     updateParams((params) => {
       if (slug) params.set("categoria", slug);
       else params.delete("categoria");
+    });
+  }
+
+  function setBrand(slug: string) {
+    updateParams((params) => {
+      if (slug) params.set("marca", slug);
+      else params.delete("marca");
     });
   }
 
@@ -66,13 +91,18 @@ export function CollectionFilters({
     });
   }
 
-  function applyPrice(formData: FormData) {
-    const min = String(formData.get("preco_min") ?? "").trim();
-    const max = String(formData.get("preco_max") ?? "").trim();
+  function toggleOnSale(checked: boolean) {
     updateParams((params) => {
-      if (min) params.set("preco_min", min);
+      if (checked) params.set("promocao", "1");
+      else params.delete("promocao");
+    });
+  }
+
+  function applyPrice(range: [number, number]) {
+    updateParams((params) => {
+      if (range[0] > Math.floor(priceBounds.min)) params.set("preco_min", String(range[0]));
       else params.delete("preco_min");
-      if (max) params.set("preco_max", max);
+      if (range[1] < Math.ceil(priceBounds.max)) params.set("preco_max", String(range[1]));
       else params.delete("preco_max");
     });
   }
@@ -82,19 +112,21 @@ export function CollectionFilters({
   }
 
   const content = (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <div>
-        <p className="text-label mb-4">Categoria</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Categoria
+        </p>
         <ul className="flex flex-col gap-2">
           <li>
             <button
               type="button"
               onClick={() => setCategory("")}
-              className={`text-sm transition-colors duration-200 ease-out ${
-                !activeCategory ? "text-gold" : "text-ink-muted hover:text-fg"
+              className={`text-sm transition-colors duration-150 ease-out ${
+                !activeCategory ? "font-semibold text-gold-text" : "text-fg hover:text-gold-text"
               }`}
             >
-              Todos
+              Todas
             </button>
           </li>
           {categories.map((category) => (
@@ -102,10 +134,10 @@ export function CollectionFilters({
               <button
                 type="button"
                 onClick={() => setCategory(category.slug)}
-                className={`text-sm transition-colors duration-200 ease-out ${
+                className={`text-sm transition-colors duration-150 ease-out ${
                   activeCategory === category.slug
-                    ? "text-gold"
-                    : "text-ink-muted hover:text-fg"
+                    ? "font-semibold text-gold-text"
+                    : "text-fg hover:text-gold-text"
                 }`}
               >
                 {category.name}
@@ -115,9 +147,47 @@ export function CollectionFilters({
         </ul>
       </div>
 
+      {brands.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Marca
+          </p>
+          <ul className="flex flex-col gap-2">
+            <li>
+              <button
+                type="button"
+                onClick={() => setBrand("")}
+                className={`text-sm transition-colors duration-150 ease-out ${
+                  !activeBrand ? "font-semibold text-gold-text" : "text-fg hover:text-gold-text"
+                }`}
+              >
+                Todas
+              </button>
+            </li>
+            {brands.map((brand) => (
+              <li key={brand.id}>
+                <button
+                  type="button"
+                  onClick={() => setBrand(brand.slug)}
+                  className={`text-sm transition-colors duration-150 ease-out ${
+                    activeBrand === brand.slug
+                      ? "font-semibold text-gold-text"
+                      : "text-fg hover:text-gold-text"
+                  }`}
+                >
+                  {brand.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {options.sizes.length > 0 && (
         <div>
-          <p className="text-label mb-4">Tamanho</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Tamanho
+          </p>
           <div className="flex flex-wrap gap-2">
             {options.sizes.map((size) => (
               <button
@@ -125,10 +195,10 @@ export function CollectionFilters({
                 type="button"
                 onClick={() => toggleSize(size)}
                 aria-pressed={activeSizes.includes(size)}
-                className={`h-9 min-w-9 border px-3 text-xs uppercase transition-colors duration-200 ease-out ${
+                className={`h-9 min-w-9 rounded-md border px-3 text-xs font-medium uppercase transition-colors duration-150 ease-out ${
                   activeSizes.includes(size)
-                    ? "border-fg bg-fg text-bg"
-                    : "border-line text-fg hover:border-fg"
+                    ? "border-cta bg-cta text-white"
+                    : "border-line text-fg hover:border-cta"
                 }`}
               >
                 {size}
@@ -140,7 +210,9 @@ export function CollectionFilters({
 
       {options.colors.length > 0 && (
         <div>
-          <p className="text-label mb-4">Cor</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Cor
+          </p>
           <div className="flex flex-wrap gap-3">
             {options.colors.map(({ color, color_hex }) => (
               <button
@@ -149,10 +221,10 @@ export function CollectionFilters({
                 onClick={() => toggleColor(color)}
                 aria-pressed={activeColors.includes(color)}
                 title={color}
-                className={`flex items-center gap-2 border px-2 py-1.5 text-xs transition-colors duration-200 ease-out ${
+                className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors duration-150 ease-out ${
                   activeColors.includes(color)
-                    ? "border-fg text-fg"
-                    : "border-line text-ink-muted hover:border-fg hover:text-fg"
+                    ? "border-cta text-fg"
+                    : "border-line text-muted-foreground hover:border-cta hover:text-fg"
                 }`}
               >
                 <span
@@ -168,43 +240,35 @@ export function CollectionFilters({
       )}
 
       <div>
-        <p className="text-label mb-4">Preço</p>
-        <form
-          action={applyPrice}
-          className="flex items-center gap-3"
-        >
-          <input
-            type="number"
-            name="preco_min"
-            defaultValue={priceMin}
-            placeholder={String(Math.floor(priceBounds.min))}
-            aria-label="Preço mínimo"
-            min={0}
-            className="w-full min-w-0 border border-line bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-          <span className="text-ink-muted">—</span>
-          <input
-            type="number"
-            name="preco_max"
-            defaultValue={priceMax}
-            placeholder={String(Math.ceil(priceBounds.max))}
-            aria-label="Preço máximo"
-            min={0}
-            className="w-full min-w-0 border border-line bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-          <Button type="submit" variant="outline" size="sm">
-            Aplicar
-          </Button>
-        </form>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Preço
+        </p>
+        <Slider
+          min={Math.floor(priceBounds.min)}
+          max={Math.max(Math.ceil(priceBounds.max), 1)}
+          step={10}
+          value={priceRange}
+          onValueChange={(v) => setPriceRange(v as [number, number])}
+          onValueCommit={(v) => applyPrice(v as [number, number])}
+        />
+        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{formatCurrency(priceRange[0])}</span>
+          <span>{formatCurrency(priceRange[1])}</span>
+        </div>
       </div>
+
+      <label className="flex items-center gap-2.5">
+        <Checkbox checked={onSale} onCheckedChange={(v) => toggleOnSale(v === true)} />
+        <span className="text-sm text-fg">Somente promoções</span>
+      </label>
 
       {hasActiveFilters && (
         <button
           type="button"
           onClick={clearAll}
-          className="text-label self-start !text-fg hover:!text-gold"
+          className="self-start text-sm font-medium text-fg underline underline-offset-4 hover:text-gold-text"
         >
-          Limpar filtros ×
+          Limpar filtros
         </button>
       )}
     </div>
@@ -212,12 +276,12 @@ export function CollectionFilters({
 
   return (
     <>
-      <div className="hidden w-56 shrink-0 lg:block">{content}</div>
+      <div className="hidden w-60 shrink-0 lg:block">{content}</div>
 
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="text-label mb-6 flex items-center gap-2 lg:hidden"
+        className="mb-4 flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium lg:hidden"
       >
         <SlidersHorizontal className="size-4" aria-hidden="true" />
         Filtrar {hasActiveFilters ? "•" : ""}
@@ -227,11 +291,11 @@ export function CollectionFilters({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-bg p-8 sm:max-w-sm"
+          className="w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-white p-6 text-fg sm:max-w-sm"
         >
           <SheetTitle className="sr-only">Filtros</SheetTitle>
-          <div className="mb-8 flex items-center justify-between">
-            <span className="text-label !text-fg">Filtrar</span>
+          <div className="mb-6 flex items-center justify-between">
+            <span className="text-sm font-semibold uppercase tracking-wide">Filtrar</span>
             <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar filtros">
               <X className="size-5" aria-hidden="true" />
             </button>

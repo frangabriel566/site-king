@@ -2,15 +2,13 @@ import type { Metadata } from "next";
 import { ProductForm } from "@/components/admin/product-form";
 import { createProductAction } from "@/lib/actions/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
+import { getAllBrandsAdmin } from "@/lib/data/brands";
 
 export const metadata: Metadata = { title: "Novo produto — Painel" };
 
 type NewProductSearchParams = {
   categoria?: string;
-  std_weight_grams?: string;
-  std_length_cm?: string;
-  std_width_cm?: string;
-  std_height_cm?: string;
+  marca?: string;
 };
 
 export default async function NewProductPage({
@@ -18,14 +16,11 @@ export default async function NewProductPage({
 }: {
   searchParams: Promise<NewProductSearchParams>;
 }) {
-  const [categories, params] = await Promise.all([getAllCategoriesAdmin(), searchParams]);
-
-  const initialStandardMeasurements = {
-    weight_grams: params.std_weight_grams ? Number(params.std_weight_grams) : null,
-    length_cm: params.std_length_cm ? Number(params.std_length_cm) : null,
-    width_cm: params.std_width_cm ? Number(params.std_width_cm) : null,
-    height_cm: params.std_height_cm ? Number(params.std_height_cm) : null,
-  };
+  const [categories, brands, params] = await Promise.all([
+    getAllCategoriesAdmin(),
+    getAllBrandsAdmin(),
+    searchParams,
+  ]);
 
   return (
     <div>
@@ -34,8 +29,9 @@ export default async function NewProductPage({
       <ProductForm
         action={createProductAction}
         categories={categories}
+        brands={brands}
         initialCategoryId={params.categoria}
-        initialStandardMeasurements={initialStandardMeasurements}
+        initialBrandId={params.marca}
       />
     </div>
   );

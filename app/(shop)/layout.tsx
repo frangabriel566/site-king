@@ -7,6 +7,7 @@ import { Footer } from "@/components/shop/footer";
 import { CartDrawer } from "@/components/shop/cart-drawer";
 import { WhatsAppFloat } from "@/components/shop/whatsapp-float";
 import { CookieBanner } from "@/components/shop/cookie-banner";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function ShopLayout({
   children,
@@ -38,20 +39,23 @@ export default async function ShopLayout({
 
   return (
     <CartProvider>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-      />
-      <AnnouncementBar
-        text={settings.announcement}
-        active={settings.announcement_active}
-      />
-      <Header storeName={settings.store_name} categories={categories} />
-      <main className="flex-1">{children}</main>
-      <Footer settings={settings} categories={categories} />
-      <CartDrawer />
-      <WhatsAppFloat phone={settings.whatsapp} />
-      <CookieBanner />
+      <div className="storefront-theme flex min-h-full flex-col bg-bg text-fg">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <AnnouncementBar
+          text={settings.announcement}
+          active={settings.announcement_active}
+        />
+        <Header settings={settings} categories={categories} />
+        <main className="flex-1">{children}</main>
+        <Footer settings={settings} categories={categories} />
+        <CartDrawer />
+        <WhatsAppFloat phone={settings.whatsapp} />
+        <CookieBanner />
+        <Toaster theme="light" position="bottom-right" />
+      </div>
     </CartProvider>
   );
 }

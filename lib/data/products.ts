@@ -1,17 +1,21 @@
 ﻿import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
-import type { Tables } from "@/lib/database.types";
-import { COLLECTION_PAGE_SIZE, SIZE_ORDER } from "@/lib/constants";
+import type { Tables, ProductBadge } from "@/lib/database.types";
+import { COLLECTION_PAGE_SIZE, SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { safeQuery } from "./safe";
 
 export type ProductImage = Tables<"product_images">;
 export type ProductVariant = Tables<"product_variants">;
 export type Category = Tables<"categories">;
+export type Brand = Tables<"brands">;
+
+type ProductBrandRef = Pick<Brand, "id" | "name" | "slug" | "logo_url">;
 
 export type ProductWithRelations = Tables<"products"> & {
   product_images: ProductImage[];
   product_variants: ProductVariant[];
   category: Pick<Category, "id" | "name" | "slug"> | null;
+  brand: ProductBrandRef | null;
 };
 
 type ListImage = Pick<ProductImage, "id" | "url" | "alt" | "position">;
@@ -19,6 +23,7 @@ type ListVariant = Pick<
   ProductVariant,
   "id" | "color" | "color_hex" | "size" | "stock"
 >;
+type ListBrand = Pick<Brand, "id" | "name" | "slug">;
 
 export type ProductListItem = {
   id: string;
@@ -27,12 +32,16 @@ export type ProductListItem = {
   price: number;
   compare_at_price: number | null;
   image: ListImage | null;
+  secondImage: ListImage | null;
   colors: { color: string; color_hex: string | null }[];
   inStock: boolean;
+  totalStock: number;
+  badge: ProductBadge | null;
+  brand: ListBrand | null;
 };
 
 const LIST_SELECT =
-  "id, slug, name, price, compare_at_price, created_at, position, product_images(id, url, alt, position), product_variants(id, color, color_hex, size, stock)";
+  "id, slug, name, price, compare_at_price, created_at, position, badge, brand:brands(id, name, slug), product_images(id, url, alt, position), product_variants(id, color, color_hex, size, stock)";
 
 function toListItem(row: {
   id: string;
@@ -40,6 +49,8 @@ function toListItem(row: {
   name: string;
   price: number;
   compare_at_price: number | null;
+  badge?: ProductBadge | null;
+  brand?: ListBrand | null;
   product_images: ListImage[];
   product_variants: ListVariant[];
 }): ProductListItem {
@@ -48,9 +59,14 @@ function toListItem(row: {
   );
   const colorMap = new Map<string, string | null>();
   let inStock = false;
+  let totalStock = 0;
   for (const variant of row.product_variants) {
-    if (!colorMap.has(variant.color)) colorMap.set(variant.color, variant.color_hex);
+    const isSimple = isSimpleVariant(variant.color, variant.size);
+    if (!isSimple && !colorMap.has(variant.color)) {
+      colorMap.set(variant.color, variant.color_hex);
+    }
     if (variant.stock > 0) inStock = true;
+    totalStock += variant.stock;
   }
 
   return {
@@ -60,36 +76,107 @@ function toListItem(row: {
     price: row.price,
     compare_at_price: row.compare_at_price,
     image: sortedImages[0] ?? null,
+    secondImage: sortedImages[1] ?? null,
     colors: Array.from(colorMap, ([color, color_hex]) => ({ color, color_hex })),
     inStock,
+    totalStock,
+    badge: row.badge ?? null,
+    brand: row.brand ?? null,
   };
 }
 
-export async function getFeaturedProducts(limit = 4): Promise<ProductListItem[]> {
-  return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("products")
-      .select(LIST_SELECT)
-      .eq("status", "active")
-      .eq("featured", true)
-      .order("position", { ascending: true })
-      .limit(limit);
+/**
+ * Fills a home rail with badge-tagged products first (the merchant's
+ * explicit "onde aparece" pick, guaranteed a slot), then tops up any
+ * remaining slots from products with NO badge at all, using the rail's old
+ * implicit signal — so a product nobody has tagged behaves exactly as it
+ * did before this control existed. Once a product carries any badge value
+ * it belongs to exactly that one rail: the `.is("badge", null)` filter on
+ * the fallback keeps it out of every other rail's fallback pool (it would
+ * otherwise still surface there via `featured`/`compare_at_price`, and
+ * "Produtos" the catalog rail excludes it too — see `excludeBadged` on
+ * `listProducts`).
+ */
+async function fetchRailWithBadgeFallback(
+  badgeValue: ProductBadge,
+  limit: number,
+  orderColumn: "position" | "created_at",
+  applyFallbackFilter: (
+    query: ReturnType<ReturnType<typeof createPublicClient>["from"]>,
+  ) => ReturnType<ReturnType<typeof createPublicClient>["from"]>,
+): Promise<ProductListItem[]> {
+  const supabase = createPublicClient();
+  const ascending = orderColumn === "position";
 
-    return (data ?? []).map(toListItem);
-  }, []);
+  const { data: tagged } = await supabase
+    .from("products")
+    .select(LIST_SELECT)
+    .eq("status", "active")
+    .eq("badge", badgeValue)
+    .order(orderColumn, { ascending })
+    .limit(limit);
+
+  const items = (tagged ?? []).map(toListItem);
+  if (items.length >= limit) return items.slice(0, limit);
+
+  const fallbackQuery = applyFallbackFilter(
+    supabase.from("products").select(LIST_SELECT).eq("status", "active").is("badge", null),
+  )
+    .order(orderColumn, { ascending })
+    .limit(limit - items.length);
+
+  const { data: rest } = await fallbackQuery;
+  return [...items, ...(rest ?? []).map(toListItem)];
+}
+
+export async function getFeaturedProducts(limit = 4): Promise<ProductListItem[]> {
+  return safeQuery(
+    () =>
+      fetchRailWithBadgeFallback(
+        "mais_vendido",
+        limit,
+        "position",
+        (query) => query.eq("featured", true),
+      ),
+    [],
+  );
+}
+
+export async function getNewArrivals(limit = 8): Promise<ProductListItem[]> {
+  return safeQuery(
+    () => fetchRailWithBadgeFallback("lancamento", limit, "created_at", (query) => query),
+    [],
+  );
+}
+
+/** Products currently marked down — "Ofertas" home rail. */
+export async function getOnSaleProducts(limit = 8): Promise<ProductListItem[]> {
+  return safeQuery(
+    () =>
+      fetchRailWithBadgeFallback("oferta", limit, "position", (query) =>
+        query.not("compare_at_price", "is", null),
+      ),
+    [],
+  );
 }
 
 export type ProductSort = "relevance" | "newest" | "price-asc" | "price-desc";
 
 export type ProductListFilters = {
   category?: string;
+  brand?: string;
   sizes?: string[];
   colors?: string[];
   minPrice?: number;
   maxPrice?: number;
+  onSale?: boolean;
   sort?: ProductSort;
   page?: number;
+  /** Home page's "Produtos" rail only: hides products explicitly placed in
+   * one of the other three rails, so a product picked for e.g. Lançamentos
+   * doesn't also show up here. Leave unset for the full /colecao catalog,
+   * which lists every active product regardless of badge. */
+  excludeBadged?: boolean;
 };
 
 export type ProductListResult = {
@@ -140,6 +227,8 @@ export async function listProducts(
       .select(LIST_SELECT, { count: "exact" })
       .eq("status", "active");
 
+    if (filters.excludeBadged) query = query.is("badge", null);
+
     if (filters.category) {
       const { data: category } = await supabase
         .from("categories")
@@ -153,9 +242,23 @@ export async function listProducts(
       query = query.eq("category_id", category.id);
     }
 
+    if (filters.brand) {
+      const { data: brand } = await supabase
+        .from("brands")
+        .select("id")
+        .eq("slug", filters.brand)
+        .maybeSingle();
+
+      if (!brand) {
+        return emptyResult;
+      }
+      query = query.eq("brand_id", brand.id);
+    }
+
     if (variantIds) query = query.in("id", variantIds);
     if (filters.minPrice !== undefined) query = query.gte("price", filters.minPrice);
     if (filters.maxPrice !== undefined) query = query.lte("price", filters.maxPrice);
+    if (filters.onSale) query = query.not("compare_at_price", "is", null);
 
     switch (filters.sort) {
       case "newest":
@@ -194,7 +297,7 @@ export async function getProductBySlug(
     const { data } = await supabase
       .from("products")
       .select(
-        "*, product_images(*), product_variants(*), category:categories(id, name, slug)",
+        "*, product_images(*), product_variants(*), category:categories(id, name, slug), brand:brands(id, name, slug, logo_url)",
       )
       .eq("slug", slug)
       .eq("status", "active")
@@ -226,6 +329,7 @@ export async function getRelatedProducts(
 
 export type AdminProductListItem = Tables<"products"> & {
   category: Pick<Category, "id" | "name"> | null;
+  brand: Pick<Brand, "id" | "name"> | null;
   product_images: Pick<ProductImage, "url">[];
   product_variants: Pick<ProductVariant, "id" | "stock">[];
 };
@@ -236,7 +340,7 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
   const { data } = await supabase
     .from("products")
     .select(
-      "*, category:categories(id, name), product_images(url), product_variants(id, stock)",
+      "*, category:categories(id, name), brand:brands(id, name), product_images(url), product_variants(id, stock)",
     )
     .order("position", { ascending: true });
 
@@ -265,12 +369,27 @@ export async function getProductByIdAdmin(
   const { data } = await supabase
     .from("products")
     .select(
-      "*, product_images(*), product_variants(*), category:categories(id, name, slug)",
+      "*, product_images(*), product_variants(*), category:categories(id, name, slug), brand:brands(id, name, slug, logo_url)",
     )
     .eq("id", id)
     .maybeSingle();
 
   return data as ProductWithRelations | null;
+}
+
+/** Products for the /marca/[slug] storefront page. */
+export async function getProductsByBrand(brandId: string): Promise<ProductListItem[]> {
+  return safeQuery(async () => {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from("products")
+      .select(LIST_SELECT)
+      .eq("status", "active")
+      .eq("brand_id", brandId)
+      .order("position", { ascending: true });
+
+    return (data ?? []).map(toListItem);
+  }, []);
 }
 
 export async function getAllActiveProductSlugs(): Promise<string[]> {
@@ -319,6 +438,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     const sizeSet = new Set<string>();
     const colorMap = new Map<string, string | null>();
     for (const row of data ?? []) {
+      if (isSimpleVariant(row.color, row.size)) continue;
       sizeSet.add(row.size);
       if (!colorMap.has(row.color)) colorMap.set(row.color, row.color_hex);
     }

@@ -25,10 +25,10 @@ export function CollectionSort() {
 
   return (
     <Select value={current} onValueChange={onChange}>
-      <SelectTrigger className="w-44 rounded-none border-line text-xs uppercase tracking-[0.1em]">
+      <SelectTrigger className="w-44 border-line text-sm">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="rounded-none">
+      <SelectContent>
         {SORT_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}

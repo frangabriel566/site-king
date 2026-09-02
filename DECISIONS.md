@@ -546,3 +546,79 @@ reais (projeto Supabase, Mercado Pago, Resend, domínio) — nenhum deles é
 uma decisão de modelagem ou arquitetura, são configurações de ambiente
 cobertas no checklist de deploy do README.
 
+## Bloco 15 — Troca do design system da loja pública + entidade de marca
+
+Troca completa do visual da vitrine: de editorial dark/brutalista para
+varejo claro e denso (modelo Netshoes). O painel admin não foi tocado.
+
+- **Isolamento de tema via CSS scope, não duplicação de componente**:
+  `:root` em `app/globals.css` continua sendo o tema escuro original —
+  agora só o admin usa esses valores. Uma nova classe `.storefront-theme`
+  redefine todas as mesmas variáveis (`--bg`, `--fg`, `--radius`, etc.)
+  para a paleta clara, aplicada uma única vez no wrapper raiz de
+  `app/(shop)/layout.tsx`. Todo componente existente que já usava classes
+  Tailwind semânticas (`bg-bg`, `text-fg`, `border-line`) herdou o tema
+  novo automaticamente, sem precisar reescrever cada arquivo — só quem
+  tinha cor **hardcoded** (`bg-[#111111]` etc.) ou pressupunha "estou num
+  fundo escuro" via `text-fg`/`text-ink-muted` precisou de ajuste manual
+  (checkout, carrinho, `size-guide-modal`, `cookie-banner` — todos tinham
+  esse bug de contraste antes do fix).
+- **`--radius` também é escopado**: a escala `--radius-sm..4xl` do
+  `@theme inline` foi trocada de valores fixos (`0rem` cravado em cada
+  degrau) para múltiplos proporcionais de `var(--radius)`, para que
+  `:root` (admin, `--radius: 0rem`) continue com cantos 100% retos em
+  todos os componentes shadcn sem precisar de override por componente, e
+  a loja (`--radius: 8px`) ganhe a escala arredondada só por herdar o
+  escopo.
+- **`--gold` (dourado puro, fills/badges) e `--accent` (usado só pelo
+  focus ring) foram desacoplados** — antes `--accent` fazia as duas
+  funções. Manter os dois na mesma variável teria forçado o anel de foco
+  a usar o dourado puro (2,4:1, reprovado) ou o texto/badge a usar a
+  versão escurecida seguro-para-texto (perderia saturação). Resolvido tal
+  que `--gold` sempre é o valor puro da logo e `--accent`/`--ring` usam
+  `--gold-text` (4,5:1+) só na loja.
+- **Migration `0008_brands.sql`**: tabela `brands` (mesmo padrão de RLS de
+  `categories`: leitura pública só de ativas, escrita só admin) e 4
+  colunas novas em `products` (`brand_id`, `manufacturer_ref`,
+  `attributes` jsonb, `badge`). `brand_id` é `on delete set null` — testado
+  ao vivo (criei marca, associei a um produto, apaguei a marca): o produto
+  continuou existindo com `brand_id = null`. Dado o histórico de produtos
+  sumindo neste projeto, essa verificação foi feita antes de considerar o
+  bloco fechado, não só lida do SQL.
+- **CRUD de marca é uma cópia estrutural do de categoria** — mesma forma
+  de Server Action (`quickCreateBrandAction` espelha
+  `quickCreateCategoryAction`), mesmo padrão de select com opção "criar
+  nova" embutida no formulário de produto. Único acréscimo: o
+  `DeleteButton` ganhou uma prop `description` opcional pra mostrar
+  "N produtos usam esta marca" antes de confirmar a exclusão (as outras
+  entidades continuam com o texto genérico).
+- **Simplificações assumidas sem schema novo** (fora do que o bloco de
+  schema pediu, então não implementadas via migration):
+  - "Mais vendidos" na home reaproveita `featured` (o mesmo campo que já
+    existia como "Destaque na home") em vez de agregar `order_items` —
+    não há política de RLS pública pra ler pedidos, e criar uma função
+    `security definer` só pra isso não estava no escopo pedido.
+  - Favoritos (ícone de coração no card) é só `localStorage`, por
+    dispositivo — não existe tabela de wishlist.
+  - "Calcular frete e prazo" no card de compra usa o lookup de CEP já
+    existente (ViaCEP) e mostra uma janela de prazo estimada por região;
+    não existe motor de cálculo de frete real em nenhum lugar do projeto
+    (nem no checkout), então não fabriquei um valor de frete falso — o
+    texto deixa explícito que o valor final sai no checkout.
+  - Categorias não têm campo de imagem/ícone no schema — a faixa de
+    categorias da home usa um monograma (inicial do nome) em vez de foto.
+  - Dropdown de subcategoria no header não foi implementado — `categories`
+    é uma tabela plana, sem `parent_id`; o pedido original de schema não
+    incluía isso.
+- **Contraste**: todas as combinações de token validadas por cálculo de
+  WCAG (não só visual). Uma reprovou: `--discount` (`#0F8A3C`, o valor
+  literal do pedido) dava 4,45:1 em branco — abaixo do mínimo de 4,5:1
+  pra texto de corpo. Escurecido pra `#0D7A34` (5,45:1), visualmente quase
+  idêntico.
+- **`npm run build` e `npx tsc --noEmit` limpos**, zero warnings de lint.
+  Testado ao vivo via Puppeteer em 375/768/1440px: home, catálogo, página
+  de produto, e o fluxo completo de marca (criar → associar a produto →
+  aparece no filtro do catálogo, na ficha técnica do produto e em
+  `/marca/[slug]` sem rebuild) — e o painel admin, pra confirmar que
+  segue idêntico ao de antes.
+

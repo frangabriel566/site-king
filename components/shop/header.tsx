@@ -1,10 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { Menu, User, ShoppingBag, X, Truck, MessageCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart/context";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
@@ -18,78 +17,46 @@ export function Header({
   settings: SiteSettings;
   categories: Category[];
 }) {
-  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { count, toggle, isHydrated } = useCart();
 
-  useEffect(() => {
-    // Hysteresis (collapse past 56px, only re-expand back under 16px)
-    // instead of one shared threshold — a single cutoff flips back and
-    // forth on every tiny wobble around it (trackpad momentum, rubber-band
-    // bounce at the top of the page), which visibly shakes the header
-    // since each flip re-triggers the height/opacity transitions. A dead
-    // zone between the two thresholds absorbs that jitter.
-    const COLLAPSE_AT = 56;
-    const EXPAND_AT = 16;
-    let ticking = false;
-
-    const evaluate = () => {
-      ticking = false;
-      const y = window.scrollY;
-      setScrolled((prev) => {
-        if (!prev && y > COLLAPSE_AT) return true;
-        if (prev && y < EXPAND_AT) return false;
-        return prev;
-      });
-    };
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(evaluate);
-    };
-
-    evaluate();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-fg text-bg">
-        {/* top thin bar — free shipping note + contact channel */}
-        <div
-          className={cn(
-            "overflow-hidden border-b border-white/10 transition-[max-height,opacity] duration-200 ease-out",
-            scrolled ? "max-h-0 opacity-0" : "max-h-9 opacity-100",
+      {/* top thin bar — free shipping note + contact channel. Plain
+          document flow (not part of the sticky header below, not
+          JS-controlled) so it scrolls away on its own the moment the page
+          moves — a JS-driven height/opacity collapse here was animating a
+          layout-affecting property on content sitting right above a
+          `position: sticky` element, which is a known class of Chromium
+          quirk: the browser can shift window.scrollY itself as a side
+          effect of that reflow, which re-triggers the scroll listener and
+          produces a visible flicker loop. Letting native scrolling do the
+          hiding sidesteps the bug entirely — no listener, nothing to
+          fight with. */}
+      <div className="border-b border-white/10 bg-fg text-bg">
+        <div className="mx-auto flex h-9 max-w-[1400px] items-center justify-between gap-4 px-4 text-xs md:px-8">
+          <p className="flex items-center gap-2 truncate">
+            <Truck className="size-3.5 shrink-0" aria-hidden="true" />
+            {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
+          </p>
+          {settings.whatsapp && (
+            <a
+              href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden shrink-0 items-center gap-2 hover:text-gold sm:flex"
+            >
+              <MessageCircle className="size-3.5" aria-hidden="true" />
+              Fale conosco
+            </a>
           )}
-        >
-          <div className="mx-auto flex h-9 max-w-[1400px] items-center justify-between gap-4 px-4 text-xs md:px-8">
-            <p className="flex items-center gap-2 truncate">
-              <Truck className="size-3.5 shrink-0" aria-hidden="true" />
-              {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
-            </p>
-            {settings.whatsapp && (
-              <a
-                href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden shrink-0 items-center gap-2 hover:text-gold sm:flex"
-              >
-                <MessageCircle className="size-3.5" aria-hidden="true" />
-                Fale conosco
-              </a>
-            )}
-          </div>
         </div>
+      </div>
 
-        {/* main bar — logo, search, account + bag */}
-        <div
-          className={cn(
-            "mx-auto flex max-w-[1400px] items-center gap-4 px-4 transition-[height] duration-200 ease-out md:gap-8 md:px-8",
-            scrolled ? "h-14" : "h-18",
-          )}
-        >
+      {/* sticky header — logo, search, account + bag. Height is constant
+          (no scroll-driven resize) for the same reason as above. */}
+      <header className="sticky top-0 z-40 w-full bg-fg text-bg">
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 md:gap-8 md:px-8">
           <Link href="/" className="shrink-0">
             {settings.logo_url ? (
               <Image
@@ -148,27 +115,24 @@ export function Header({
         <div className="border-t border-white/10 px-4 py-2 md:hidden">
           <HeaderSearch />
         </div>
-
-        {/* category nav row */}
-        <nav
-          className={cn(
-            "hidden overflow-hidden border-t border-white/10 transition-[max-height] duration-200 ease-out md:block",
-            scrolled ? "max-h-0" : "max-h-11",
-          )}
-        >
-          <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-7 px-8 text-xs font-medium uppercase tracking-wide">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/colecao?categoria=${category.slug}`}
-                className="whitespace-nowrap transition-colors duration-150 ease-out hover:text-gold"
-              >
-                {category.name}
-              </Link>
-            ))}
-          </div>
-        </nav>
       </header>
+
+      {/* category nav row — plain document flow, right after the sticky
+          header. Scrolling past it makes it slide up behind the pinned
+          header naturally; no JS, no height animation, no reflow risk. */}
+      <nav className="hidden border-t border-white/10 bg-fg text-bg md:block">
+        <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-7 px-8 text-xs font-medium uppercase tracking-wide">
+          {categories.map((category) => (
+            <Link
+              key={category.id}
+              href={`/colecao?categoria=${category.slug}`}
+              className="whitespace-nowrap transition-colors duration-150 ease-out hover:text-gold"
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
+      </nav>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent

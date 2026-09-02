@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FocusEvent } from "react";
+import { useEffect, useMemo, useState, type FocusEvent } from "react";
 import Image from "next/image";
 import { Plus, Trash2, Wand2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -77,18 +77,33 @@ export function VariantEditor({
   productSlug,
   variants,
   onChange,
+  isShoeCategory = false,
 }: {
   productSlug: string;
   variants: VariantDraft[];
   onChange: (variants: VariantDraft[]) => void;
+  /** Category (Tênis, Chinelos e sandálias) already tells us this is
+   * shoe sizing — default the generator to BR numbering instead of
+   * making the operator toggle it by hand every time. */
+  isShoeCategory?: boolean;
 }) {
   const [genColor, setGenColor] = useState("");
   const [genHex, setGenHex] = useState("#0A0A0A");
   const [genImageUrl, setGenImageUrl] = useState<string | null>(null);
-  const [sizeMode, setSizeMode] = useState<"letter" | "numeric">("letter");
+  const [sizeMode, setSizeMode] = useState<"letter" | "numeric">(
+    isShoeCategory ? "numeric" : "letter",
+  );
   const [genSizes, setGenSizes] = useState<string[]>([]);
   const [genStock, setGenStock] = useState(0);
   const [bulkStockValue, setBulkStockValue] = useState(0);
+
+  // Auto-follow the category — still overridable by hand via the toggle
+  // below, but only re-synced when the category itself changes so a
+  // manual override isn't clobbered on every unrelated re-render.
+  useEffect(() => {
+    setSizeMode(isShoeCategory ? "numeric" : "letter");
+    setGenSizes([]);
+  }, [isShoeCategory]);
 
   const sizeOptions = sizeMode === "letter" ? LETTER_SIZES : NUMERIC_SIZES;
 

@@ -194,6 +194,8 @@ export function ProductForm({
   );
   const [categoryId, setCategoryId] = useState(product?.category_id ?? initialCategoryId ?? "");
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const selectedCategoryName = categoryOptions.find((c) => c.id === categoryId)?.name ?? "";
+  const isShoeCategory = /t[eê]nis|chinelo|sand[aá]lia/i.test(selectedCategoryName);
 
   const [brandOptions, setBrandOptions] = useState<Pick<AdminBrandListItem, "id" | "name">[]>(
     brands,
@@ -702,7 +704,12 @@ export function ProductForm({
         </label>
 
         {!noVariants && (
-          <VariantEditor productSlug={slug} variants={variants} onChange={setVariants} />
+          <VariantEditor
+            productSlug={slug}
+            variants={variants}
+            onChange={setVariants}
+            isShoeCategory={isShoeCategory}
+          />
         )}
       </FormSection>
 

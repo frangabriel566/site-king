@@ -1,7 +1,6 @@
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/data/settings";
 import { getActiveCategories } from "@/lib/data/categories";
-import { AnnouncementBar } from "@/components/shop/announcement-bar";
 import { Header } from "@/components/shop/header";
 import { Footer } from "@/components/shop/footer";
 import { CartDrawer } from "@/components/shop/cart-drawer";
@@ -43,10 +42,6 @@ export default async function ShopLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-        />
-        <AnnouncementBar
-          text={settings.announcement}
-          active={settings.announcement_active}
         />
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>

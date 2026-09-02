@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/product-form";
 import { updateProductAction } from "@/lib/actions/products";
-import { getProductByIdAdmin } from "@/lib/data/products";
+import { getProductByIdAdmin, getAllVariantSkus } from "@/lib/data/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
 import { getAllBrandsAdmin } from "@/lib/data/brands";
 
@@ -22,6 +22,8 @@ export default async function EditProductPage({
 
   if (!product) notFound();
 
+  const existingSkus = await getAllVariantSkus(product.id);
+
   return (
     <div>
       <p className="text-label mb-2">Produtos</p>
@@ -30,6 +32,7 @@ export default async function EditProductPage({
         product={product}
         categories={categories}
         brands={brands}
+        existingSkus={existingSkus}
         action={updateProductAction.bind(null, product.id)}
       />
     </div>

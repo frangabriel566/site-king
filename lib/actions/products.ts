@@ -68,9 +68,17 @@ function parseFormData(formData: FormData) {
   });
 }
 
-function friendlyDbError(error: { code?: string; message: string } | null): string | undefined {
+function friendlyDbError(
+  error: { code?: string; message: string; details?: string | null } | null,
+): string | undefined {
   if (!error) return undefined;
   if (error.code === "23505") {
+    // Postgres' detail for a unique-violation looks like
+    // `Key (sku)=(SAPATO-VERDE-40) already exists.` — surface the actual
+    // value so the operator knows which SKU to change, instead of a
+    // generic "one of them" that leaves them guessing across every row.
+    const skuMatch = error.details?.match(/Key \(sku\)=\(([^)]+)\)/);
+    if (skuMatch) return `O SKU "${skuMatch[1]}" já está em uso por outra variação.`;
     if (error.message.includes("sku")) return "Um dos SKUs já está em uso por outra variação.";
     if (error.message.includes("slug")) return "Já existe um produto com esse slug.";
   }

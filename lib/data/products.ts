@@ -347,6 +347,22 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
   return (data as AdminProductListItem[] | null) ?? [];
 }
 
+/**
+ * Every SKU already in use, across every product except the one being
+ * edited. `sku` is unique DB-wide (not per-product), but the admin form's
+ * auto-generator only dedupes against the variants already on screen —
+ * without this, two different products can independently land on the
+ * same generated SKU and only find out when the save is rejected.
+ */
+export async function getAllVariantSkus(excludeProductId?: string): Promise<string[]> {
+  const supabase = await createClient();
+  let query = supabase.from("product_variants").select("sku, product_id");
+  if (excludeProductId) query = query.neq("product_id", excludeProductId);
+
+  const { data } = await query;
+  return (data ?? []).map((v) => v.sku).filter((sku): sku is string => sku !== null);
+}
+
 export type ProductOption = Pick<
   Tables<"products">,
   "id" | "name" | "slug" | "description" | "price"

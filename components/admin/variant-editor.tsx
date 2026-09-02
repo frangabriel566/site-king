@@ -22,8 +22,8 @@ export type VariantDraft = {
   image_url: string;
 };
 
-const LETTER_SIZES = ["P", "M", "G", "GG", "XG"];
-const NUMERIC_SIZES = ["34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44"];
+export const LETTER_SIZES = ["P", "M", "G", "GG", "XG"];
+export const NUMERIC_SIZES = ["34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44"];
 
 function newClientId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -78,6 +78,7 @@ export function VariantEditor({
   variants,
   onChange,
   isShoeCategory = false,
+  existingSkus = [],
 }: {
   productSlug: string;
   variants: VariantDraft[];
@@ -86,6 +87,10 @@ export function VariantEditor({
    * shoe sizing — default the generator to BR numbering instead of
    * making the operator toggle it by hand every time. */
   isShoeCategory?: boolean;
+  /** SKUs already saved on OTHER products — sku is unique across the
+   * whole table, not per-product, so the generator needs to dodge these
+   * too, not just the rows already on screen. */
+  existingSkus?: string[];
 }) {
   const [genColor, setGenColor] = useState("");
   const [genHex, setGenHex] = useState("#0A0A0A");
@@ -118,7 +123,8 @@ export function VariantEditor({
   }, [variants]);
 
   function siblingSkuSet(clientId: string, rows: VariantDraft[] = variants): Set<string> {
-    return new Set(rows.filter((r) => r.clientId !== clientId).map((r) => r.sku));
+    const taken = rows.filter((r) => r.clientId !== clientId).map((r) => r.sku);
+    return new Set([...existingSkus, ...taken]);
   }
 
   function updateRow(clientId: string, patch: Partial<VariantDraft>) {
@@ -403,7 +409,14 @@ export function VariantEditor({
                             onChange={(e) => updateRow(variant.clientId, { sku: e.target.value })}
                             onBlur={() => handleSkuBlur(variant.clientId)}
                             aria-label="SKU"
-                            className="w-44 rounded-none"
+                            title={
+                              existingSkus.includes(variant.sku)
+                                ? "Esse SKU já está em uso por outro produto"
+                                : undefined
+                            }
+                            className={`w-44 rounded-none ${
+                              existingSkus.includes(variant.sku) ? "border-[var(--danger)]" : ""
+                            }`}
                           />
                         </td>
                         <td className="p-2">

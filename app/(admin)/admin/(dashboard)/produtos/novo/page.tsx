@@ -3,6 +3,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { createProductAction } from "@/lib/actions/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
 import { getAllBrandsAdmin } from "@/lib/data/brands";
+import { getAllVariantSkus } from "@/lib/data/products";
 
 export const metadata: Metadata = { title: "Novo produto — Painel" };
 
@@ -16,9 +17,10 @@ export default async function NewProductPage({
 }: {
   searchParams: Promise<NewProductSearchParams>;
 }) {
-  const [categories, brands, params] = await Promise.all([
+  const [categories, brands, existingSkus, params] = await Promise.all([
     getAllCategoriesAdmin(),
     getAllBrandsAdmin(),
+    getAllVariantSkus(),
     searchParams,
   ]);
 
@@ -30,6 +32,7 @@ export default async function NewProductPage({
         action={createProductAction}
         categories={categories}
         brands={brands}
+        existingSkus={existingSkus}
         initialCategoryId={params.categoria}
         initialBrandId={params.marca}
       />

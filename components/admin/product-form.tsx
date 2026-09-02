@@ -28,7 +28,12 @@ import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/m
 import { InlineCategoryCreator } from "@/components/admin/inline-category-creator";
 import { InlineBrandCreator } from "@/components/admin/inline-brand-creator";
 import { AttributesEditor, type AttributeRow } from "@/components/admin/attributes-editor";
-import { VariantEditor, type VariantDraft } from "@/components/admin/variant-editor";
+import {
+  VariantEditor,
+  LETTER_SIZES,
+  NUMERIC_SIZES,
+  type VariantDraft,
+} from "@/components/admin/variant-editor";
 import { slugify } from "@/lib/format";
 import { SIMPLE_VARIANT_COLOR, SIMPLE_VARIANT_SIZE, isSimpleVariant } from "@/lib/constants";
 import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
@@ -130,6 +135,7 @@ export function ProductForm({
   action,
   initialCategoryId,
   initialBrandId,
+  existingSkus = [],
 }: {
   product?: ProductWithRelations;
   categories: Category[];
@@ -137,6 +143,10 @@ export function ProductForm({
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   initialCategoryId?: string;
   initialBrandId?: string;
+  /** Every SKU already saved on another product — lets the variant
+   * generator avoid colliding with them instead of only finding out at
+   * save time. */
+  existingSkus?: string[];
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
@@ -232,6 +242,10 @@ export function ProductForm({
       ]);
     } else {
       setVariants([]);
+      // the real per-variant sizes take over — drop the "sem variações"
+      // informational size so it doesn't linger, stale, in the ficha
+      // técnica next to them.
+      setAttributeRows((prev) => prev.filter((r) => r.key !== "Tamanho"));
     }
   }
 
@@ -254,6 +268,25 @@ export function ProductForm({
       stock: 0,
       image_url: "",
     };
+  }
+
+  // "Produto sem variações" still has exactly one size worth recording —
+  // just not as a pickable option, since there's only ever the one. It's
+  // stored as a "Tamanho" spec row (shows on the product page's ficha
+  // técnica) rather than on the variant itself: the variant's own size
+  // stays the SIMPLE_VARIANT_SIZE sentinel that cart/stock/checkout key
+  // off of everywhere, and swapping that for a real size would make the
+  // storefront treat it as a normal multi-size product needing a picker.
+  const simpleSizeOptions = isShoeCategory ? NUMERIC_SIZES : LETTER_SIZES;
+  const simpleSize = attributeRows.find((r) => r.key === "Tamanho")?.value ?? "";
+  function setSimpleSize(size: string) {
+    setAttributeRows((prev) => {
+      const index = prev.findIndex((r) => r.key === "Tamanho");
+      const next = size === prev[index]?.value ? "" : size; // click again to clear
+      if (!next) return index === -1 ? prev : prev.filter((_, i) => i !== index);
+      if (index === -1) return [...prev, { key: "Tamanho", value: next }];
+      return prev.map((r, i) => (i === index ? { ...r, value: next } : r));
+    });
   }
 
   // ---- tags ---------------------------------------------------------------
@@ -668,7 +701,7 @@ export function ProductForm({
               {compareAtPrice !== "" &&
                 price !== "" &&
                 Number(compareAtPrice) <= Number(price) && (
-                  <p className="text-xs text-alert">
+                  <p className="text-xs text-[var(--danger)]">
                     Deve ser maior que o preço com desconto.
                   </p>
                 )}
@@ -709,6 +742,7 @@ export function ProductForm({
             variants={variants}
             onChange={setVariants}
             isShoeCategory={isShoeCategory}
+            existingSkus={existingSkus}
           />
         )}
       </FormSection>
@@ -725,6 +759,11 @@ export function ProductForm({
                 placeholder={slug ? slug.toUpperCase() : "SKU"}
                 className="rounded-none"
               />
+              {simpleSku.trim() !== "" && existingSkus.includes(simpleSku.trim()) && (
+                <p className="text-xs text-[var(--danger)]">
+                  Esse SKU já está em uso por outro produto.
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="simple-stock">Estoque</Label>
@@ -737,6 +776,30 @@ export function ProductForm({
                 onFocus={selectOnFocus}
                 className="rounded-none"
               />
+            </div>
+            <div className="col-span-2 flex flex-col gap-2">
+              <Label>Tamanho (opcional)</Label>
+              <div className="flex flex-wrap gap-2">
+                {simpleSizeOptions.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setSimpleSize(size)}
+                    aria-pressed={simpleSize === size}
+                    className={`flex h-10 min-w-10 items-center justify-center border px-2 text-sm font-medium uppercase transition-colors duration-150 ease-out ${
+                      simpleSize === size
+                        ? "border-fg bg-fg text-bg"
+                        : "border-line text-ink-muted hover:border-ink-muted"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-ink-muted">
+                Só pra exibir na ficha técnica do produto — como é uma peça
+                única, não gera opções de tamanho pro cliente escolher.
+              </p>
             </div>
           </div>
         ) : (

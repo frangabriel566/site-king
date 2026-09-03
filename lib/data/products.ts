@@ -21,7 +21,7 @@ export type ProductWithRelations = Tables<"products"> & {
 type ListImage = Pick<ProductImage, "id" | "url" | "alt" | "position">;
 type ListVariant = Pick<
   ProductVariant,
-  "id" | "color" | "color_hex" | "size" | "stock"
+  "id" | "color" | "color_hex" | "size" | "stock" | "image_url"
 >;
 type ListBrand = Pick<Brand, "id" | "name" | "slug">;
 
@@ -41,7 +41,7 @@ export type ProductListItem = {
 };
 
 const LIST_SELECT =
-  "id, slug, name, price, compare_at_price, created_at, position, badge, brand:brands(id, name, slug), product_images(id, url, alt, position), product_variants(id, color, color_hex, size, stock)";
+  "id, slug, name, price, compare_at_price, created_at, position, badge, brand:brands(id, name, slug), product_images(id, url, alt, position), product_variants(id, color, color_hex, size, stock, image_url)";
 
 function toListItem(row: {
   id: string;
@@ -57,6 +57,15 @@ function toListItem(row: {
   const sortedImages = [...row.product_images].sort(
     (a, b) => a.position - b.position,
   );
+  // A product with no general gallery images at all (every photo uploaded
+  // as a per-color photo instead) would otherwise show as "sem imagem" on
+  // every card and rail — fall back to the first variant that has one.
+  const fallbackImage = !sortedImages[0]
+    ? (() => {
+        const url = row.product_variants.find((v) => v.image_url)?.image_url;
+        return url ? { id: `variant-photo-${url}`, url, alt: null, position: 0 } : null;
+      })()
+    : null;
   const colorMap = new Map<string, string | null>();
   let inStock = false;
   let totalStock = 0;
@@ -75,7 +84,7 @@ function toListItem(row: {
     name: row.name,
     price: row.price,
     compare_at_price: row.compare_at_price,
-    image: sortedImages[0] ?? null,
+    image: sortedImages[0] ?? fallbackImage,
     secondImage: sortedImages[1] ?? null,
     colors: Array.from(colorMap, ([color, color_hex]) => ({ color, color_hex })),
     inStock,
@@ -331,7 +340,7 @@ export type AdminProductListItem = Tables<"products"> & {
   category: Pick<Category, "id" | "name"> | null;
   brand: Pick<Brand, "id" | "name"> | null;
   product_images: Pick<ProductImage, "url">[];
-  product_variants: Pick<ProductVariant, "id" | "stock">[];
+  product_variants: Pick<ProductVariant, "id" | "stock" | "image_url">[];
 };
 
 /** Admin listing — every status, session-scoped RLS. */
@@ -340,7 +349,7 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
   const { data } = await supabase
     .from("products")
     .select(
-      "*, category:categories(id, name), brand:brands(id, name), product_images(url), product_variants(id, stock)",
+      "*, category:categories(id, name), brand:brands(id, name), product_images(url), product_variants(id, stock, image_url)",
     )
     .order("position", { ascending: true });
 

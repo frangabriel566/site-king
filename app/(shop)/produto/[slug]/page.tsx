@@ -64,7 +64,11 @@ export default async function ProductPage({
   const images = [...product.product_images].sort(
     (a, b) => a.position - b.position,
   );
-  const mainImage = images[0]?.url ?? null;
+  // Falls back to the first variant's own color photo when the product has
+  // no general gallery images at all (e.g. every photo was uploaded as a
+  // per-color photo instead) — otherwise the cart thumbnail, OG image and
+  // JSON-LD would all silently come up blank.
+  const mainImage = images[0]?.url ?? product.product_variants[0]?.image_url ?? null;
 
   const jsonLd = {
     "@context": "https://schema.org",

@@ -43,15 +43,21 @@ export default async function AdminProductsPage() {
               (sum, v) => sum + v.stock,
               0,
             );
+            // Falls back to a variant's own color photo when the product
+            // has no general gallery images at all.
+            const thumbnail =
+              product.product_images[0]?.url ??
+              product.product_variants.find((v) => v.image_url)?.image_url ??
+              null;
             return (
               <div
                 key={product.id}
                 className="flex items-center gap-5 border border-line p-4"
               >
                 <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-[#111111]">
-                  {product.product_images[0] && (
+                  {thumbnail && (
                     <Image
-                      src={product.product_images[0].url}
+                      src={thumbnail}
                       alt=""
                       fill
                       sizes="56px"

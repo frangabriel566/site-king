@@ -39,6 +39,7 @@ import { SIMPLE_VARIANT_COLOR, SIMPLE_VARIANT_SIZE, isSimpleVariant } from "@/li
 import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
 import { useUnsavedChangesGuard, confirmDiscardUnsavedChanges } from "@/lib/hooks/use-unsaved-changes-guard";
 import { useDraftAutosave, readDraft, clearDraft } from "@/lib/hooks/use-draft-autosave";
+import { usePhotoDedupRegistry } from "@/lib/hooks/use-photo-dedup-registry";
 import { deleteMediaAction } from "@/lib/actions/media";
 import { duplicateProductAction, type ActionResult } from "@/lib/actions/products";
 import type { Category } from "@/lib/data/categories";
@@ -152,6 +153,7 @@ export function ProductForm({
   const router = useRouter();
   const draftKey = `king-store:product-draft:${product?.id ?? "new"}`;
   const restoredRef = useRef(false);
+  const { checkAndRegister: checkDuplicatePhoto } = usePhotoDedupRegistry();
 
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
@@ -614,7 +616,13 @@ export function ProductForm({
       {/* 2. Fotos e mídia */}
       <FormSection title="2. Fotos e mídia">
         <div id="field-images" className="scroll-mt-24">
-          <MultiImageUploader images={images} onChange={setImages} />
+          <MultiImageUploader
+            images={images}
+            onChange={setImages}
+            checkDuplicate={(file) =>
+              checkDuplicatePhoto(file, "general", "Imagens do produto")
+            }
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="video_url">Vídeo do produto (opcional)</Label>
@@ -743,6 +751,7 @@ export function ProductForm({
             onChange={setVariants}
             isShoeCategory={isShoeCategory}
             existingSkus={existingSkus}
+            checkDuplicate={checkDuplicatePhoto}
           />
         )}
       </FormSection>

@@ -15,6 +15,7 @@ export function ImageUploader({
   folder,
   aspect = "aspect-video",
   savingRef,
+  checkDuplicate,
 }: {
   label: string;
   value: string | null;
@@ -25,6 +26,11 @@ export function ImageUploader({
    * the unmount cleanup so a just-saved image isn't deleted out from
    * under the product/banner that now references it. */
   savingRef?: RefObject<boolean>;
+  /** Optional cross-field duplicate check (product form only) — if the
+   * picked file's content already lives in another field of the same
+   * product, resolves to that field's label so the operator can be
+   * warned instead of silently ending up with the same photo twice. */
+  checkDuplicate?: (file: File) => Promise<string | undefined>;
 }) {
   const [progress, setProgress] = useState<number | null>(null);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -50,6 +56,11 @@ export function ImageUploader({
   }, [savingRef]);
 
   async function handleFile(file: File) {
+    const duplicateOf = await checkDuplicate?.(file);
+    if (duplicateOf) {
+      toast.warning(`Essa foto já está em uso em "${duplicateOf}" — não precisa enviar de novo.`);
+    }
+
     setProgress(0);
     const previous = value;
     const result = await uploadImageToStorage(file, folder, {

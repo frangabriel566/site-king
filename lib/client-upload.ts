@@ -180,6 +180,23 @@ export async function uploadImageToStorage(
   };
 }
 
+/**
+ * SHA-256 of the raw file the operator picked, before compression —
+ * compression is deterministic for a given source, but hashing the
+ * original avoids depending on that. Used to catch the same photo being
+ * uploaded twice under two different admin fields (e.g. once as a
+ * general product image, once again as a variant's color photo), which
+ * Storage's random per-upload filename can't detect on its own since
+ * every upload gets a fresh URL regardless of content.
+ */
+export async function hashFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function pathFromPublicUrl(url: string): string | null {
   const marker = "/object/public/media/";
   const index = url.indexOf(marker);

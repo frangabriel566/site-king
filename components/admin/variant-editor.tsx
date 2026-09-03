@@ -79,6 +79,7 @@ export function VariantEditor({
   onChange,
   isShoeCategory = false,
   existingSkus = [],
+  checkDuplicate,
 }: {
   productSlug: string;
   variants: VariantDraft[];
@@ -91,6 +92,12 @@ export function VariantEditor({
    * whole table, not per-product, so the generator needs to dodge these
    * too, not just the rows already on screen. */
   existingSkus?: string[];
+  /** Cross-field duplicate check shared with the product's general
+   * gallery — catches uploading the exact same photo both as a color's
+   * own photo and as a general product image. Raw registry function
+   * (not pre-bound to a slot) since the color-photo slot is generated
+   * dynamically from `genColor`, which only this component knows. */
+  checkDuplicate?: (file: File, slotId: string, label: string) => Promise<string | undefined>;
 }) {
   const [genColor, setGenColor] = useState("");
   const [genHex, setGenHex] = useState("#0A0A0A");
@@ -265,6 +272,16 @@ export function VariantEditor({
             onChange={setGenImageUrl}
             folder="products"
             aspect="aspect-square"
+            checkDuplicate={
+              checkDuplicate
+                ? (file) =>
+                    checkDuplicate(
+                      file,
+                      "generator-color-photo",
+                      `Foto da cor "${genColor.trim() || "sem nome"}"`,
+                    )
+                : undefined
+            }
           />
         </div>
 

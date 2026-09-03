@@ -40,9 +40,13 @@ function formatFileSize(bytes: number): string {
 export function MultiImageUploader({
   images,
   onChange,
+  checkDuplicate,
 }: {
   images: ProductImageDraft[];
   onChange: (images: ProductImageDraft[]) => void;
+  /** Optional cross-field duplicate check (product form only) — see
+   * ImageUploader's prop of the same name. */
+  checkDuplicate?: (file: File) => Promise<string | undefined>;
 }) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -52,6 +56,11 @@ export function MultiImageUploader({
 
   async function handleFiles(files: FileList) {
     for (const file of Array.from(files)) {
+      const duplicateOf = await checkDuplicate?.(file);
+      if (duplicateOf) {
+        toast.warning(`Essa foto já está em uso em "${duplicateOf}" — não precisa enviar de novo.`);
+      }
+
       const id = crypto.randomUUID();
       setPending((prev) => [...prev, { id, fileName: file.name, progress: 0, cancel: () => {} }]);
 

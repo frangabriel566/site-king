@@ -23,14 +23,19 @@ export function ProductGallery({
   const [selected, setSelected] = useState(0);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
 
-  // The color photo isn't part of product_images (it lives on the variant
-  // row instead), so it's merged in here rather than being a real gallery
-  // entry — inserted at the front, or just reused in place if the operator
-  // happened to upload the exact same file to both places.
+  // A color with its own dedicated photo shows THAT and only that — not
+  // merged with the general gallery. The general gallery isn't filtered
+  // by color at all, so mixing it in meant every color selection also
+  // pulled in every OTHER color's general photo (plus its own, often
+  // duplicating what the color photo already showed): picking "Preto"
+  // could show two black photos, a beige one and a green one all at
+  // once. Falls back to the general gallery only when this particular
+  // color has no dedicated photo of its own.
   const displayImages: GalleryImage[] = useMemo(() => {
-    if (!activeColorImage) return images;
-    if (images.some((img) => img.url === activeColorImage)) return images;
-    return [{ id: `color-photo-${activeColorImage}`, url: activeColorImage, alt: null }, ...images];
+    if (activeColorImage) {
+      return [{ id: `color-photo-${activeColorImage}`, url: activeColorImage, alt: null }];
+    }
+    return images;
   }, [images, activeColorImage]);
 
   const onSelect = useCallback(() => {

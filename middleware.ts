@@ -2,11 +2,28 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
-
   const isAdminRoute = pathname.startsWith("/admin");
   const isLoginRoute = pathname === "/admin/login";
+
+  let session;
+  try {
+    session = await updateSession(request);
+  } catch (error) {
+    // Supabase is unreachable or misconfigured (e.g. a bad env var). Don't let
+    // that take down every page on the site — fail closed only for /admin
+    // (send to login) and let the public storefront render as usual.
+    console.error("middleware: updateSession failed", error);
+    if (isAdminRoute && !isLoginRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  const { supabaseResponse, user, supabase } = session;
 
   if (isAdminRoute && !isLoginRoute) {
     if (!user) {

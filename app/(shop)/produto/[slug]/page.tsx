@@ -85,7 +85,7 @@ export default async function ProductPage({
       availability: product.product_variants.some((v) => v.stock > 0)
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
-      url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/produto/${product.slug}`,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/produto/${product.slug}`,
     },
   };
 
@@ -93,12 +93,12 @@ export default async function ProductPage({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: process.env.NEXT_PUBLIC_SITE_URL ?? "/" },
+      { "@type": "ListItem", position: 1, name: "Home", item: process.env.NEXT_PUBLIC_SITE_URL || "/" },
       product.category && {
         "@type": "ListItem",
         position: 2,
         name: product.category.name,
-        item: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/colecao?categoria=${product.category.slug}`,
+        item: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/colecao?categoria=${product.category.slug}`,
       },
       {
         "@type": "ListItem",

@@ -9,7 +9,11 @@ const archivo = Archivo({
   weight: ["400", "500", "600", "700", "800", "900"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// || not ?? — an env var explicitly set to "" (e.g. left blank in the
+// Vercel dashboard before the first deploy's URL was known) is neither
+// null nor undefined, so ?? would leave siteUrl empty and new URL()
+// below would throw "Invalid URL" during the production build.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

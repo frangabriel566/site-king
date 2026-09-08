@@ -9,7 +9,7 @@ export class MercadoPagoProvider implements PaymentProvider {
       throw new Error("MERCADOPAGO_ACCESS_TOKEN não configurado.");
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const client = new MercadoPagoConfig({ accessToken });
     const preference = new Preference(client);
 

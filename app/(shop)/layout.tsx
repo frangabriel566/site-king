@@ -18,7 +18,7 @@ export default async function ShopLayout({
     getActiveCategories(),
   ]);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",

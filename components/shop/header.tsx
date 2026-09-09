@@ -34,21 +34,24 @@ export function Header({
           hiding sidesteps the bug entirely — no listener, nothing to
           fight with. */}
       <div className="border-b border-white/10 bg-fg text-bg">
-        <div className="mx-auto flex h-9 max-w-[1400px] items-center justify-between gap-4 px-4 text-xs md:px-8">
-          <p className="flex items-center gap-2 truncate">
+        <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
+          <div aria-hidden="true" />
+          <p className="flex items-center justify-center gap-2 truncate text-center">
             <Truck className="size-3.5 shrink-0" aria-hidden="true" />
             {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
           </p>
-          {settings.whatsapp && (
+          {settings.whatsapp ? (
             <a
               href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
               target="_blank"
               rel="noreferrer"
-              className="hidden shrink-0 items-center gap-2 hover:text-gold sm:flex"
+              className="hidden shrink-0 items-center justify-self-end gap-2 hover:text-gold sm:flex"
             >
               <MessageCircle className="size-3.5" aria-hidden="true" />
               Fale conosco
             </a>
+          ) : (
+            <div aria-hidden="true" />
           )}
         </div>
       </div>

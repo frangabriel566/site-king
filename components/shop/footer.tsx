@@ -21,7 +21,7 @@ export function Footer({
   categories: Category[];
 }) {
   return (
-    <footer className="bg-fg text-bg">
+    <footer className="bg-black text-bg">
       <div className="mx-auto max-w-[1400px] px-4 pt-14 pb-8 md:px-8">
         <div className="grid grid-cols-2 gap-10 pb-12 md:grid-cols-5">
           <div className="col-span-2">

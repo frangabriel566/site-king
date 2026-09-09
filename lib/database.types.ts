@@ -652,12 +652,6 @@ export interface Database {
             referencedRelation: "products";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "reviews_customer_id_fkey";
-            columns: ["customer_id"];
-            referencedRelation: "customers";
-            referencedColumns: ["id"];
-          },
         ];
       };
     };

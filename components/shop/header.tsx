@@ -33,7 +33,7 @@ export function Header({
           produces a visible flicker loop. Letting native scrolling do the
           hiding sidesteps the bug entirely — no listener, nothing to
           fight with. */}
-      <div className="border-b border-white/10 bg-fg text-bg">
+      <div className="border-b border-white/10 bg-black text-bg">
         <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
           <div aria-hidden="true" />
           <p className="flex items-center justify-center gap-2 truncate text-center">
@@ -58,7 +58,7 @@ export function Header({
 
       {/* sticky header — logo, search, account + bag. Height is constant
           (no scroll-driven resize) for the same reason as above. */}
-      <header className="sticky top-0 z-40 w-full bg-fg text-bg">
+      <header className="sticky top-0 z-40 w-full bg-black text-bg">
         <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 md:gap-8 md:px-8">
           <Link href="/" className="shrink-0">
             {settings.logo_url ? (
@@ -123,7 +123,7 @@ export function Header({
       {/* category nav row — plain document flow, right after the sticky
           header. Scrolling past it makes it slide up behind the pinned
           header naturally; no JS, no height animation, no reflow risk. */}
-      <nav className="hidden border-t border-white/10 bg-fg text-bg md:block">
+      <nav className="hidden border-t border-white/10 bg-black text-bg md:block">
         <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-7 px-8 text-xs font-medium uppercase tracking-wide">
           {categories.map((category) => (
             <Link
@@ -144,7 +144,7 @@ export function Header({
           className="w-full max-w-full gap-0 border-l border-line bg-white p-0 text-fg sm:max-w-full"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
-          <div className="flex h-16 items-center justify-between bg-fg px-6 text-bg">
+          <div className="flex h-16 items-center justify-between bg-black px-6 text-bg">
             <span className="text-sm font-extrabold uppercase tracking-[0.08em] text-gold">
               {settings.store_name}
             </span>

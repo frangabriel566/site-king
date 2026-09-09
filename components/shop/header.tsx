@@ -65,9 +65,9 @@ export function Header({
               <Image
                 src={settings.logo_url}
                 alt={settings.store_name}
-                width={140}
-                height={40}
-                className="h-8 w-auto object-contain md:h-10"
+                width={174}
+                height={58}
+                className="h-12 w-auto object-contain md:h-14"
                 priority
               />
             ) : (

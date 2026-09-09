@@ -78,7 +78,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                     </p>
                   )}
                   {banner.cta_label && (
-                    <span className="mt-4 inline-block rounded-md bg-white px-5 py-2 text-sm font-semibold text-fg">
+                    <span className="mt-3 inline-block rounded-md bg-white px-3 py-1 text-xs font-semibold text-fg md:mt-4 md:px-5 md:py-2 md:text-sm">
                       {banner.cta_label}
                     </span>
                   )}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { reviewSchema } from "@/lib/validations/review";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "./require-admin";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -62,4 +63,17 @@ export async function deleteReviewAction(reviewId: string, slug: string): Promis
 
   if (!error) revalidatePath(`/produto/${slug}`);
   return { ok: !error };
+}
+
+export async function deleteReviewAdminAction(
+  reviewId: string,
+  slug: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/admin/avaliacoes");
+  revalidatePath(`/produto/${slug}`);
+  return { ok: true };
 }

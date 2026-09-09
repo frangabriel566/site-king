@@ -1,8 +1,13 @@
+import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { Tables } from "@/lib/database.types";
 
 export type Review = Tables<"reviews"> & {
   customer: { name: string } | null;
+};
+
+export type AdminReview = Review & {
+  product: { name: string; slug: string } | null;
 };
 
 /** Public read (no session cookie) — keeps the product page eligible
@@ -19,6 +24,32 @@ export async function getProductReviews(productId: string): Promise<Review[]> {
     .from("reviews")
     .select("*")
     .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+
+  if (!reviews || reviews.length === 0) return [];
+
+  const customerIds = [...new Set(reviews.map((r) => r.customer_id))];
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, name")
+    .in("id", customerIds);
+
+  const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  return reviews.map((r) => ({
+    ...r,
+    customer: nameById.has(r.customer_id) ? { name: nameById.get(r.customer_id)! } : null,
+  }));
+}
+
+/** Every review across every product, newest first — the moderation
+ * list at /admin/avaliacoes. Same manual customer-name lookup as
+ * getProductReviews, embedding products directly since that FK (unlike
+ * customer_id) still exists. */
+export async function getAllReviewsAdmin(): Promise<AdminReview[]> {
+  const supabase = await createClient();
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*, product:products(name, slug)")
     .order("created_at", { ascending: false });
 
   if (!reviews || reviews.length === 0) return [];

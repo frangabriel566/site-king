@@ -12,6 +12,7 @@ import {
   Package,
   Users,
   Ticket,
+  Star,
   Settings,
   LogOut,
   ExternalLink,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/admin/pedidos", label: "Pedidos", icon: Package },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/cupons", label: "Cupons", icon: Ticket },
+  { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 

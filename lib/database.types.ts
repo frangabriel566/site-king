@@ -620,6 +620,46 @@ export interface Database {
         };
         Relationships: [];
       };
+      reviews: {
+        Row: {
+          id: string;
+          product_id: string;
+          customer_id: string;
+          rating: number;
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          customer_id: string;
+          rating: number;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          customer_id?: string;
+          rating?: number;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reviews_product_id_fkey";
+            columns: ["product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_customer_id_fkey";
+            columns: ["customer_id"];
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

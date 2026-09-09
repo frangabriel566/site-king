@@ -80,3 +80,14 @@ export function formatCep(value: string): string {
   if (digits.length <= 5) return digits;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
+
+/** "Maria Silva" -> "Maria S." — first name plus initials, so a review
+ *  credits its author without publishing their full legal name. */
+export function formatReviewerName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts[0]} ${parts
+    .slice(1)
+    .map((p) => `${p.charAt(0).toUpperCase()}.`)
+    .join(" ")}`;
+}

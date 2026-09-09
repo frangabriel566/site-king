@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Star } from "lucide-react";
 import {
   getAllActiveProductSlugs,
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/data/products";
 import { getSiteSettings } from "@/lib/data/settings";
+import { getProductReviews, summarizeRatings } from "@/lib/data/reviews";
 import { ProductMedia } from "@/components/shop/product-media";
 import { ProductSpecs } from "@/components/shop/product-specs";
 import { ProductInfoTabs } from "@/components/shop/product-info-tabs";
+import { ProductReviews } from "@/components/shop/product-reviews";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
 import { ProductRail } from "@/components/shop/product-rail";
 
@@ -54,12 +55,14 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [relatedPool, settings] = await Promise.all([
+  const [relatedPool, settings, reviews] = await Promise.all([
     getRelatedProducts(product.category_id, product.id, 8),
     getSiteSettings(),
+    getProductReviews(product.id),
   ]);
   const related = relatedPool.slice(0, 4);
   const alsoViewed = relatedPool.slice(4, 8);
+  const ratingSummary = summarizeRatings(reviews);
 
   const images = [...product.product_images].sort(
     (a, b) => a.position - b.position,
@@ -153,19 +156,13 @@ export default async function ProductPage({
           freeShippingNote={settings.free_shipping_note}
         />
 
-        <section>
-          <h2 className="mb-4 text-lg font-bold text-fg">Avaliações</h2>
-          <div className="flex flex-col items-start gap-3 rounded-lg border border-line bg-surface p-6">
-            <div className="flex items-center gap-1 text-line">
-              {Array.from({ length: 5 }, (_, i) => (
-                <Star key={i} className="size-5" strokeWidth={1.5} />
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Este produto ainda não tem avaliações.
-            </p>
-          </div>
-        </section>
+        <ProductReviews
+          productId={product.id}
+          slug={product.slug}
+          reviews={reviews}
+          average={ratingSummary.average}
+          count={ratingSummary.count}
+        />
       </div>
 
       <div className="mt-4">

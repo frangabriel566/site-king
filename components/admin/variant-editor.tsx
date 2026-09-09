@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FocusEvent } from "react";
-import Image from "next/image";
 import { Plus, Trash2, Wand2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -514,28 +513,19 @@ export function VariantEditor({
                     aria-label={`Cor (hex) de ${color}`}
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-[10px]">Foto da cor</Label>
-                  {rows[0]?.image_url ? (
-                    <div className="flex items-center gap-2">
-                      <Image
-                        src={rows[0].image_url}
-                        alt=""
-                        width={32}
-                        height={32}
-                        className="size-8 rounded-sm border border-line object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setColorPhoto(color, "")}
-                        className="text-[10px] text-ink-muted underline underline-offset-4 hover:text-fg"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-ink-muted">Nenhuma</span>
-                  )}
+                <div className="w-28">
+                  <ImageUploader
+                    label="Foto da cor"
+                    value={rows[0]?.image_url || null}
+                    onChange={(url) => setColorPhoto(color, url ?? "")}
+                    folder="products"
+                    aspect="aspect-square"
+                    checkDuplicate={
+                      checkDuplicate
+                        ? (file) => checkDuplicate(file, `color-photo-${color}`, `Foto da cor "${color}"`)
+                        : undefined
+                    }
+                  />
                 </div>
               </div>
             </div>

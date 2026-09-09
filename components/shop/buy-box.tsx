@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
@@ -42,9 +43,11 @@ export function BuyBox({
 
   const colors = useMemo(() => {
     if (isSimpleProduct) return [];
-    const map = new Map<string, string | null>();
-    for (const v of variants) if (!map.has(v.color)) map.set(v.color, v.color_hex);
-    return Array.from(map, ([color, color_hex]) => ({ color, color_hex }));
+    const map = new Map<string, { color_hex: string | null; image_url: string | null }>();
+    for (const v of variants) {
+      if (!map.has(v.color)) map.set(v.color, { color_hex: v.color_hex, image_url: v.image_url });
+    }
+    return Array.from(map, ([color, meta]) => ({ color, ...meta }));
   }, [variants, isSimpleProduct]);
 
   const allSizes = useMemo(() => {
@@ -144,18 +147,23 @@ export function BuyBox({
         <div className="mt-6">
           <p className="mb-3 text-sm font-medium text-fg">Cor — {selectedColor}</p>
           <div className="flex flex-wrap gap-2">
-            {colors.map(({ color, color_hex }) => (
+            {colors.map(({ color, color_hex, image_url }) => (
               <button
                 key={color}
                 type="button"
                 onClick={() => handleColorChange(color)}
                 title={color}
                 aria-pressed={selectedColor === color}
-                className={`flex size-10 items-center justify-center rounded-md border-2 transition-colors duration-150 ease-out ${
+                className={`relative flex size-14 items-center justify-center overflow-hidden rounded-md border-2 transition-colors duration-150 ease-out ${
                   selectedColor === color ? "border-cta" : "border-line hover:border-muted"
                 }`}
               >
-                {color_hex ? (
+                {image_url ? (
+                  // The color's own photo — same picture the gallery
+                  // switches to — doubles as its swatch, like a real photo
+                  // thumbnail instead of an abstract color dot.
+                  <Image src={image_url} alt={color} fill sizes="56px" className="object-cover" />
+                ) : color_hex ? (
                   <span
                     className="size-6 rounded-full border border-line"
                     style={{ backgroundColor: color_hex }}

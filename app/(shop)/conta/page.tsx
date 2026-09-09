@@ -10,9 +10,17 @@ export const metadata: Metadata = { title: "Minha conta" };
 
 export default async function AccountPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  let user = null;
+  try {
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch (error) {
+    // Same fail-open stance as middleware.ts: a broken Supabase client
+    // shouldn't 500 the whole page — fall back to the logged-out view.
+    console.error("conta: auth.getUser failed", error);
+  }
 
   if (!user) {
     return (

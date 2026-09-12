@@ -59,15 +59,24 @@ export function Header({
       {/* sticky header — logo, search, account + bag. Height is constant
           (no scroll-driven resize) for the same reason as above. */}
       <header className="sticky top-0 z-40 w-full bg-black text-bg">
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 md:gap-8 md:px-8">
-          <Link href="/" className="shrink-0">
+        <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4 md:flex md:gap-8 md:px-8">
+          <button
+            type="button"
+            className="justify-self-start md:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+          >
+            <Menu className="size-6" aria-hidden="true" />
+          </button>
+
+          <Link href="/" className="col-start-2 shrink-0 justify-self-center">
             {settings.logo_url ? (
               <Image
                 src={settings.logo_url}
                 alt={settings.store_name}
                 width={174}
                 height={58}
-                className="h-12 w-auto object-contain md:h-14"
+                className="h-14 w-auto object-contain"
                 priority
               />
             ) : (
@@ -81,10 +90,11 @@ export function Header({
             <HeaderSearch className="max-w-xl" />
           </div>
 
-          <div className="ml-auto flex items-center gap-4 md:gap-6">
+          <div className="col-start-3 flex items-center justify-self-end gap-4 md:ml-auto md:gap-6">
             <Link
               href="/conta"
-              className="hidden items-center gap-2 text-sm hover:text-gold sm:flex"
+              aria-label="Entrar"
+              className="flex items-center gap-2 text-sm hover:text-gold"
             >
               <User className="size-5" aria-hidden="true" />
               <span className="hidden lg:inline">Entrar</span>
@@ -97,19 +107,11 @@ export function Header({
             >
               <ShoppingBag className="size-5" aria-hidden="true" />
               {isHydrated && count > 0 && (
-                <span className="absolute -right-2 -top-2 flex size-4 items-center justify-center rounded-full bg-alert text-[10px] font-bold text-white">
-                  {count}
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[10px] font-bold text-white">
+                  {count > 99 ? "99+" : count}
                 </span>
               )}
               <span className="hidden lg:inline">Sacola</span>
-            </button>
-            <button
-              type="button"
-              className="md:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Abrir menu"
-            >
-              <Menu className="size-6" aria-hidden="true" />
             </button>
           </div>
         </div>

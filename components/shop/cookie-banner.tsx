@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { COOKIE_CONSENT_KEY } from "@/lib/constants";
+import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from "@/lib/constants";
 
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
@@ -23,6 +23,7 @@ export function CookieBanner() {
     } catch {
       // ignore
     }
+    window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT));
     setVisible(false);
   }
 

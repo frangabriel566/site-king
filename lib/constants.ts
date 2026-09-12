@@ -1,5 +1,10 @@
 export const CART_STORAGE_KEY = "king-store:cart";
 export const COOKIE_CONSENT_KEY = "king-store:cookie-consent";
+/** Fired on `window` the moment cookie consent is accepted, so other
+ * already-mounted widgets (e.g. the WhatsApp float, which raises itself
+ * to clear the cookie banner) can react in the same tab — a `storage`
+ * event only fires in *other* tabs, so it can't do this job. */
+export const COOKIE_CONSENT_EVENT = "king-store:cookie-consent-change";
 export const COLLECTION_PAGE_SIZE = 12;
 
 export const FREE_SHIPPING_THRESHOLD = 399;

@@ -1,15 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import {
-  CreditCard,
-  ShieldCheck,
-  Lock,
-  Camera,
-  Music2,
-  PlayCircle,
-  Mail,
-} from "lucide-react";
-import { Newsletter } from "./newsletter";
+import { CreditCard, ShieldCheck, Lock, Camera, Music2, Mail } from "lucide-react";
+import { FooterNewsletter } from "./footer-newsletter";
+import { FooterAccordionSection } from "./footer-accordion-section";
+import { WhatsAppIcon } from "./whatsapp-icon";
 import type { SiteSettings } from "@/lib/data/settings";
 import type { Category } from "@/lib/data/categories";
 
@@ -22,9 +16,9 @@ export function Footer({
 }) {
   return (
     <footer className="bg-black text-bg">
-      <div className="mx-auto max-w-[1400px] px-4 pt-14 pb-8 md:px-8">
-        <div className="grid grid-cols-2 gap-10 pb-12 md:grid-cols-5">
-          <div className="col-span-2">
+      <div className="mx-auto max-w-[1400px] px-4 pt-10 pb-6 sm:pt-14 sm:pb-8 md:px-8">
+        <div className="divide-y divide-white/10 pb-2 lg:grid lg:grid-cols-5 lg:gap-10 lg:divide-y-0 lg:pb-12">
+          <div className="pb-5 lg:col-span-2 lg:pb-0">
             {settings.logo_url ? (
               <Image
                 src={settings.logo_url}
@@ -38,46 +32,40 @@ export function Footer({
                 {settings.store_name}
               </p>
             )}
-            <p className="mt-4 max-w-xs text-sm text-bg/70">
+            <p className="mt-3 max-w-xs text-sm text-bg/70">
               {settings.shipping_note ?? "Vestuário masculino."}
             </p>
-            <div className="mt-6 max-w-sm">
-              <Newsletter variant="dark" />
+            <div className="mt-5 max-w-sm lg:mt-6">
+              <FooterNewsletter />
             </div>
           </div>
 
-          <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bg/60">
-              Categorias
-            </p>
-            <ul className="flex flex-col gap-3">
+          <FooterAccordionSection title="Categorias">
+            <ul className="flex flex-col lg:gap-1">
               {categories.map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/colecao?categoria=${category.slug}`}
-                    className="text-sm text-bg/80 transition-colors duration-150 ease-out hover:text-gold"
+                    className="block py-2 text-sm text-bg/80 transition-colors duration-150 ease-out hover:text-gold lg:py-1"
                   >
                     {category.name}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </FooterAccordionSection>
 
-          <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bg/60">
-              Institucional
-            </p>
-            <ul className="flex flex-col gap-3">
+          <FooterAccordionSection title="Institucional">
+            <ul className="flex flex-col lg:gap-1">
               <li>
-                <Link href="/sobre" className="text-sm text-bg/80 hover:text-gold">
+                <Link href="/sobre" className="block py-2 text-sm text-bg/80 hover:text-gold lg:py-1">
                   Sobre
                 </Link>
               </li>
               <li>
                 <Link
                   href="/trocas-e-devolucoes"
-                  className="text-sm text-bg/80 hover:text-gold"
+                  className="block py-2 text-sm text-bg/80 hover:text-gold lg:py-1"
                 >
                   Trocas e devoluções
                 </Link>
@@ -85,26 +73,23 @@ export function Footer({
               <li>
                 <Link
                   href="/politica-de-privacidade"
-                  className="text-sm text-bg/80 hover:text-gold"
+                  className="block py-2 text-sm text-bg/80 hover:text-gold lg:py-1"
                 >
                   Política de privacidade
                 </Link>
               </li>
             </ul>
-          </div>
+          </FooterAccordionSection>
 
-          <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-bg/60">
-              Atendimento
-            </p>
-            <ul className="flex flex-col gap-3">
+          <FooterAccordionSection title="Atendimento">
+            <ul className="flex flex-col lg:gap-1">
               {settings.email && (
                 <li>
                   <a
                     href={`mailto:${settings.email}`}
-                    className="flex items-center gap-2 text-sm text-bg/80 hover:text-gold"
+                    className="flex items-center gap-2 py-2 text-sm text-bg/80 hover:text-gold lg:py-1"
                   >
-                    <Mail className="size-3.5" aria-hidden="true" />
+                    <Mail className="size-3.5 shrink-0" aria-hidden="true" />
                     {settings.email}
                   </a>
                 </li>
@@ -115,61 +100,64 @@ export function Footer({
                     href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm text-bg/80 hover:text-gold"
+                    className="block py-2 text-sm text-bg/80 hover:text-gold lg:py-1"
                   >
                     WhatsApp
                   </a>
                 </li>
               )}
             </ul>
-            <div className="mt-5 flex items-center gap-4">
-              {settings.instagram && (
-                <a
-                  href={`https://instagram.com/${settings.instagram.replace("@", "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Instagram"
-                  className="text-bg/80 hover:text-gold"
-                >
-                  <Camera className="size-5" />
-                </a>
-              )}
-              {settings.tiktok && (
-                <a
-                  href={`https://tiktok.com/${settings.tiktok.replace("@", "@")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="TikTok"
-                  className="text-bg/80 hover:text-gold"
-                >
-                  <Music2 className="size-5" />
-                </a>
-              )}
-              {settings.youtube && (
-                <a
-                  href={`https://youtube.com/${settings.youtube}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="YouTube"
-                  className="text-bg/80 hover:text-gold"
-                >
-                  <PlayCircle className="size-5" />
-                </a>
-              )}
-            </div>
-          </div>
+          </FooterAccordionSection>
         </div>
 
         <div className="h-px bg-white/10" />
 
-        <div className="flex flex-col items-center justify-between gap-6 pt-8 sm:flex-row">
+        <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:justify-between sm:pt-8">
+          <div className="flex items-center gap-5">
+            {settings.instagram && (
+              <a
+                href={`https://instagram.com/${settings.instagram.replace("@", "")}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Instagram"
+                className="text-bg/80 hover:text-gold"
+              >
+                <Camera className="size-5" />
+              </a>
+            )}
+            {settings.tiktok && (
+              <a
+                href={`https://tiktok.com/${settings.tiktok.replace("@", "@")}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="TikTok"
+                className="text-bg/80 hover:text-gold"
+              >
+                <Music2 className="size-5" />
+              </a>
+            )}
+            {settings.whatsapp && (
+              <a
+                href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="WhatsApp"
+                className="text-bg/80 hover:text-gold"
+              >
+                <WhatsAppIcon className="size-5" />
+              </a>
+            )}
+          </div>
+
           <p className="text-xs text-bg/60">
             © {new Date().getFullYear()} {settings.store_name}. Todos os direitos reservados.
           </p>
+
           {settings.free_shipping_note && (
-            <p className="text-xs text-bg/60">{settings.free_shipping_note}</p>
+            <p className="hidden text-xs text-bg/60 sm:block">{settings.free_shipping_note}</p>
           )}
-          <div className="flex items-center gap-5 text-bg/60">
+
+          <div className="hidden items-center gap-5 text-bg/60 sm:flex">
             <span className="flex items-center gap-1.5 text-xs">
               <CreditCard className="size-4" aria-hidden="true" /> Cartão, Pix e boleto
             </span>

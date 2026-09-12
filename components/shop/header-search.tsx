@@ -47,7 +47,7 @@ export function HeaderSearch({ className = "" }: { className?: string }) {
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
-      <div className="flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-fg">
+      <div className="flex h-11 items-center gap-2 rounded-full border border-transparent bg-white px-4 text-fg shadow-sm transition-shadow duration-150 ease-out focus-within:border-gold-text/60 focus-within:ring-2 focus-within:ring-gold/25">
         <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
           value={term}
@@ -77,7 +77,7 @@ export function HeaderSearch({ className = "" }: { className?: string }) {
       </div>
 
       {showPanel && (
-        <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-white p-3 text-fg shadow-lg">
+        <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-line bg-white p-3 text-fg shadow-lg">
           {loading && <p className="px-2 py-3 text-sm text-muted-foreground">Buscando…</p>}
 
           {!loading && results.length === 0 && (

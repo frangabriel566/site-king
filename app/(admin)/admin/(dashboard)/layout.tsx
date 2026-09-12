@@ -13,9 +13,9 @@ export default async function AdminDashboardLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0a] text-fg">
+    <div className="min-h-screen bg-[#0a0a0a] text-fg md:flex">
       <AdminSidebar email={user?.email ?? null} />
-      <main className="min-w-0 flex-1 overflow-x-hidden px-8 py-8 md:px-10">
+      <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 md:px-10 md:py-8">
         {children}
       </main>
       <Toaster position="bottom-right" />

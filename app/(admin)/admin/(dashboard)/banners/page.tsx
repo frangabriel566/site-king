@@ -16,7 +16,7 @@ export default async function AdminBannersPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-label mb-2">Painel</p>
           <h1 className="text-heading text-3xl">Banners</h1>
@@ -35,7 +35,7 @@ export default async function AdminBannersPage() {
           {banners.map((banner) => (
             <div
               key={banner.id}
-              className="flex items-center gap-5 border border-line p-4"
+              className="flex flex-wrap items-center gap-4 border border-line p-4 md:gap-5"
             >
               <div className="relative h-20 w-32 shrink-0 overflow-hidden bg-[#111111]">
                 {banner.image_url && (
@@ -48,7 +48,7 @@ export default async function AdminBannersPage() {
                   />
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-40">
                 <p className="truncate text-sm">
                   {banner.wordmark || "(sem wordmark)"}
                 </p>

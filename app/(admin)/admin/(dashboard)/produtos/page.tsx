@@ -22,7 +22,7 @@ export default async function AdminProductsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-label mb-2">Painel</p>
           <h1 className="text-heading text-3xl">Produtos</h1>
@@ -52,7 +52,7 @@ export default async function AdminProductsPage() {
             return (
               <div
                 key={product.id}
-                className="flex items-center gap-5 border border-line p-4"
+                className="flex flex-wrap items-center gap-4 border border-line p-4 md:gap-5"
               >
                 <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-[#111111]">
                   {thumbnail && (
@@ -65,7 +65,7 @@ export default async function AdminProductsPage() {
                     />
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-40">
                   <p className="truncate text-sm">{product.name}</p>
                   <p className="text-xs text-ink-muted">
                     {product.category?.name ?? "Sem categoria"} ·{" "}

@@ -32,7 +32,7 @@ export default async function AdminOrderDetailPage({
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-label mb-2">Pedidos</p>
           <h1 className="text-heading text-3xl">Pedido #{order.order_number}</h1>

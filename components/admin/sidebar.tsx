@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,7 +17,10 @@ import {
   Settings,
   LogOut,
   ExternalLink,
+  Menu,
+  X,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { adminLogoutAction } from "@/lib/actions/admin-auth";
 
 const NAV_ITEMS = [
@@ -35,14 +39,79 @@ const NAV_ITEMS = [
 
 export function AdminSidebar({ email }: { email: string | null }) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-line bg-[#0a0a0a] print:hidden">
-      <div className="border-b border-line px-6 py-6">
+    <>
+      {/* barra superior do mobile — o painel fixo de 256px não cabe ao lado
+          do conteúdo num celular, então abaixo de md ele vira gaveta e só
+          este cabeçalho fica visível. */}
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-line bg-[#0a0a0a] px-4 md:hidden print:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menu do painel"
+          className="-ml-2 p-2 text-ink-muted transition-colors duration-150 ease-out hover:text-fg"
+        >
+          <Menu className="size-5" aria-hidden="true" />
+        </button>
         <p className="text-sm font-extrabold uppercase tracking-[0.1em] text-fg">
           King Store
         </p>
-        <p className="text-label mt-1">Painel administrativo</p>
+      </header>
+
+      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-[#0a0a0a] md:flex print:hidden">
+        <SidebarPanel pathname={pathname} email={email} />
+      </aside>
+
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          showCloseButton={false}
+          className="gap-0 border-r border-line bg-[#0a0a0a] p-0 text-fg"
+        >
+          <SheetTitle className="sr-only">Menu do painel</SheetTitle>
+          <SidebarPanel
+            pathname={pathname}
+            email={email}
+            onNavigate={() => setMobileOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+// Mesmo conteúdo nos dois modos: coluna fixa no desktop, gaveta no mobile.
+// `onNavigate` só é passado na gaveta — é o que fecha o menu ao navegar.
+function SidebarPanel({
+  pathname,
+  email,
+  onNavigate,
+}: {
+  pathname: string;
+  email: string | null;
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-6">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.1em] text-fg">
+            King Store
+          </p>
+          <p className="text-label mt-1">Painel administrativo</p>
+        </div>
+        {onNavigate && (
+          <button
+            type="button"
+            onClick={onNavigate}
+            aria-label="Fechar menu"
+            className="-mr-2 -mt-1 p-2 text-ink-muted transition-colors duration-150 ease-out hover:text-fg"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -57,7 +126,8 @@ export function AdminSidebar({ email }: { email: string | null }) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 text-sm transition-colors duration-150 ease-out ${
+                  onClick={onNavigate}
+                  className={`flex items-center gap-3 px-3 py-3 text-sm transition-colors duration-150 ease-out md:py-2.5 ${
                     isActive
                       ? "bg-white text-black"
                       : "text-ink-muted hover:bg-[#161616] hover:text-fg"
@@ -95,6 +165,6 @@ export function AdminSidebar({ email }: { email: string | null }) {
           </button>
         </form>
       </div>
-    </aside>
+    </div>
   );
 }

@@ -40,17 +40,17 @@ export default async function AdminCustomerDetailPage({
       </p>
 
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="border border-line p-5">
+        <div className="border border-line p-4 md:p-5">
           <p className="text-label mb-2">Pedidos</p>
-          <p className="text-2xl">{orders.length}</p>
+          <p className="text-xl md:text-2xl">{orders.length}</p>
         </div>
-        <div className="border border-line p-5">
+        <div className="border border-line p-4 md:p-5">
           <p className="text-label mb-2">Total gasto</p>
-          <p className="text-2xl">{formatCurrency(totalSpent)}</p>
+          <p className="text-xl md:text-2xl">{formatCurrency(totalSpent)}</p>
         </div>
-        <div className="border border-line p-5">
+        <div className="border border-line p-4 md:p-5">
           <p className="text-label mb-2">Nascimento</p>
-          <p className="text-2xl">{formatDate(customer.birthdate)}</p>
+          <p className="text-xl md:text-2xl">{formatDate(customer.birthdate)}</p>
         </div>
       </div>
 

@@ -40,7 +40,7 @@ export function OrdersFilterBar({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={status ?? "all"} onValueChange={(v) => update("status", v)}>
-        <SelectTrigger className="w-56 rounded-none">
+        <SelectTrigger className="w-full rounded-none sm:w-56">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="rounded-none">
@@ -54,7 +54,7 @@ export function OrdersFilterBar({
       <Input
         defaultValue={search}
         placeholder="Buscar por número ou cliente"
-        className="w-64 rounded-none"
+        className="w-full rounded-none sm:w-64"
         onKeyDown={(e) => {
           if (e.key === "Enter") update("busca", e.currentTarget.value);
         }}

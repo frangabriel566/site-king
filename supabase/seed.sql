@@ -174,11 +174,11 @@ insert into public.site_settings (
   id, store_name, logo_url, whatsapp, email, instagram, tiktok, youtube,
   shipping_note, free_shipping_note, announcement, announcement_active
 ) values (
-  1, 'King Store', null, '5511999999999', 'contato@kingstore.com.br',
+  1, 'King Store', null, '5586994306236', 'contato@kingstore.com.br',
   '@kingstore', '@kingstore', '@kingstore',
-  'Envios para todo o Brasil em até 2 dias úteis',
+  'Envios para todo o Brasil',
   'Frete grátis acima de R$ 399',
-  'FRETE GRÁTIS ACIMA DE R$ 399 · USE O CUPOM BEMVINDO10 NA PRIMEIRA COMPRA',
+  'FRETE GRÁTIS ACIMA DE R$ 399 · ',
   true
 )
 on conflict (id) do update set

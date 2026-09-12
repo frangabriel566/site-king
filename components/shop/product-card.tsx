@@ -31,7 +31,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
   return (
     <Link
       href={`/produto/${product.slug}`}
-      className="group block overflow-hidden rounded-lg border border-line bg-white transition-shadow duration-200 ease-out hover:shadow-lg"
+      className="group block overflow-hidden rounded-lg border border-line bg-white transition-[box-shadow,transform] duration-200 ease-out hover:shadow-lg active:scale-[0.98]"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-surface">
         {product.image ? (
@@ -40,7 +40,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               src={product.image.url}
               alt={product.image.alt ?? product.name}
               fill
-              sizes="(min-width: 1024px) 23vw, (min-width: 640px) 45vw, 90vw"
+              sizes="(min-width: 1024px) 23vw, 45vw"
               className={`object-cover transition-opacity duration-200 ease-out ${
                 product.secondImage ? "group-hover:opacity-0" : ""
               }`}
@@ -50,7 +50,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
                 src={product.secondImage.url}
                 alt={product.secondImage.alt ?? product.name}
                 fill
-                sizes="(min-width: 1024px) 23vw, (min-width: 640px) 45vw, 90vw"
+                sizes="(min-width: 1024px) 23vw, 45vw"
                 className="object-cover opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100"
               />
             )}
@@ -102,7 +102,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           )}
           <p className="text-xl font-bold text-price">{formatCurrency(product.price)}</p>
           {product.compare_at_price && (
-            <p className="text-xs font-medium text-discount">
+            <p className="text-sm font-semibold text-discount">
               {formatCurrency(product.price)} no Pix
             </p>
           )}

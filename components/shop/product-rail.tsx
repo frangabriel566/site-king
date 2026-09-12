@@ -27,7 +27,7 @@ export function ProductRail({
           </Link>
         )}
       </div>
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
         {products.map((product) => (
           <div key={product.id} className="w-[45vw] shrink-0 sm:w-56 lg:w-64">
             <ProductCard product={product} />

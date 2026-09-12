@@ -42,7 +42,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
     <div className="relative mx-auto max-w-[3840px]">
       <Carousel setApi={setApi} opts={{ loop: true }}>
         <CarouselContent className="-ml-0">
-          {banners.map((banner) => (
+          {banners.map((banner, index) => (
             <CarouselItem key={banner.id} className="pl-0">
               <Link
                 href={banner.cta_href || "/colecao"}
@@ -53,36 +53,42 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                     src={banner.image_url}
                     alt={banner.headline_line1 ?? banner.wordmark ?? ""}
                     fill
-                    priority
+                    priority={index === 0}
                     quality={90}
                     sizes="100vw"
                     className="object-cover"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-12">
-                  {banner.eyebrow && (
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold">
-                      {banner.eyebrow}
-                    </p>
-                  )}
-                  {(banner.headline_line1 || banner.headline_line2) && (
-                    <p className="max-w-lg text-2xl font-bold leading-tight md:text-4xl">
-                      {banner.headline_line1}
-                      {banner.headline_line2 && (
-                        <>
-                          <br />
-                          {banner.headline_line2}
-                        </>
-                      )}
-                    </p>
-                  )}
-                  {banner.cta_label && (
-                    <span className="mt-3 inline-block rounded-md bg-white px-3 py-1 text-xs font-semibold text-fg md:mt-4 md:px-5 md:py-2 md:text-sm">
-                      {banner.cta_label}
-                    </span>
-                  )}
-                </div>
+                {(banner.eyebrow || banner.headline_line1 || banner.headline_line2) && (
+                  <div className="absolute inset-x-0 bottom-16 p-6 text-white md:bottom-24 md:p-12">
+                    {banner.eyebrow && (
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold">
+                        {banner.eyebrow}
+                      </p>
+                    )}
+                    {(banner.headline_line1 || banner.headline_line2) && (
+                      <p className="max-w-lg text-2xl font-bold leading-tight md:text-4xl">
+                        {banner.headline_line1}
+                        {banner.headline_line2 && (
+                          <>
+                            <br />
+                            {banner.headline_line2}
+                          </>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {banner.cta_label && (
+                  // Positioned on its own, independent of the headline block
+                  // above — the CTA needs to clear whatever artwork (e.g. a
+                  // wordmark) sits lower in the banner image, regardless of
+                  // whether this banner has headline text at all.
+                  <span className="absolute bottom-4 left-6 inline-block rounded-md bg-white px-3 py-1 text-xs font-semibold text-fg md:bottom-8 md:left-12 md:px-5 md:py-2 md:text-sm">
+                    {banner.cta_label}
+                  </span>
+                )}
               </Link>
             </CarouselItem>
           ))}

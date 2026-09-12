@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getActiveBanners } from "@/lib/data/banners";
 import { getSiteSettings } from "@/lib/data/settings";
-import { getActiveCategories } from "@/lib/data/categories";
+import { getCategoriesWithImages } from "@/lib/data/categories";
 import {
   getFeaturedProducts,
   getNewArrivals,
@@ -9,6 +9,7 @@ import {
   listProducts,
 } from "@/lib/data/products";
 import { BannerCarousel } from "@/components/shop/banner-carousel";
+import { SecondaryBanner } from "@/components/shop/secondary-banner";
 import { TrustBadges } from "@/components/shop/trust-badges";
 import { CategoryStrip } from "@/components/shop/category-strip";
 import { ProductRail } from "@/components/shop/product-rail";
@@ -28,7 +29,7 @@ export default async function HomePage() {
     await Promise.all([
       getActiveBanners(),
       getSiteSettings(),
-      getActiveCategories(),
+      getCategoriesWithImages(),
       getNewArrivals(8),
       getFeaturedProducts(8),
       listProducts({ excludeBadged: true }),
@@ -38,12 +39,18 @@ export default async function HomePage() {
   return (
     <>
       <BannerCarousel banners={banners} />
-      <TrustBadges freeShippingNote={settings.free_shipping_note} />
       <CategoryStrip categories={categories} />
       <ProductRail title="Lançamentos" products={newArrivals} seeAllHref="/colecao" />
       <ProductRail title="Mais vendidos" products={bestSellers} seeAllHref="/colecao" />
+      {/* No dedicated data source for this slot yet — the `banners` table
+          has no field marking a row for it, and adding one is a schema
+          change out of scope for this pass. Passing `null` keeps the
+          section from rendering (no empty gap) instead of guessing which
+          hero-carousel banner to reuse here. */}
+      <SecondaryBanner banner={null} />
       <ProductRail title="Produtos" products={catalog.items.slice(0, 8)} seeAllHref="/colecao" />
       <OffersBlock products={onSale} />
+      <TrustBadges freeShippingNote={settings.free_shipping_note} />
       <NewsletterSection />
     </>
   );

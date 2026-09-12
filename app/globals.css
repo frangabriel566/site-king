@@ -285,4 +285,16 @@
   .link-arrow:focus-visible {
     color: var(--accent);
   }
+
+  /* Horizontal-scroll rows (category strip, product rails) keep native
+     touch/trackpad scrolling and swipe — only the visible scrollbar
+     chrome is hidden. */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

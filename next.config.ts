@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // Explicit allow-list required starting in Next.js 16. 75 is every
+    // `next/image` that doesn't pass a `quality` prop (the library's own
+    // default); 90 is banner-carousel.tsx's hero image, the only place
+    // that overrides it.
+    qualities: [75, 90],
     remotePatterns: [
       // Supabase Storage — public "media" bucket.
       {

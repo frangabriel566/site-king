@@ -6,7 +6,11 @@ import type { Database } from "@/lib/database.types";
 
 export const MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024; // 10MB, checked before compression
 const MAX_DIMENSION = 2000;
-const WEBP_QUALITY = 0.85;
+// The file stored here is the ceiling for every size the storefront serves:
+// the product gallery asks the optimizer for around 1080-1200px at q90 and
+// then zooms 1.8x on hover, so artifacts baked in at upload time are exactly
+// what shows up magnified. Costs roughly a third more bytes per photo.
+const WEBP_QUALITY = 0.92;
 
 export type UploadFolder = "products" | "banners" | "brand";
 

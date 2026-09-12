@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
@@ -15,15 +15,26 @@ import type { ProductWithRelations } from "@/lib/data/products";
 const BADGE_LABEL: Record<string, string> = {
   lancamento: "Lançamento",
   oferta: "Oferta",
+  mais_vendido: "Mais vendido",
+};
+
+export type ProductColor = {
+  color: string;
+  color_hex: string | null;
+  image_url: string | null;
 };
 
 export function BuyBox({
   product,
+  colors,
   mainImage,
   selectedColor,
   onColorChange,
 }: {
   product: ProductWithRelations;
+  /** Built by the parent (ProductMedia) so the gallery's thumbnail column
+   * and these swatches always list exactly the same colors. */
+  colors: ProductColor[];
   mainImage: string | null;
   /** Lifted up to the parent (ProductMedia) so selecting a color can also
    * swap the gallery to that color's photo, when one was uploaded. */
@@ -32,7 +43,15 @@ export function BuyBox({
 }) {
   const { addItem, open } = useCart();
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [added, setAdded] = useState(false);
   const variants = product.product_variants;
+
+  useEffect(() => {
+    if (!added) return;
+    const timer = setTimeout(() => setAdded(false), 1500);
+    return () => clearTimeout(timer);
+  }, [added]);
 
   // A "produto sem variações" is stored as one variant with the sentinel
   // color/size — there's nothing for the shopper to pick, so the color
@@ -41,15 +60,6 @@ export function BuyBox({
     variants.length === 1 && isSimpleVariant(variants[0].color, variants[0].size);
   const simpleVariant = isSimpleProduct ? variants[0] : null;
 
-  const colors = useMemo(() => {
-    if (isSimpleProduct) return [];
-    const map = new Map<string, { color_hex: string | null; image_url: string | null }>();
-    for (const v of variants) {
-      if (!map.has(v.color)) map.set(v.color, { color_hex: v.color_hex, image_url: v.image_url });
-    }
-    return Array.from(map, ([color, meta]) => ({ color, ...meta }));
-  }, [variants, isSimpleProduct]);
-
   const allSizes = useMemo(() => {
     if (isSimpleProduct) return [];
     return Array.from(new Set(variants.map((v) => v.size)));
@@ -57,6 +67,14 @@ export function BuyBox({
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Any color change clears the chosen size — including the ones the
+  // gallery makes on its own while autoplaying, which never come through
+  // the swatches below.
+  useEffect(() => {
+    setSelectedSize(null);
+    setError(null);
+  }, [selectedColor]);
 
   const sizesForColor = useMemo(() => {
     if (isSimpleProduct) return [];
@@ -74,12 +92,6 @@ export function BuyBox({
   const selectedVariant = isSimpleProduct
     ? simpleVariant
     : sizesForColor.find((v) => v.size === selectedSize);
-
-  function handleColorChange(color: string) {
-    onColorChange(color);
-    setSelectedSize(null);
-    setError(null);
-  }
 
   function buildCartItem() {
     if (!selectedVariant || selectedVariant.stock <= 0) {
@@ -105,13 +117,16 @@ export function BuyBox({
     if (!item) return;
     addItem(item);
     open();
+    setAdded(true);
   }
 
   function handleBuyNow() {
     const item = buildCartItem();
     if (!item) return;
     addItem(item);
-    router.push("/checkout");
+    startTransition(() => {
+      router.push("/checkout");
+    });
   }
 
   return (
@@ -128,7 +143,7 @@ export function BuyBox({
         <p className="mt-2 text-sm text-fg">{product.short_description}</p>
       )}
 
-      <div className="mt-4">
+      <div className="mt-3 sm:mt-4">
         {product.compare_at_price && (
           <p className="text-sm text-muted-foreground line-through">
             {formatCurrency(product.compare_at_price)}
@@ -144,18 +159,19 @@ export function BuyBox({
       </div>
 
       {colors.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-5 sm:mt-6">
           <p className="mb-3 text-sm font-medium text-fg">Cor — {selectedColor}</p>
           <div className="flex flex-wrap gap-2">
             {colors.map(({ color, color_hex, image_url }) => (
               <button
                 key={color}
                 type="button"
-                onClick={() => handleColorChange(color)}
+                onClick={() => onColorChange(color)}
                 title={color}
+                aria-label={color}
                 aria-pressed={selectedColor === color}
                 className={`relative flex size-14 items-center justify-center overflow-hidden rounded-md border-2 transition-colors duration-150 ease-out ${
-                  selectedColor === color ? "border-cta" : "border-line hover:border-muted"
+                  selectedColor === color ? "border-gold" : "border-line hover:border-muted"
                 }`}
               >
                 {image_url ? (
@@ -188,7 +204,7 @@ export function BuyBox({
       )}
 
       {!isSimpleProduct && (
-        <div className="mt-6">
+        <div className="mt-5 sm:mt-6">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-medium text-fg">Tamanho</p>
             <SizeGuideModal sizes={allSizes} />
@@ -227,12 +243,23 @@ export function BuyBox({
       )}
       {error && <p className="mt-3 text-xs text-alert">{error}</p>}
 
-      <div className="mt-6 flex flex-col gap-3">
-        <Button size="xl" className="w-full bg-cta text-white hover:bg-cta/90" onClick={handleBuyNow}>
-          Comprar
+      <div className="mt-5 flex flex-col gap-3 sm:mt-6">
+        <Button
+          size="xl"
+          className="w-full bg-cta text-white hover:bg-cta/90"
+          onClick={handleBuyNow}
+          disabled={isPending}
+        >
+          {isPending ? "Comprando…" : "Comprar agora"}
         </Button>
-        <Button size="xl" variant="outline" className="w-full" onClick={handleAddToBag}>
-          Adicionar à sacola
+        <Button
+          size="xl"
+          variant="outline"
+          className="w-full"
+          onClick={handleAddToBag}
+          disabled={added}
+        >
+          {added ? "Adicionado ✓" : "Adicionar à sacola"}
         </Button>
       </div>
 
@@ -240,15 +267,15 @@ export function BuyBox({
         <ShippingEstimate />
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-6 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Lock className="size-4" aria-hidden="true" /> Compra segura
+      <div className="mt-6 flex flex-col gap-2 border-t border-line pt-6 text-xs text-fg sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
+        <span className="flex items-center gap-2">
+          <Lock className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Compra segura
         </span>
-        <span className="flex items-center gap-1.5">
-          <ShieldCheck className="size-4" aria-hidden="true" /> Dados protegidos
+        <span className="flex items-center gap-2">
+          <ShieldCheck className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Dados protegidos
         </span>
-        <span className="flex items-center gap-1.5">
-          <RotateCcw className="size-4" aria-hidden="true" /> Troca garantida
+        <span className="flex items-center gap-2">
+          <RotateCcw className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Troca garantida
         </span>
       </div>
     </div>

@@ -140,7 +140,7 @@ export default async function ProductPage({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:items-start lg:gap-8">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:items-start lg:gap-8">
         <div className="order-3 lg:order-1">
           <ProductSpecs product={product} />
         </div>

@@ -1,47 +1,70 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import useEmblaCarousel from "embla-carousel-react";
-import type { ProductImage } from "@/lib/data/products";
 
-type GalleryImage = Pick<ProductImage, "id" | "url" | "alt">;
+const AUTOPLAY_MS = 5000;
+
+export type GallerySlide = {
+  id: string;
+  url: string;
+  alt: string | null;
+  /** Set when the slide is a color's own photo (product_variants.image_url).
+   * Those slides double as the color picker: their thumbnail selects the
+   * color, and landing on one — by click, swipe or autoplay — keeps the buy
+   * box's selected color in sync with the photo on screen. */
+  color?: string;
+};
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
 
 export function ProductGallery({
-  images,
+  slides,
   productName,
-  activeColorImage,
+  selectedColor,
+  onSelectColor,
+  autoplay = false,
+  onInteract,
 }: {
-  images: ProductImage[];
+  slides: GallerySlide[];
   productName: string;
-  /** The selected color's own photo (product_variants.image_url), if the
-   * operator uploaded one — shown as the active slide so picking a color
-   * actually changes the photo instead of leaving the gallery untouched. */
-  activeColorImage?: string | null;
+  selectedColor: string;
+  onSelectColor: (color: string) => void;
+  /** Rotates the slides on its own while the shopper hasn't touched
+   * anything — the parent turns it off for good at the first interaction. */
+  autoplay?: boolean;
+  onInteract?: () => void;
 }) {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selected, setSelected] = useState(0);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
-
-  // A color with its own dedicated photo shows THAT and only that — not
-  // merged with the general gallery. The general gallery isn't filtered
-  // by color at all, so mixing it in meant every color selection also
-  // pulled in every OTHER color's general photo (plus its own, often
-  // duplicating what the color photo already showed): picking "Preto"
-  // could show two black photos, a beige one and a green one all at
-  // once. Falls back to the general gallery only when this particular
-  // color has no dedicated photo of its own.
-  const displayImages: GalleryImage[] = useMemo(() => {
-    if (activeColorImage) {
-      return [{ id: `color-photo-${activeColorImage}`, url: activeColorImage, alt: null }];
-    }
-    return images;
-  }, [images, activeColorImage]);
+  const [hovered, setHovered] = useState(false);
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  // Mouse-driven zoom only where there is a real cursor: on a touch screen a
+  // tap can fire a stray mousemove, which would leave the photo stuck at
+  // 1.8x with no pointer left to move away.
+  const canZoom = useMediaQuery("(hover: hover) and (pointer: fine)");
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
-    setSelected(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+    const index = emblaApi.selectedScrollSnap();
+    setSelected(index);
+    const color = slides[index]?.color;
+    if (color) onSelectColor(color);
+  }, [emblaApi, slides, onSelectColor]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -54,13 +77,36 @@ export function ProductGallery({
     };
   }, [emblaApi, onSelect]);
 
+  // Picking a color in the buy box moves the gallery to that color's photo.
   useEffect(() => {
-    if (!activeColorImage || !emblaApi) return;
-    const index = displayImages.findIndex((img) => img.url === activeColorImage);
-    if (index >= 0) emblaApi.scrollTo(index);
-  }, [activeColorImage, displayImages, emblaApi]);
+    if (!emblaApi || !selectedColor) return;
+    const index = slides.findIndex((slide) => slide.color === selectedColor);
+    if (index >= 0) {
+      emblaApi.scrollTo(index);
+      return;
+    }
+    // This color has no photo of its own — fall back to the first general
+    // shot so the big image at least stops showing another color's photo.
+    const general = slides.findIndex((slide) => !slide.color);
+    if (general >= 0) emblaApi.scrollTo(general);
+  }, [selectedColor, slides, emblaApi]);
 
-  if (displayImages.length === 0) {
+  useEffect(() => {
+    if (!emblaApi || !autoplay || hovered || reducedMotion) return;
+    if (slides.length < 2) return;
+    const timer = setInterval(() => {
+      if (emblaApi.canScrollNext()) emblaApi.scrollNext();
+      else emblaApi.scrollTo(0);
+    }, AUTOPLAY_MS);
+    return () => clearInterval(timer);
+  }, [emblaApi, autoplay, hovered, reducedMotion, slides.length]);
+
+  function goTo(index: number) {
+    onInteract?.();
+    emblaApi?.scrollTo(index);
+  }
+
+  if (slides.length === 0) {
     return (
       <div className="flex aspect-[4/5] items-center justify-center rounded-lg bg-surface">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -71,22 +117,30 @@ export function ProductGallery({
   }
 
   return (
-    <div>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="flex gap-4">
         <div className="hidden w-20 shrink-0 flex-col gap-3 md:flex">
-          {displayImages.map((image, index) => (
+          {slides.map((slide, index) => (
             <button
-              key={image.id}
+              key={slide.id}
               type="button"
-              onClick={() => emblaApi?.scrollTo(index)}
+              onClick={() => goTo(index)}
+              title={slide.color ?? undefined}
               className={`relative aspect-[4/5] overflow-hidden rounded-md border transition-colors duration-200 ease-out ${
                 selected === index ? "border-fg" : "border-line hover:border-ink-muted"
               }`}
-              aria-label={`Ver imagem ${index + 1} de ${displayImages.length}`}
+              aria-label={
+                slide.color
+                  ? `Ver a cor ${slide.color}`
+                  : `Ver imagem ${index + 1} de ${slides.length}`
+              }
               aria-current={selected === index}
             >
               <Image
-                src={image.url}
+                src={slide.url}
                 alt=""
                 fill
                 sizes="80px"
@@ -96,28 +150,48 @@ export function ProductGallery({
           ))}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-hidden" ref={emblaRef}>
+        <div
+          className="min-w-0 flex-1 overflow-hidden"
+          ref={emblaRef}
+          onPointerDown={onInteract}
+        >
           <div className="flex">
-            {displayImages.map((image, index) => (
-              <div key={image.id} className="min-w-0 flex-[0_0_100%]">
+            {slides.map((slide, index) => (
+              <div key={slide.id} className="min-w-0 flex-[0_0_100%]">
                 <div
-                  className="relative aspect-[4/5] cursor-zoom-in overflow-hidden rounded-lg bg-surface"
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setZoom({
-                      x: ((e.clientX - rect.left) / rect.width) * 100,
-                      y: ((e.clientY - rect.top) / rect.height) * 100,
-                    });
-                  }}
-                  onMouseLeave={() => setZoom(null)}
+                  className={`relative aspect-[4/5] overflow-hidden rounded-lg bg-surface ${
+                    canZoom ? "cursor-zoom-in" : ""
+                  }`}
+                  onMouseMove={
+                    canZoom
+                      ? (e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setZoom({
+                            x: ((e.clientX - rect.left) / rect.width) * 100,
+                            y: ((e.clientY - rect.top) / rect.height) * 100,
+                          });
+                        }
+                      : undefined
+                  }
+                  onMouseLeave={canZoom ? () => setZoom(null) : undefined}
                 >
+                  {/* One photo per slide, not a desktop one plus a hidden
+                      mobile one: a display:none image is downloaded all the
+                      same, so that pair spent half of the page's image
+                      budget on bytes nobody ever saw. The width asked for
+                      below is deliberately wider than the box, because the
+                      hover zoom blows the photo up to 1.8x and a file cut to
+                      the box's own width goes soft the moment it does.
+                      next/image never upscales past the uploaded file, so a
+                      smaller original simply serves its own full size. */}
                   <Image
-                    src={image.url}
-                    alt={image.alt ?? productName}
+                    src={slide.url}
+                    alt={slide.alt ?? productName}
                     fill
                     priority={index === 0}
-                    sizes="(min-width: 768px) 45vw, 100vw"
-                    className="hidden object-cover transition-transform duration-200 ease-out md:block"
+                    quality={90}
+                    sizes="(min-width: 1024px) 900px, (min-width: 768px) 70vw, 100vw"
+                    className="object-cover transition-transform duration-200 ease-out"
                     style={
                       zoom && selected === index
                         ? {
@@ -127,14 +201,6 @@ export function ProductGallery({
                         : undefined
                     }
                   />
-                  <Image
-                    src={image.url}
-                    alt={image.alt ?? productName}
-                    fill
-                    priority={index === 0}
-                    sizes="100vw"
-                    className="object-cover md:hidden"
-                  />
                 </div>
               </div>
             ))}
@@ -143,12 +209,16 @@ export function ProductGallery({
       </div>
 
       <div className="mt-4 flex justify-center gap-2 md:hidden">
-        {displayImages.map((image, index) => (
+        {slides.map((slide, index) => (
           <button
-            key={image.id}
+            key={slide.id}
             type="button"
-            onClick={() => emblaApi?.scrollTo(index)}
-            aria-label={`Ver imagem ${index + 1} de ${displayImages.length}`}
+            onClick={() => goTo(index)}
+            aria-label={
+              slide.color
+                ? `Ver a cor ${slide.color}`
+                : `Ver imagem ${index + 1} de ${slides.length}`
+            }
             aria-current={selected === index}
             className={`size-1.5 rounded-full transition-colors duration-200 ease-out ${
               selected === index ? "bg-fg" : "bg-line"

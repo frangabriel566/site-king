@@ -42,8 +42,18 @@ export function ScrollRail({
   const [dragging, setDragging] = useState(false);
 
   // Kept in a ref, not state: these change on every pointermove and must
-  // not re-render the row while it is being dragged.
-  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
+  // not re-render the row while it is being dragged. `pointerId` doubles
+  // as the "a drag is in progress" flag — null means idle.
+  const drag = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startScroll: number;
+    moved: boolean;
+  }>({ pointerId: null, startX: 0, startScroll: 0, moved: false });
+
+  // Removes the window-level move/up listeners for the drag in progress.
+  const detach = useRef<(() => void) | null>(null);
+  const clearMoved = useRef<number | null>(null);
 
   const syncEdges = useCallback(() => {
     const el = ref.current;
@@ -72,40 +82,92 @@ export function ScrollRail({
   // nothing to drag and no arrow worth showing.
   const scrollable = !(atStart && atEnd);
 
+  /**
+   * Ends the drag, wherever the button happened to come up.
+   *
+   * `moved` is deliberately *not* cleared here. The click a finished drag
+   * produces is dispatched immediately after pointerup, and
+   * `handleClickCapture` still has to see the flag to swallow that one —
+   * so it is cleared a tick later instead, once that click has been and
+   * gone. Clearing it on a timer rather than only from the click handler
+   * is what keeps a press that never produced a click (released outside
+   * the window, say) from leaving the flag set and eating the *next*
+   * genuine click on a card.
+   */
+  const endDrag = useCallback(() => {
+    detach.current?.();
+    detach.current = null;
+    if (drag.current.pointerId === null) return;
+    drag.current.pointerId = null;
+    setDragging(false);
+    if (clearMoved.current !== null) window.clearTimeout(clearMoved.current);
+    clearMoved.current = window.setTimeout(() => {
+      drag.current.moved = false;
+      clearMoved.current = null;
+    }, 0);
+  }, []);
+
+  // A drag can end anywhere — over the footer, outside the window, in a
+  // native context menu — and the row only ever hears about it if it is
+  // listening on the window. Listening on the row itself (the previous
+  // shape of this) meant a press released off it left the drag flagged
+  // active forever: from then on every bare mouse *hover* scrolled the
+  // row sideways, and its click-swallowing swallowed real clicks, so the
+  // product cards and buttons inside it stopped responding entirely.
+  useEffect(() => () => {
+    detach.current?.();
+    if (clearMoved.current !== null) window.clearTimeout(clearMoved.current);
+  }, []);
+
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     // Touch and pen keep native scrolling, which has momentum and rubber
-    // banding that this would only get in the way of.
-    if (event.pointerType !== "mouse") return;
+    // banding that this would only get in the way of. Secondary buttons
+    // open menus rather than drag.
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
     const el = ref.current;
     if (!el || !scrollable) return;
+    endDrag();
     drag.current = {
-      active: true,
+      pointerId: event.pointerId,
       startX: event.clientX,
       startScroll: el.scrollLeft,
       moved: false,
     };
-  }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    const el = ref.current;
-    if (!el || !drag.current.active) return;
-    const dx = event.clientX - drag.current.startX;
-    if (!drag.current.moved) {
-      if (Math.abs(dx) < DRAG_THRESHOLD) return;
-      drag.current.moved = true;
-      setDragging(true);
-      // Captured only once the press is known to be a drag, so a plain
-      // click on a card still reaches the card.
-      el.setPointerCapture(event.pointerId);
-    }
-    el.scrollLeft = drag.current.startScroll - dx;
-  }
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== drag.current.pointerId) return;
+      // No button is down any more: the release happened somewhere this
+      // listener never saw (outside the window, over browser chrome).
+      if (moveEvent.buttons === 0) {
+        endDrag();
+        return;
+      }
+      const node = ref.current;
+      if (!node) return;
+      const dx = moveEvent.clientX - drag.current.startX;
+      if (!drag.current.moved) {
+        if (Math.abs(dx) < DRAG_THRESHOLD) return;
+        drag.current.moved = true;
+        setDragging(true);
+      }
+      node.scrollLeft = drag.current.startScroll - dx;
+    };
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== drag.current.pointerId) return;
+      endDrag();
+    };
 
-  function handlePointerEnd(event: React.PointerEvent<HTMLDivElement>) {
-    const el = ref.current;
-    if (el?.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
-    drag.current.active = false;
-    setDragging(false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    // Alt-tabbing mid-drag never delivers a pointerup at all.
+    window.addEventListener("blur", endDrag);
+    detach.current = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", endDrag);
+    };
   }
 
   /**
@@ -132,9 +194,6 @@ export function ScrollRail({
         ref={ref}
         onScroll={syncEdges}
         onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerEnd}
         onClickCapture={handleClickCapture}
         // Dragging across a photo would otherwise start a native image
         // drag and abandon the scroll halfway.

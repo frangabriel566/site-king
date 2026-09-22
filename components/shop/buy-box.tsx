@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
 import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { formatCurrency, formatInstallments } from "@/lib/format";
@@ -120,6 +121,21 @@ export function BuyBox({
       return null;
     }
     setError(null);
+    // The bag has to show the colourway that was actually picked. This was
+    // storing `mainImage` — the product's *first* gallery photo — so every
+    // line arrived wearing the first colour on the page no matter what was
+    // chosen: pick the green shirt, get a black one in the bag, with the
+    // label underneath still correctly reading "Verde".
+    //
+    // The chosen variant's own photo first; then any photo on that
+    // colourway, because the operator may have attached it to a different
+    // size row of the same colour; and only then the product shot.
+    const variantImage =
+      selectedVariant.image_url ??
+      variants.find((v) => v.color === selectedVariant.color && v.image_url)
+        ?.image_url ??
+      mainImage;
+
     return {
       variantId: selectedVariant.id,
       productId: product.id,
@@ -128,7 +144,7 @@ export function BuyBox({
       color: isSimpleProduct ? "" : selectedColor,
       size: isSimpleProduct ? "" : selectedVariant.size,
       price: product.price,
-      image: mainImage,
+      image: variantImage,
       qty: 1,
     };
   }
@@ -137,8 +153,16 @@ export function BuyBox({
     const item = buildCartItem();
     if (!item) return;
     addItem(item);
-    open();
     setAdded(true);
+    // Deliberately does not open the bag. Throwing a full-screen drawer up
+    // after every add ends the shopping trip at one item — the shopper has
+    // to dismiss it to carry on looking. The toast confirms the add and
+    // offers the bag to whoever actually wants it; everyone else stays on
+    // the page they were browsing.
+    toast.success("Adicionado à sacola", {
+      description: [item.color, item.size].filter(Boolean).join(" · ") || undefined,
+      action: { label: "Ver sacola", onClick: open },
+    });
   }
 
   function handleBuyNow() {

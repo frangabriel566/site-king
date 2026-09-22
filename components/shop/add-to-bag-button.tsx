@@ -15,7 +15,7 @@ export function AddToBagButton({
   label?: string;
   className?: string;
 }) {
-  const { addItem, open } = useCart();
+  const { addItem } = useCart();
 
   if (!item) {
     return (
@@ -28,10 +28,11 @@ export function AddToBagButton({
   return (
     <button
       type="button"
-      onClick={() => {
-        addItem(item);
-        open();
-      }}
+      // No `open()` here either — see the note in lib/cart/context.tsx.
+      // (Nothing imports this component today, but leaving the old
+      // behaviour in it would quietly reintroduce the interruption the
+      // first time someone did.)
+      onClick={() => addItem(item)}
       className={className}
     >
       {label} →

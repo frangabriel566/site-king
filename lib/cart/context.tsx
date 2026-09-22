@@ -68,7 +68,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, item];
     });
-    setIsOpen(true);
+    // Adding no longer opens the drawer. Interrupting the shopper with a
+    // full-screen bag after every single add is what turned a browse into
+    // a one-item trip; whoever wants the bag taps the bag. The caller
+    // confirms the add itself (a toast on the product page), so nothing
+    // happens silently.
   }, []);
 
   const removeItem = useCallback((variantId: string) => {

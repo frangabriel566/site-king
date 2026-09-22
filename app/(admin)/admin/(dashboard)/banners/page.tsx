@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Plus, Pencil } from "lucide-react";
 import { getAllBannersAdmin } from "@/lib/data/banners";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/admin/status-badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteBannerAction } from "@/lib/actions/banners";
 import { BannerActiveToggle } from "./banner-active-toggle";
@@ -35,9 +35,9 @@ export default async function AdminBannersPage() {
           {banners.map((banner) => (
             <div
               key={banner.id}
-              className="flex flex-wrap items-center gap-4 border border-line p-4 md:gap-5"
+              className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-card p-4 transition-colors duration-150 ease-out hover:border-line-strong md:gap-5"
             >
-              <div className="relative h-20 w-32 shrink-0 overflow-hidden bg-[#111111]">
+              <div className="relative h-20 w-32 shrink-0 overflow-hidden bg-field">
                 {banner.image_url && (
                   <Image
                     src={banner.image_url}
@@ -59,9 +59,7 @@ export default async function AdminBannersPage() {
                   Posição {banner.position}
                 </p>
               </div>
-              <Badge variant={banner.active ? "default" : "outline"} className="rounded-none">
-                {banner.active ? "Ativo" : "Inativo"}
-              </Badge>
+              <ActiveBadge active={banner.active} labels={["Ativo", "Inativo"]} />
               <BannerActiveToggle id={banner.id} active={banner.active} />
               <Button variant="ghost" size="icon-sm" asChild>
                 <Link href={`/admin/banners/${banner.id}`} aria-label="Editar banner">

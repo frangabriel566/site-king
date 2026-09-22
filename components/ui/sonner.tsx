@@ -4,7 +4,6 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ theme = "dark", ...props }: ToasterProps) => {
-  const radius = theme === "dark" ? "0px" : "var(--radius-md)"
   return (
     <Sonner
       theme={theme}
@@ -31,14 +30,25 @@ const Toaster = ({ theme = "dark", ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": radius,
+          "--border-radius": "var(--radius-md)",
+          // Status toasts keep the same surface as the rest and carry their
+          // meaning in the icon, text and border — a fully colour-flooded
+          // toast reads as an alert banner, which is louder than these are.
+          "--success-bg": "var(--popover)",
+          "--success-text": "var(--success)",
+          "--success-border": "var(--success)",
+          "--error-bg": "var(--popover)",
+          "--error-text": "var(--danger)",
+          "--error-border": "var(--danger)",
+          "--warning-bg": "var(--popover)",
+          "--warning-text": "var(--warning)",
+          "--warning-border": "var(--warning)",
+          "--info-bg": "var(--popover)",
+          "--info-text": "var(--accent)",
+          "--info-border": "var(--accent)",
         } as React.CSSProperties
       }
-      toastOptions={{
-        classNames: {
-          toast: theme === "dark" ? "cn-toast !rounded-none" : "cn-toast",
-        },
-      }}
+      toastOptions={{ classNames: { toast: "cn-toast" } }}
       {...props}
     />
   )

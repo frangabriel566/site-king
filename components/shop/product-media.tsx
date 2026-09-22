@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ProductGallery, type GallerySlide } from "@/components/shop/product-gallery";
 import { ProductVideo } from "@/components/shop/product-video";
 import { BuyBox, type ProductColor } from "@/components/shop/buy-box";
-import { isSimpleVariant } from "@/lib/constants";
+import { isColorlessVariant } from "@/lib/constants";
 import type { ProductWithRelations, ProductImage } from "@/lib/data/products";
 
 /** Shares the selected color between the gallery and the buy box — a
@@ -26,9 +26,10 @@ export function ProductMedia({
   // inside the buy box so the gallery's thumbnail column and the swatches
   // are always the same list.
   const colors: ProductColor[] = useMemo(() => {
-    if (variants.length === 1 && isSimpleVariant(variants[0].color, variants[0].size)) {
-      return [];
-    }
+    // Nothing to pick when every row carries the sentinel colour: either a
+    // peça única, or a product sold in one colourway whose only real choice
+    // is the size (the buy box still renders that picker from `variants`).
+    if (variants.every((variant) => isColorlessVariant(variant.color))) return [];
     const map = new Map<string, ProductColor>();
     for (const variant of variants) {
       if (map.has(variant.color)) continue;
@@ -101,6 +102,11 @@ export function ProductMedia({
           onSelectColor={setSelectedColor}
           autoplay={autoplay}
           onInteract={stopAutoplay}
+          discountPercent={
+            product.compare_at_price
+              ? Math.round((1 - product.price / product.compare_at_price) * 100)
+              : 0
+          }
         />
         {product.video_url && <ProductVideo url={product.video_url} />}
       </div>

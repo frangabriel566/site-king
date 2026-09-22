@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getOrderByIdAdmin } from "@/lib/data/orders";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { OrderStatusForm } from "./order-status-form";
 
 export const metadata: Metadata = { title: "Pedido — Painel" };
@@ -44,7 +44,7 @@ export default async function AdminOrderDetailPage({
         <div className="flex flex-col gap-8">
           <div>
             <p className="text-label mb-3">Itens</p>
-            <div className="border border-line">
+            <div className="rounded-lg border border-line bg-card">
               <table className="w-full text-sm">
                 <tbody>
                   {order.order_items.map((item) => (
@@ -52,7 +52,9 @@ export default async function AdminOrderDetailPage({
                       <td className="p-3">
                         {item.name}
                         <span className="block text-xs text-ink-muted">
-                          {item.color} · {item.size} · Qtd. {item.qty}
+                          {[formatVariantLabel(item.color, item.size), `Qtd. ${item.qty}`]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </span>
                       </td>
                       <td className="p-3 text-right">

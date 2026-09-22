@@ -50,7 +50,7 @@ export function DeleteButton({
           <Trash2 className="size-4" />
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent className="rounded-none border-line bg-[#111111] text-fg">
+      <AlertDialogContent className="border-line bg-card text-fg">
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir {itemLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -58,11 +58,11 @@ export function DeleteButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-none">Cancelar</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={pending}
-            className="rounded-none bg-[var(--danger)] text-white hover:bg-[var(--danger)]/80"
+            className="bg-[var(--danger)] text-white hover:bg-[var(--danger)]/80"
           >
             {pending ? "Excluindo…" : "Excluir"}
           </AlertDialogAction>

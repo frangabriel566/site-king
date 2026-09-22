@@ -3,12 +3,42 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Share2, ChevronDown } from "lucide-react";
+import { Share2, ChevronDown, Star, Mail } from "lucide-react";
+import { WhatsAppIcon } from "./whatsapp-icon";
+import { FacebookIcon } from "./facebook-icon";
 import type { ProductWithRelations } from "@/lib/data/products";
 
 const VISIBLE_ROWS = 4;
 
-export function ProductSpecs({ product }: { product: ProductWithRelations }) {
+/** Opens a share window without pulling in any network's SDK — each one
+ * takes the product URL as a plain query string. */
+const SHARE_TARGETS = [
+  {
+    label: "Facebook",
+    icon: FacebookIcon,
+    href: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${url}`,
+  },
+  {
+    label: "WhatsApp",
+    icon: WhatsAppIcon,
+    href: (url: string, title: string) => `https://wa.me/?text=${title}%20${url}`,
+  },
+  {
+    label: "E-mail",
+    icon: Mail,
+    href: (url: string, title: string) => `mailto:?subject=${title}&body=${url}`,
+  },
+];
+
+export function ProductSpecs({
+  product,
+  ratingAverage,
+  ratingCount,
+}: {
+  product: ProductWithRelations;
+  ratingAverage: number;
+  ratingCount: number;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const attributes =
@@ -45,8 +75,40 @@ export function ProductSpecs({ product }: { product: ProductWithRelations }) {
     }
   }
 
+  function openShare(href: string) {
+    const url = encodeURIComponent(window.location.href);
+    const title = encodeURIComponent(product.name);
+    window.open(href.replace("%URL%", url).replace("%TITLE%", title), "_blank", "noopener");
+  }
+
   return (
     <div className="flex flex-col gap-6">
+      {ratingCount > 0 && (
+        <a href="#avaliacoes" className="group flex w-fit flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <span className="text-3xl font-bold leading-none text-fg">
+              {ratingAverage.toFixed(2).replace(".", ",")}
+            </span>
+            <span className="flex items-center gap-0.5" aria-hidden="true">
+              {Array.from({ length: 5 }, (_, i) => (
+                <Star
+                  key={i}
+                  className={`size-4 ${
+                    i < Math.round(ratingAverage)
+                      ? "fill-gold text-gold"
+                      : "fill-line text-line"
+                  }`}
+                  strokeWidth={1.5}
+                />
+              ))}
+            </span>
+          </span>
+          <span className="text-sm font-medium text-gold-text underline-offset-4 group-hover:underline">
+            Ler {ratingCount} {ratingCount === 1 ? "avaliação" : "avaliações"}
+          </span>
+        </a>
+      )}
+
       {product.brand?.logo_url && (
         <Link href={`/marca/${product.brand.slug}`} className="block w-fit">
           <Image
@@ -109,14 +171,34 @@ export function ProductSpecs({ product }: { product: ProductWithRelations }) {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleShare}
-        className="flex w-fit items-center gap-2 text-sm font-medium text-fg hover:text-gold-text"
-      >
-        <Share2 className="size-4" aria-hidden="true" />
-        Compartilhar
-      </button>
+      <div>
+        <p className="mb-2 text-sm font-medium text-fg">Compartilhe o produto!</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {SHARE_TARGETS.map(({ label, icon: Icon, href }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => openShare(href("%URL%", "%TITLE%"))}
+              aria-label={`Compartilhar no ${label}`}
+              title={label}
+              className="flex size-9 items-center justify-center rounded-full border border-line text-muted-foreground transition-colors duration-150 ease-out hover:border-gold hover:text-gold-text"
+            >
+              <Icon className="size-4" />
+            </button>
+          ))}
+          {/* The device's own share sheet — the only one that reaches apps
+              these links can't, and the fallback copies the URL. */}
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Compartilhar ou copiar o link"
+            title="Mais opções"
+            className="flex size-9 items-center justify-center rounded-full border border-line text-muted-foreground transition-colors duration-150 ease-out hover:border-gold hover:text-gold-text"
+          >
+            <Share2 className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

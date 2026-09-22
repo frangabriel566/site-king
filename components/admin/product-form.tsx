@@ -1,43 +1,33 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type FocusEvent as ReactFocusEvent,
-} from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ProductFormSection } from "@/components/admin/product-form-section";
+import { ProductBasicInfo } from "@/components/admin/product-basic-info";
 import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/multi-image-uploader";
-import { InlineCategoryCreator } from "@/components/admin/inline-category-creator";
-import { InlineBrandCreator } from "@/components/admin/inline-brand-creator";
-import { AttributesEditor, type AttributeRow } from "@/components/admin/attributes-editor";
-import {
-  VariantEditor,
-  LETTER_SIZES,
-  NUMERIC_SIZES,
-  type VariantDraft,
-} from "@/components/admin/variant-editor";
+import { ProductVariantsEditor } from "@/components/admin/product-variants-editor";
+import { ProductDisplaySettings } from "@/components/admin/product-display-settings";
+import { ProductAdvancedSettings } from "@/components/admin/product-advanced-settings";
+import { ProductFormActionBar } from "@/components/admin/product-form-action-bar";
+import { type AttributeRow } from "@/components/admin/attributes-editor";
 import { slugify } from "@/lib/format";
-import { SIMPLE_VARIANT_COLOR, SIMPLE_VARIANT_SIZE, isSimpleVariant } from "@/lib/constants";
+import {
+  buildSimpleVariant,
+  colorsFromVariants,
+  countVariants,
+  deriveVariants,
+  detectVariantMode,
+  makeColorlessColor,
+  type ColorDraft,
+  type VariantMode,
+} from "@/lib/variants";
 import { collectPublishIssues, productSchema, type PublishIssue } from "@/lib/validations/product";
-import { useUnsavedChangesGuard, confirmDiscardUnsavedChanges } from "@/lib/hooks/use-unsaved-changes-guard";
+import {
+  useUnsavedChangesGuard,
+  confirmDiscardUnsavedChanges,
+} from "@/lib/hooks/use-unsaved-changes-guard";
 import { useDraftAutosave, readDraft, clearDraft } from "@/lib/hooks/use-draft-autosave";
 import { usePhotoDedupRegistry } from "@/lib/hooks/use-photo-dedup-registry";
 import { deleteMediaAction } from "@/lib/actions/media";
@@ -48,28 +38,19 @@ import type { ProductStatus, ProductBadge } from "@/lib/database.types";
 import type { ProductWithRelations } from "@/lib/data/products";
 
 const initialState: ActionResult = { status: "idle" };
-const NEW_CATEGORY_VALUE = "__new_category__";
-const NEW_BRAND_VALUE = "__new_brand__";
-const NO_BRAND_VALUE = "__no_brand__";
-const NO_BADGE_VALUE = "__no_badge__";
-const PLACEMENT_OPTIONS: { value: string; label: string }[] = [
-  { value: NO_BADGE_VALUE, label: "Produtos" },
-  { value: "lancamento", label: "Lançamentos" },
-  { value: "mais_vendido", label: "Mais vendidos" },
-  { value: "oferta", label: "Ofertas" },
-];
 
-/** Selects the field's full text on focus so typing a new number always
- * replaces it — see the identical helper in variant-editor.tsx for why
- * this matters for number inputs specifically. */
-function selectOnFocus(e: ReactFocusEvent<HTMLInputElement>) {
-  e.target.select();
-}
+/** Publish issues that live inside the collapsed advanced panel — failing
+ * on one has to open it, or the operator is sent to an invisible field. */
+const ADVANCED_ANCHORS = new Set(["field-description"]);
 
-function newClientId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+/** The slug as typed when it is free, otherwise the first "-2", "-3"… that
+ * nobody is using. Empty stays empty: an unnamed product has no address
+ * yet, and suffixing nothing would produce a bare "-2". */
+function freeSlug(base: string, taken: Set<string>): string {
+  if (!base || !taken.has(base)) return base;
+  let attempt = 2;
+  while (taken.has(`${base}-${attempt}`)) attempt += 1;
+  return `${base}-${attempt}`;
 }
 
 function attributesToRows(attributes: unknown): AttributeRow[] {
@@ -87,22 +68,6 @@ function rowsToAttributes(rows: AttributeRow[]): Record<string, string> | null {
   return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 
-function isSimpleVariantSet(variants: VariantDraft[]): boolean {
-  return variants.length === 1 && isSimpleVariant(variants[0].color, variants[0].size);
-}
-
-type SectionProps = { title: string; description?: string; children: React.ReactNode; id?: string };
-
-function FormSection({ title, description, children, id }: SectionProps) {
-  return (
-    <section id={id} className="scroll-mt-24 border-t border-line pt-8 first:border-t-0 first:pt-0">
-      <h2 className="text-base font-semibold text-fg">{title}</h2>
-      {description && <p className="mt-1 text-xs text-ink-muted">{description}</p>}
-      <div className="mt-5 flex flex-col gap-5">{children}</div>
-    </section>
-  );
-}
-
 type DraftSnapshot = {
   name: string;
   slug: string;
@@ -116,6 +81,7 @@ type DraftSnapshot = {
   careInstructions: string;
   price: string;
   compareAtPrice: string;
+  promoEnabled: boolean;
   categoryId: string;
   brandId: string;
   manufacturerRef: string;
@@ -125,8 +91,11 @@ type DraftSnapshot = {
   featured: boolean;
   position: string;
   images: ProductImageDraft[];
-  variants: VariantDraft[];
-  noVariants: boolean;
+  mode: VariantMode;
+  colors: ColorDraft[];
+  sizeOnly: ColorDraft;
+  simpleSku: string;
+  simpleStock: number;
 };
 
 export function ProductForm({
@@ -137,6 +106,7 @@ export function ProductForm({
   initialCategoryId,
   initialBrandId,
   existingSkus = [],
+  existingSlugs = [],
 }: {
   product?: ProductWithRelations;
   categories: Category[];
@@ -144,16 +114,30 @@ export function ProductForm({
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
   initialCategoryId?: string;
   initialBrandId?: string;
-  /** Every SKU already saved on another product — lets the variant
-   * generator avoid colliding with them instead of only finding out at
-   * save time. */
+  /** Every SKU already saved on another product — lets the generator
+   * avoid colliding with them instead of only finding out at save time. */
   existingSkus?: string[];
+  /** Slugs already taken by other products. products.slug is unique, so a
+   * repeat is refused by the database — the form settles on a free one
+   * while the operator types instead of failing at save. */
+  existingSlugs?: string[];
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
-  const draftKey = `king-store:product-draft:${product?.id ?? "new"}`;
+  // v3: the editor models colourways and a selling mode, not flat variant
+  // rows — a draft written by an older form can't be restored into this
+  // shape, so the key changes with it rather than half-restoring.
+  const draftKey = `king-store:product-draft-v3:${product?.id ?? "new"}`;
   const restoredRef = useRef(false);
   const { checkAndRegister: checkDuplicatePhoto } = usePhotoDedupRegistry();
+
+  const savedVariants = product?.product_variants ?? [];
+  // A new product starts on "só tamanhos": the common case here is one
+  // photo and a size run, and starting on "cores" would make that product
+  // ask for a colour name it doesn't have. Editing an existing product
+  // always opens in the mode it was actually built in.
+  const savedMode = product ? detectVariantMode(savedVariants) : "sizes";
+  const savedColors = colorsFromVariants(savedVariants);
 
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
@@ -162,7 +146,6 @@ export function ProductForm({
   const [description, setDescription] = useState(product?.description ?? "");
   const [videoUrl, setVideoUrl] = useState(product?.video_url ?? "");
   const [tags, setTags] = useState<string[]>(product?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [collection, setCollection] = useState(product?.collection ?? "");
   const [shippingNote, setShippingNote] = useState(product?.shipping_note ?? "");
   const [exchangeInfo, setExchangeInfo] = useState(product?.exchange_info ?? "");
@@ -171,10 +154,8 @@ export function ProductForm({
   const [compareAtPrice, setCompareAtPrice] = useState(
     product?.compare_at_price != null ? String(product.compare_at_price) : "",
   );
-  const [pricingMode, setPricingMode] = useState<"normal" | "oferta">(
-    product?.compare_at_price != null ? "oferta" : "normal",
-  );
-  const [status, setStatus] = useState(product?.status ?? "draft");
+  const [promoEnabled, setPromoEnabled] = useState(product?.compare_at_price != null);
+  const [status, setStatus] = useState<ProductStatus>(product?.status ?? "draft");
   const [featured, setFeatured] = useState(product?.featured ?? false);
   const [position, setPosition] = useState(String(product?.position ?? 0));
 
@@ -184,36 +165,34 @@ export function ProductForm({
       .sort((a, b) => a.position - b.position)
       .map((img) => ({ url: img.url, alt: img.alt ?? "" })),
   );
-  const initialVariants: VariantDraft[] = (product?.product_variants ?? []).map((v) => ({
-    clientId: v.id,
-    color: v.color,
-    color_hex: v.color_hex ?? "",
-    size: v.size,
-    sku: v.sku ?? "",
-    skuManual: true, // existing variants keep their saved SKU as-is until touched
-    stock: v.stock,
-    image_url: v.image_url ?? "",
-  }));
-  const [variants, setVariants] = useState<VariantDraft[]>(initialVariants);
-  const [noVariants, setNoVariants] = useState(
-    product ? isSimpleVariantSet(initialVariants) : false,
+
+  const [mode, setMode] = useState<VariantMode>(savedMode);
+  const [colors, setColors] = useState<ColorDraft[]>(savedMode === "colors" ? savedColors : []);
+  // The one unnamed colourway behind "só tamanhos", kept apart from
+  // `colors` so switching modes never discards either side's work.
+  const [sizeOnly, setSizeOnly] = useState<ColorDraft>(() =>
+    savedMode === "sizes" && savedColors[0] ? savedColors[0] : makeColorlessColor(),
   );
+  const [simpleSku, setSimpleSku] = useState(
+    savedMode === "single" ? (savedVariants[0].sku ?? "") : "",
+  );
+  const [simpleStock, setSimpleStock] = useState(
+    savedMode === "single" ? savedVariants[0].stock : 0,
+  );
+
+  const takenSlugs = useMemo(() => new Set(existingSlugs), [existingSlugs]);
+  const slugTaken = slug !== "" && takenSlugs.has(slug);
 
   const [publishIssues, setPublishIssues] = useState<PublishIssue[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const [categoryOptions, setCategoryOptions] = useState<Pick<Category, "id" | "name">[]>(
-    categories,
-  );
+  const [categoryOptions, setCategoryOptions] = useState<Pick<Category, "id" | "name">[]>(categories);
   const [categoryId, setCategoryId] = useState(product?.category_id ?? initialCategoryId ?? "");
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const selectedCategoryName = categoryOptions.find((c) => c.id === categoryId)?.name ?? "";
   const isShoeCategory = /t[eê]nis|chinelo|sand[aá]lia/i.test(selectedCategoryName);
 
-  const [brandOptions, setBrandOptions] = useState<Pick<AdminBrandListItem, "id" | "name">[]>(
-    brands,
-  );
+  const [brandOptions, setBrandOptions] = useState<Pick<AdminBrandListItem, "id" | "name">[]>(brands);
   const [brandId, setBrandId] = useState(product?.brand_id ?? initialBrandId ?? "");
-  const [brandDialogOpen, setBrandDialogOpen] = useState(false);
   const [manufacturerRef, setManufacturerRef] = useState(product?.manufacturer_ref ?? "");
   const [badge, setBadge] = useState<string>(product?.badge ?? "");
   const [attributeRows, setAttributeRows] = useState<AttributeRow[]>(
@@ -222,64 +201,41 @@ export function ProductForm({
 
   const [duplicating, setDuplicating] = useState(false);
 
+  // The rows the backend actually stores. Generated SKUs are (re)derived
+  // here rather than frozen at creation time, so naming the product after
+  // picking its colors still yields SLUG-COR-TAMANHO.
+  const variants = useMemo(() => {
+    if (mode === "single") {
+      return [buildSimpleVariant(slug, simpleSku, simpleStock, existingSkus)];
+    }
+    return deriveVariants(mode === "sizes" ? [sizeOnly] : colors, slug, existingSkus);
+  }, [mode, slug, simpleSku, simpleStock, sizeOnly, colors, existingSkus]);
+  const totals = countVariants(mode === "sizes" ? [sizeOnly] : colors);
+  const invalidAnchors = useMemo(
+    () => new Set(publishIssues.map((issue) => issue.anchor)),
+    [publishIssues],
+  );
+
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
   }, [state]);
 
-  // ---- "produto sem variações" toggle -----------------------------------
-  function toggleNoVariants(checked: boolean) {
-    setNoVariants(checked);
-    if (checked) {
-      setVariants((prev) => [
-        {
-          clientId: prev[0]?.clientId ?? newClientId(),
-          color: SIMPLE_VARIANT_COLOR,
-          color_hex: "",
-          size: SIMPLE_VARIANT_SIZE,
-          sku: prev[0]?.sku ?? "",
-          skuManual: true,
-          stock: prev[0]?.stock ?? 0,
-          image_url: "",
-        },
-      ]);
-    } else {
-      setVariants([]);
-      // the real per-variant sizes take over — drop the "sem variações"
-      // informational size so it doesn't linger, stale, in the ficha
-      // técnica next to them.
-      setAttributeRows((prev) => prev.filter((r) => r.key !== "Tamanho"));
-    }
+  // ---- how the product is sold -----------------------------------------
+  function handleModeChange(next: VariantMode) {
+    setMode(next);
+    // Both editors keep their drafts across a switch, so nothing is lost by
+    // changing your mind. The one thing that goes is the informational
+    // "Tamanho" spec row: outside peça única, real per-variant sizes take
+    // over from it and leaving it behind would contradict them.
+    if (next !== "single") setAttributeRows((prev) => prev.filter((r) => r.key !== "Tamanho"));
   }
 
-  const simpleSku = variants[0]?.sku ?? "";
-  const simpleStock = variants[0]?.stock ?? 0;
-  function setSimpleSku(value: string) {
-    setVariants((prev) => [{ ...(prev[0] ?? makeSimpleRow()), sku: value, skuManual: true }]);
-  }
-  function setSimpleStock(value: number) {
-    setVariants((prev) => [{ ...(prev[0] ?? makeSimpleRow()), stock: value }]);
-  }
-  function makeSimpleRow(): VariantDraft {
-    return {
-      clientId: newClientId(),
-      color: SIMPLE_VARIANT_COLOR,
-      color_hex: "",
-      size: SIMPLE_VARIANT_SIZE,
-      sku: "",
-      skuManual: true,
-      stock: 0,
-      image_url: "",
-    };
-  }
-
-  // "Produto sem variações" still has exactly one size worth recording —
-  // just not as a pickable option, since there's only ever the one. It's
-  // stored as a "Tamanho" spec row (shows on the product page's ficha
-  // técnica) rather than on the variant itself: the variant's own size
-  // stays the SIMPLE_VARIANT_SIZE sentinel that cart/stock/checkout key
-  // off of everywhere, and swapping that for a real size would make the
-  // storefront treat it as a normal multi-size product needing a picker.
-  const simpleSizeOptions = isShoeCategory ? NUMERIC_SIZES : LETTER_SIZES;
+  // "Produto sem variações" still has one size worth recording — just not
+  // as a pickable option. It's stored as a "Tamanho" spec row (shown on the
+  // product page's ficha técnica) rather than on the variant itself: the
+  // variant's size stays the sentinel that cart/stock/checkout key off of
+  // everywhere, and swapping it for a real size would make the storefront
+  // treat this as a normal multi-size product needing a picker.
   const simpleSize = attributeRows.find((r) => r.key === "Tamanho")?.value ?? "";
   function setSimpleSize(size: string) {
     setAttributeRows((prev) => {
@@ -291,20 +247,37 @@ export function ProductForm({
     });
   }
 
-  // ---- tags ---------------------------------------------------------------
-  function addTag(raw: string) {
-    const value = raw.trim();
-    if (!value || tags.includes(value)) return;
-    setTags((prev) => [...prev, value]);
-  }
-  function handleTagKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag(tagInput);
-      setTagInput("");
-    } else if (e.key === "Backspace" && tagInput === "" && tags.length > 0) {
-      setTags((prev) => prev.slice(0, -1));
+  function handlePromoToggle(enabled: boolean) {
+    setPromoEnabled(enabled);
+    if (enabled) {
+      // What was the plain price becomes the struck-through "de" price, and
+      // the promotional field below it takes over as what's charged.
+      setCompareAtPrice(price);
+      setPrice("");
+    } else {
+      setPrice(compareAtPrice || price);
+      setCompareAtPrice("");
     }
+  }
+
+  function handleVariantSkuChange(clientId: string, sku: string) {
+    // clientId is `${color.id}:${size}` — no color id contains a colon, so
+    // the first one always separates the two.
+    const separator = clientId.indexOf(":");
+    const colorId = clientId.slice(0, separator);
+    const size = clientId.slice(separator + 1);
+    setColors((prev) =>
+      prev.map((color) =>
+        color.id !== colorId
+          ? color
+          : {
+              ...color,
+              sizes: color.sizes.map((entry) =>
+                entry.size === size ? { ...entry, sku, skuManual: sku.trim() !== "" } : entry,
+              ),
+            },
+      ),
+    );
   }
 
   // ---- unsaved-changes guard + draft autosave --------------------------
@@ -321,6 +294,7 @@ export function ProductForm({
     careInstructions,
     price,
     compareAtPrice,
+    promoEnabled,
     categoryId,
     brandId,
     manufacturerRef,
@@ -330,8 +304,11 @@ export function ProductForm({
     featured,
     position,
     images,
-    variants,
-    noVariants,
+    mode,
+    colors,
+    sizeOnly,
+    simpleSku,
+    simpleStock,
   };
   const initialSnapshotRef = useRef<string>(JSON.stringify(snapshot));
   const snapshotStr = JSON.stringify(snapshot);
@@ -364,7 +341,7 @@ export function ProductForm({
           setCareInstructions(v.careInstructions ?? "");
           setPrice(v.price);
           setCompareAtPrice(v.compareAtPrice);
-          setPricingMode(v.compareAtPrice ? "oferta" : "normal");
+          setPromoEnabled(v.promoEnabled ?? v.compareAtPrice !== "");
           setCategoryId(v.categoryId);
           setBrandId(v.brandId ?? "");
           setManufacturerRef(v.manufacturerRef ?? "");
@@ -374,8 +351,11 @@ export function ProductForm({
           setFeatured(v.featured);
           setPosition(v.position);
           setImages(v.images);
-          setVariants(v.variants);
-          setNoVariants(v.noVariants ?? isSimpleVariantSet(v.variants));
+          setMode(v.mode ?? "colors");
+          setColors(v.colors ?? []);
+          setSizeOnly(v.sizeOnly ?? makeColorlessColor());
+          setSimpleSku(v.simpleSku ?? "");
+          setSimpleStock(v.simpleStock ?? 0);
           toast.success("Rascunho restaurado.");
         },
       },
@@ -386,8 +366,8 @@ export function ProductForm({
   // Images the operator uploaded this session but never actually saved
   // (abandoned edit, closed tab via in-app nav) shouldn't linger in
   // Storage. `savingRef` is flipped right before a real submit so a
-  // *successful* save — which also unmounts this form via redirect()
-  // — doesn't trigger the same cleanup on the images it just persisted.
+  // *successful* save — which also unmounts this form via redirect() —
+  // doesn't trigger the same cleanup on the images it just persisted.
   const savingRef = useRef(false);
   const imagesRef = useRef(images);
   imagesRef.current = images;
@@ -463,18 +443,23 @@ export function ProductForm({
     }
 
     const issues = collectPublishIssues(parsed.data);
-    setPublishIssues(issues);
     if (issues.length > 0) {
       event.preventDefault();
-      toast.error("Faltam informações para publicar este produto.");
-      requestAnimationFrame(() => {
-        document.getElementById("publish-issues")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const needsAdvanced = issues.some((issue) => ADVANCED_ANCHORS.has(issue.anchor));
+      flushSync(() => {
+        setPublishIssues(issues);
+        if (needsAdvanced) setAdvancedOpen(true);
       });
+      toast.error("Faltam informações para publicar este produto.");
+      document
+        .getElementById(issues[0].anchor)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
-    // Submission is proceeding — clear the local draft optimistically so
-    // a leftover "restore?" prompt doesn't appear after a successful save,
+    setPublishIssues([]);
+    // Submission is proceeding — clear the local draft optimistically so a
+    // leftover "restore?" prompt doesn't appear after a successful save,
     // and suppress the orphaned-upload cleanup below since these images
     // are about to become real.
     clearDraft(draftKey);
@@ -500,17 +485,11 @@ export function ProductForm({
   }
 
   return (
-    <form
-      ref={formRef}
-      action={formAction}
-      onSubmit={handleSubmit}
-      className="flex max-w-3xl flex-col gap-8"
-    >
+    <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-5">
       {publishIssues.length > 0 && (
         <div
-          id="publish-issues"
           role="alert"
-          className="scroll-mt-24 border border-[var(--danger)] bg-[var(--danger)]/10 p-4"
+          className="rounded-xl border border-[var(--danger)] bg-[var(--danger)]/10 p-4"
         >
           <p className="mb-2 text-sm font-medium text-[var(--danger)]">
             Não é possível publicar — falta o seguinte:
@@ -520,6 +499,9 @@ export function ProductForm({
               <li key={issue.anchor + issue.message}>
                 <a
                   href={`#${issue.anchor}`}
+                  onClick={() => {
+                    if (ADVANCED_ANCHORS.has(issue.anchor)) setAdvancedOpen(true);
+                  }}
                   className="text-sm text-[var(--danger)] underline underline-offset-4 hover:opacity-80"
                 >
                   {issue.message}
@@ -546,9 +528,6 @@ export function ProductForm({
           })),
         )}
       />
-      <input type="hidden" name="brand_id" value={brandId} />
-      <input type="hidden" name="manufacturer_ref" value={manufacturerRef} />
-      <input type="hidden" name="badge" value={badge} />
       <input
         type="hidden"
         name="attributes_json"
@@ -556,527 +535,141 @@ export function ProductForm({
       />
       <input type="hidden" name="tags_json" value={JSON.stringify(tags)} />
 
-      {/* 1. Informações do produto */}
-      <FormSection title="1. Informações do produto">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Nome do produto</Label>
-            <Input
-              id="name"
-              name="name"
-              required
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (!slugTouched) setSlug(slugify(e.target.value));
-              }}
-              className="rounded-none"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="slug-display">Slug</Label>
-            <Input
-              id="slug-display"
-              value={slug}
-              onChange={(e) => {
-                setSlugTouched(true);
-                setSlug(slugify(e.target.value));
-              }}
-              className="rounded-none"
-            />
-          </div>
-        </div>
+      <ProductFormSection step={1} title="Produto">
+        <ProductBasicInfo
+          name={name}
+          onNameChange={(value) => {
+            setName(value);
+            // Two pieces called "Camisa Polo" would fight over the same
+            // address, so the second one becomes camisa-polo-2 as it is
+            // typed — visible before saving, not a surprise afterwards.
+            if (!slugTouched) setSlug(freeSlug(slugify(value), takenSlugs));
+          }}
+          slug={slug}
+          slugTaken={slugTaken}
+          onSlugChange={(value) => {
+            setSlugTouched(true);
+            setSlug(slugify(value));
+          }}
+          categories={categoryOptions}
+          categoryId={categoryId}
+          onCategoryChange={setCategoryId}
+          onCategoryCreated={(category) => setCategoryOptions((prev) => [...prev, category])}
+          price={price}
+          onPriceChange={setPrice}
+          compareAtPrice={compareAtPrice}
+          onCompareAtPriceChange={setCompareAtPrice}
+          promoEnabled={promoEnabled}
+          onPromoEnabledChange={handlePromoToggle}
+          shortDescription={shortDescription}
+          onShortDescriptionChange={setShortDescription}
+          invalidAnchors={invalidAnchors}
+        />
+      </ProductFormSection>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="short_description">Descrição curta</Label>
-          <Input
-            id="short_description"
-            name="short_description"
-            value={shortDescription}
-            onChange={(e) => setShortDescription(e.target.value)}
-            placeholder="Uma linha para o topo da página do produto"
-            maxLength={300}
-            className="rounded-none"
-          />
-        </div>
-
-        <div id="field-description" className="flex scroll-mt-24 flex-col gap-2">
-          <Label htmlFor="description">Descrição completa</Label>
-          <Textarea
-            id="description"
-            name="description"
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rounded-none"
-          />
-        </div>
-      </FormSection>
-
-      {/* 2. Fotos e mídia */}
-      <FormSection title="2. Fotos e mídia">
-        <div id="field-images" className="scroll-mt-24">
-          <MultiImageUploader
-            images={images}
-            onChange={setImages}
-            checkDuplicate={(file) =>
-              checkDuplicatePhoto(file, "general", "Imagens do produto")
-            }
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="video_url">Vídeo do produto (opcional)</Label>
-          <Input
-            id="video_url"
-            name="video_url"
-            type="url"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="Link do YouTube, Vimeo ou arquivo .mp4"
-            className="rounded-none"
-          />
-        </div>
-      </FormSection>
-
-      {/* 3. Preço */}
-      <FormSection title="3. Preço">
-        <div className="flex flex-col gap-2">
-          <Label>Tipo de preço</Label>
-          <div className="grid w-fit grid-cols-2 gap-2">
-            {(
-              [
-                { value: "normal", label: "Preço normal" },
-                { value: "oferta", label: "Oferta" },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  setPricingMode(option.value);
-                  if (option.value === "normal") setCompareAtPrice("");
-                }}
-                aria-pressed={pricingMode === option.value}
-                className={`flex h-10 items-center justify-center border px-4 text-sm font-medium transition-colors duration-150 ease-out ${
-                  pricingMode === option.value
-                    ? "border-fg bg-fg text-bg"
-                    : "border-line text-ink-muted hover:border-ink-muted"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-ink-muted">
-            Em &quot;Oferta&quot;, o preço original aparece riscado na loja e o
-            preço de venda vira o preço com desconto — precisa ser menor que o
-            original.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <div id="field-price" className="scroll-mt-24 flex flex-col gap-2">
-            <Label htmlFor="price">
-              {pricingMode === "oferta" ? "Preço com desconto (R$)" : "Preço de venda (R$)"}
-            </Label>
-            <Input
-              id="price"
-              name="price"
-              type="number"
-              step="0.01"
-              min={0}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              onFocus={selectOnFocus}
-              className="rounded-none"
-            />
-            <p className="text-xs text-ink-muted">Pode ficar em branco enquanto é rascunho.</p>
-          </div>
-          {pricingMode === "oferta" && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="compare_at_price">Preço original &quot;de&quot; (R$)</Label>
-              <Input
-                id="compare_at_price"
-                name="compare_at_price"
-                type="number"
-                step="0.01"
-                min={0}
-                value={compareAtPrice}
-                onChange={(e) => setCompareAtPrice(e.target.value)}
-                onFocus={selectOnFocus}
-                className="rounded-none"
-              />
-              {compareAtPrice !== "" &&
-                price !== "" &&
-                Number(compareAtPrice) <= Number(price) && (
-                  <p className="text-xs text-[var(--danger)]">
-                    Deve ser maior que o preço com desconto.
-                  </p>
-                )}
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="position">Posição</Label>
-            <Input
-              id="position"
-              name="position"
-              type="number"
-              min={0}
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              onFocus={selectOnFocus}
-              className="rounded-none"
-            />
-          </div>
-        </div>
-      </FormSection>
-
-      {/* 4 + 5. Cores e tamanhos / Estoque e variações */}
-      <FormSection
-        id="field-variants"
-        title="4. Cores e tamanhos"
-        description="Gere as combinações de cor e tamanho — o estoque de cada uma fica na seção seguinte."
+      <ProductFormSection
+        step={2}
+        title="Fotos"
+        description="A primeira imagem será a capa do produto."
+        id="field-images"
       >
-        <label className="flex items-center gap-2.5">
-          <Switch checked={noVariants} onCheckedChange={toggleNoVariants} />
-          <span className="text-sm text-fg">
-            Produto sem variações (um único SKU e estoque, sem cor/tamanho)
-          </span>
-        </label>
+        <MultiImageUploader
+          images={images}
+          onChange={setImages}
+          checkDuplicate={(file) => checkDuplicatePhoto(file, "general", "Imagens do produto")}
+        />
+      </ProductFormSection>
 
-        {!noVariants && (
-          <VariantEditor
-            productSlug={slug}
-            variants={variants}
-            onChange={setVariants}
-            isShoeCategory={isShoeCategory}
-            existingSkus={existingSkus}
-            checkDuplicate={checkDuplicatePhoto}
-          />
-        )}
-      </FormSection>
+      <ProductFormSection
+        step={3}
+        title="Cores, tamanhos e estoque"
+        description="Cada cor gera uma variação por tamanho selecionado."
+        id="field-variants"
+      >
+        <ProductVariantsEditor
+          mode={mode}
+          onModeChange={handleModeChange}
+          colors={colors}
+          onColorsChange={setColors}
+          sizeOnly={sizeOnly}
+          onSizeOnlyChange={setSizeOnly}
+          simpleStock={simpleStock}
+          onSimpleStockChange={setSimpleStock}
+          simpleSize={simpleSize}
+          onSimpleSizeChange={setSimpleSize}
+          isShoeCategory={isShoeCategory}
+          savingRef={savingRef}
+          checkDuplicate={checkDuplicatePhoto}
+        />
+      </ProductFormSection>
 
-      <FormSection title="5. Estoque e variações">
-        {noVariants ? (
-          <div className="grid grid-cols-2 gap-4 sm:w-96">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="simple-sku">SKU</Label>
-              <Input
-                id="simple-sku"
-                value={simpleSku}
-                onChange={(e) => setSimpleSku(e.target.value)}
-                placeholder={slug ? slug.toUpperCase() : "SKU"}
-                className="rounded-none"
-              />
-              {simpleSku.trim() !== "" && existingSkus.includes(simpleSku.trim()) && (
-                <p className="text-xs text-[var(--danger)]">
-                  Esse SKU já está em uso por outro produto.
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="simple-stock">Estoque</Label>
-              <Input
-                id="simple-stock"
-                type="number"
-                min={0}
-                value={simpleStock}
-                onChange={(e) => setSimpleStock(Number(e.target.value) || 0)}
-                onFocus={selectOnFocus}
-                className="rounded-none"
-              />
-            </div>
-            <div className="col-span-2 flex flex-col gap-2">
-              <Label>Tamanho (opcional)</Label>
-              <div className="flex flex-wrap gap-2">
-                {simpleSizeOptions.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setSimpleSize(size)}
-                    aria-pressed={simpleSize === size}
-                    className={`flex h-10 min-w-10 items-center justify-center border px-2 text-sm font-medium uppercase transition-colors duration-150 ease-out ${
-                      simpleSize === size
-                        ? "border-fg bg-fg text-bg"
-                        : "border-line text-ink-muted hover:border-ink-muted"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-ink-muted">
-                Só pra exibir na ficha técnica do produto — como é uma peça
-                única, não gera opções de tamanho pro cliente escolher.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-ink-muted">
-            O estoque de cada variação é definido na seção &quot;Cores e
-            tamanhos&quot; acima, na tabela de cada cor.
-          </p>
-        )}
-      </FormSection>
+      <ProductFormSection
+        step={4}
+        title="Exibição"
+        description="Defina onde o produto será exibido na loja."
+      >
+        <ProductDisplaySettings
+          badge={badge}
+          onBadgeChange={setBadge}
+          featured={featured}
+          onFeaturedChange={setFeatured}
+          collection={collection}
+          onCollectionChange={setCollection}
+        />
+      </ProductFormSection>
 
-      {/* 6. Organização do produto */}
-      <FormSection title="6. Organização do produto">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div id="field-category" className="scroll-mt-24 flex flex-col gap-2">
-            <Label htmlFor="category_id">Categoria</Label>
-            <Select
-              value={categoryId}
-              onValueChange={(value) => {
-                if (value === NEW_CATEGORY_VALUE) {
-                  setCategoryDialogOpen(true);
-                  return;
-                }
-                setCategoryId(value);
-              }}
-            >
-              <SelectTrigger id="category_id" className="rounded-none">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                {categoryOptions.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_CATEGORY_VALUE} className="!text-gold">
-                  <Plus className="size-3.5" /> Criar nova categoria
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <input type="hidden" name="category_id" value={categoryId} />
-            <InlineCategoryCreator
-              open={categoryDialogOpen}
-              onOpenChange={setCategoryDialogOpen}
-              onCreated={(category) => {
-                setCategoryOptions((prev) => [...prev, category]);
-                setCategoryId(category.id);
-              }}
-            />
-          </div>
+      <ProductAdvancedSettings
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        description={description}
+        onDescriptionChange={setDescription}
+        videoUrl={videoUrl}
+        onVideoUrlChange={setVideoUrl}
+        brands={brandOptions}
+        brandId={brandId}
+        onBrandChange={setBrandId}
+        onBrandCreated={(brand) => setBrandOptions((prev) => [...prev, brand])}
+        manufacturerRef={manufacturerRef}
+        onManufacturerRefChange={setManufacturerRef}
+        tags={tags}
+        onTagsChange={setTags}
+        attributeRows={attributeRows}
+        onAttributeRowsChange={setAttributeRows}
+        status={status}
+        onStatusChange={setStatus}
+        position={position}
+        onPositionChange={setPosition}
+        shippingNote={shippingNote}
+        onShippingNoteChange={setShippingNote}
+        exchangeInfo={exchangeInfo}
+        onExchangeInfoChange={setExchangeInfo}
+        careInstructions={careInstructions}
+        onCareInstructionsChange={setCareInstructions}
+        singlePiece={mode === "single"}
+        simpleSku={simpleSku}
+        onSimpleSkuChange={setSimpleSku}
+        variants={variants}
+        onVariantSkuChange={handleVariantSkuChange}
+        existingSkus={existingSkus}
+        invalidAnchors={invalidAnchors}
+      />
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="brand_id">Marca</Label>
-            <Select
-              value={brandId || NO_BRAND_VALUE}
-              onValueChange={(value) => {
-                if (value === NEW_BRAND_VALUE) {
-                  setBrandDialogOpen(true);
-                  return;
-                }
-                setBrandId(value === NO_BRAND_VALUE ? "" : value);
-              }}
-            >
-              <SelectTrigger id="brand_id" className="rounded-none">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                <SelectItem value={NO_BRAND_VALUE}>Sem marca</SelectItem>
-                {brandOptions.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_BRAND_VALUE} className="!text-gold">
-                  <Plus className="size-3.5" /> Criar nova marca
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <InlineBrandCreator
-              open={brandDialogOpen}
-              onOpenChange={setBrandDialogOpen}
-              onCreated={(brand) => {
-                setBrandOptions((prev) => [...prev, brand]);
-                setBrandId(brand.id);
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="collection">Coleção</Label>
-            <Input
-              id="collection"
-              name="collection"
-              value={collection}
-              onChange={(e) => setCollection(e.target.value)}
-              placeholder="Ex: Verão 2026"
-              className="rounded-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="manufacturer_ref-display">Referência do fabricante</Label>
-            <Input
-              id="manufacturer_ref-display"
-              value={manufacturerRef}
-              onChange={(e) => setManufacturerRef(e.target.value)}
-              className="rounded-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="status">Produto ativo no site</Label>
-            <Select
-              name="status"
-              value={status}
-              onValueChange={(value) => setStatus(value as ProductStatus)}
-            >
-              <SelectTrigger id="status" className="rounded-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                <SelectItem value="draft">Não — rascunho</SelectItem>
-                <SelectItem value="active">Sim — ativo</SelectItem>
-                <SelectItem value="archived">Não — arquivado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label>Onde aparece no site</Label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {PLACEMENT_OPTIONS.map((option) => {
-              const isActive = (badge || NO_BADGE_VALUE) === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setBadge(option.value === NO_BADGE_VALUE ? "" : option.value)
-                  }
-                  aria-pressed={isActive}
-                  className={`flex h-10 items-center justify-center border px-2 text-sm font-medium transition-colors duration-150 ease-out ${
-                    isActive
-                      ? "border-fg bg-fg text-bg"
-                      : "border-line text-ink-muted hover:border-ink-muted"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-ink-muted">
-            Define em qual vitrine da home o produto aparece. &quot;Produtos&quot; é o
-            catálogo padrão — as outras três são as seções de destaque.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="tag-input">Tags</Label>
-          <div className="flex flex-wrap items-center gap-2 border border-line p-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="flex items-center gap-1 bg-[#1a1a1a] px-2 py-1 text-xs text-fg"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
-                  aria-label={`Remover tag ${tag}`}
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
-            <input
-              id="tag-input"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleTagKeyDown}
-              onBlur={() => {
-                addTag(tagInput);
-                setTagInput("");
-              }}
-              placeholder={tags.length === 0 ? "Digite e pressione Enter" : ""}
-              className="min-w-32 flex-1 bg-transparent px-1 py-1 text-sm outline-none"
-            />
-          </div>
-        </div>
-
-        <AttributesEditor rows={attributeRows} onChange={setAttributeRows} />
-
-        <div className="flex items-center gap-3">
-          <Switch id="featured" name="featured" checked={featured} onCheckedChange={setFeatured} />
-          <Label htmlFor="featured">Produto em destaque na home</Label>
-        </div>
-      </FormSection>
-
-      {/* 7. Envio, troca e cuidados */}
-      <FormSection title="7. Envio, troca e cuidados">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="shipping_note">Prazo de envio</Label>
-          <Input
-            id="shipping_note"
-            name="shipping_note"
-            value={shippingNote}
-            onChange={(e) => setShippingNote(e.target.value)}
-            placeholder="Ex: Envio em até 2 dias úteis (deixe em branco para usar o padrão da loja)"
-            className="rounded-none"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="exchange_info">Informações de troca</Label>
-          <Textarea
-            id="exchange_info"
-            name="exchange_info"
-            rows={2}
-            value={exchangeInfo}
-            onChange={(e) => setExchangeInfo(e.target.value)}
-            placeholder="Deixe em branco para usar a política padrão da loja"
-            className="rounded-none"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="care_instructions">Cuidados com a peça</Label>
-          <Textarea
-            id="care_instructions"
-            name="care_instructions"
-            rows={2}
-            value={careInstructions}
-            onChange={(e) => setCareInstructions(e.target.value)}
-            placeholder="Ex: Lavar à mão, não usar alvejante"
-            className="rounded-none"
-          />
-        </div>
-      </FormSection>
-
-      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-8">
-        <Button type="submit" name="intent" value="save" size="lg" disabled={pending}>
-          {pending ? "Salvando…" : "Salvar produto"}
-        </Button>
-        <Button
-          type="submit"
-          name="intent"
-          value="save_and_new"
-          variant="outline"
-          size="lg"
-          disabled={pending}
-        >
-          Salvar e criar outro
-        </Button>
-        {product && (
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={handleDuplicate}
-            disabled={duplicating}
-          >
-            <Copy className="size-4" /> {duplicating ? "Duplicando…" : "Duplicar produto"}
-          </Button>
-        )}
-        <Button type="button" variant="ghost" size="lg" onClick={handleCancel}>
-          Cancelar
-        </Button>
-        <span className="text-xs text-ink-muted">Ctrl/Cmd + S para salvar</span>
-      </div>
+      <ProductFormActionBar
+        productName={name}
+        coverUrl={images[0]?.url ?? null}
+        totals={totals}
+        mode={mode}
+        simpleStock={simpleStock}
+        status={status}
+        pending={pending}
+        // Each save button stands for a status; flushing it before the
+        // submit event means the hidden status field is already right when
+        // the form goes out.
+        onBeforeSubmit={(next) => flushSync(() => setStatus(next))}
+        onCancel={handleCancel}
+        onDuplicate={product ? handleDuplicate : undefined}
+        duplicating={duplicating}
+      />
     </form>
   );
 }

@@ -24,8 +24,14 @@ export function ImageUploader({
   aspect?: string;
   /** Set to true by the parent form right before a real submit — skips
    * the unmount cleanup so a just-saved image isn't deleted out from
-   * under the product/banner that now references it. */
-  savingRef?: RefObject<boolean>;
+   * under the product/banner that now references it.
+   *
+   * Required on purpose: a form that forgets it looks fine right up to
+   * the moment it saves, because the cleanup then deletes the file the
+   * row it just wrote is pointing at, leaving a broken image in the shop.
+   * Making it required moves that from a silent data loss to a compile
+   * error. */
+  savingRef: RefObject<boolean>;
   /** Optional cross-field duplicate check (product form only) — if the
    * picked file's content already lives in another field of the same
    * product, resolves to that field's label so the operator can be
@@ -46,7 +52,7 @@ export function ImageUploader({
       // whatever it was most recently set to, which is required for
       // this cleanup to see the final state at unmount time.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      if (savingRef?.current) return;
+      if (savingRef.current) return;
       const current = valueRef.current;
       // eslint-disable-next-line react-hooks/exhaustive-deps
       if (current && uploadedThisSession.current.has(current)) {
@@ -96,13 +102,13 @@ export function ImageUploader({
     <div>
       <p className="text-label mb-3">{label}</p>
       <div
-        className={`relative ${aspect} w-full overflow-hidden border border-dashed border-line bg-[#111111]`}
+        className={`relative ${aspect} w-full overflow-hidden rounded-lg border border-dashed border-line bg-field`}
       >
         {progress !== null ? (
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <div className="h-1 w-full max-w-40 bg-[#2a2a2a]">
+            <div className="h-1 w-full max-w-40 bg-line">
               <div
-                className="h-1 bg-gold transition-all duration-150 ease-out"
+                className="h-1 bg-accent-solid transition-all duration-150 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>

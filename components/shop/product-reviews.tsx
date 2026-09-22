@@ -38,7 +38,7 @@ export function ProductReviews({
   }, [state]);
 
   return (
-    <section>
+    <section id="avaliacoes" className="scroll-mt-24">
       <h2 className="mb-4 text-lg font-bold text-fg">Avaliações</h2>
       <div className="flex flex-col gap-6 rounded-lg border border-line bg-surface p-6">
         <div className="flex items-center gap-3">

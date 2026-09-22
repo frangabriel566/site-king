@@ -8,6 +8,7 @@ import {
   getOnSaleProducts,
   listProducts,
 } from "@/lib/data/products";
+import { HOME_RAIL_LIMIT } from "@/lib/constants";
 import { BannerCarousel } from "@/components/shop/banner-carousel";
 import { SecondaryBanner } from "@/components/shop/secondary-banner";
 import { TrustBadges } from "@/components/shop/trust-badges";
@@ -30,10 +31,10 @@ export default async function HomePage() {
       getActiveBanners(),
       getSiteSettings(),
       getCategoriesWithImages(),
-      getNewArrivals(8),
-      getFeaturedProducts(8),
-      listProducts({ excludeBadged: true }),
-      getOnSaleProducts(8),
+      getNewArrivals(HOME_RAIL_LIMIT),
+      getFeaturedProducts(HOME_RAIL_LIMIT),
+      listProducts({ excludeBadged: true, featuredFirst: true, limit: HOME_RAIL_LIMIT }),
+      getOnSaleProducts(HOME_RAIL_LIMIT),
     ]);
 
   return (
@@ -48,7 +49,12 @@ export default async function HomePage() {
           section from rendering (no empty gap) instead of guessing which
           hero-carousel banner to reuse here. */}
       <SecondaryBanner banner={null} />
-      <ProductRail title="Produtos" products={catalog.items.slice(0, 8)} seeAllHref="/colecao" />
+      {/* The catch-all: everything published that no badge rail above has
+          already shown. Uncapped beyond HOME_RAIL_LIMIT and newest-first,
+          so a product registered in the panel is on the home as soon as it
+          is published — it does not have to win a slot from the eight that
+          happened to be listed first. */}
+      <ProductRail title="Produtos" products={catalog.items} seeAllHref="/colecao" />
       <OffersBlock products={onSale} />
       <TrustBadges freeShippingNote={settings.free_shipping_note} />
       <NewsletterSection />

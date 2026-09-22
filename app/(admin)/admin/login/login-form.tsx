@@ -25,7 +25,6 @@ export function LoginForm({ next }: { next?: string }) {
           type="email"
           autoComplete="email"
           required
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -36,7 +35,6 @@ export function LoginForm({ next }: { next?: string }) {
           type="password"
           autoComplete="current-password"
           required
-          className="rounded-none"
         />
       </div>
       {state.status === "error" && (

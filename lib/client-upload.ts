@@ -5,12 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/database.types";
 
 export const MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024; // 10MB, checked before compression
-const MAX_DIMENSION = 2000;
+const MAX_DIMENSION = 2560;
 // The file stored here is the ceiling for every size the storefront serves:
-// the product gallery asks the optimizer for around 1080-1200px at q90 and
-// then zooms 1.8x on hover, so artifacts baked in at upload time are exactly
-// what shows up magnified. Costs roughly a third more bytes per photo.
-const WEBP_QUALITY = 0.92;
+// the product gallery asks the optimizer for ~1200px and then zooms 1.8x on
+// hover, so anything lost at upload time is exactly what shows up magnified.
+// 0.95 is near the top of WebP's useful range — past it the file grows fast
+// for differences nobody sees.
+const WEBP_QUALITY = 0.95;
 
 export type UploadFolder = "products" | "banners" | "brand";
 
@@ -33,6 +34,11 @@ export async function compressImageToWebp(file: File): Promise<CompressedImage> 
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Este navegador não suporta processar imagens no cliente.");
+  // Without this the browser picks the cheapest resampling it has, which on
+  // a big downscale (a 4000px phone photo into 2560) eats fine detail like
+  // fabric weave and stitching.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 

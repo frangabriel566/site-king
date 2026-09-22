@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +17,24 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
   const [state, formAction, pending] = useActionState(updateSiteSettingsAction, initialState);
   const [logoUrl, setLogoUrl] = useState<string | null>(settings.logo_url);
   const [announcementActive, setAnnouncementActive] = useState(settings.announcement_active);
+  // Flipped right before a real submit so navigating away after saving
+  // does not delete the logo this form just wrote — see ImageUploader.
+  const savingRef = useRef(false);
 
   useEffect(() => {
+    if (state.status === "error") savingRef.current = false;
     if (state.status === "error" && state.message) toast.error(state.message);
     if (state.status === "success") toast.success("Configurações salvas.");
   }, [state]);
 
   return (
-    <form action={formAction} className="flex max-w-2xl flex-col gap-10">
+    <form
+      action={formAction}
+      onSubmit={() => {
+        savingRef.current = true;
+      }}
+      className="flex max-w-2xl flex-col gap-10"
+    >
       <input type="hidden" name="logo_url" value={logoUrl ?? ""} />
 
       <section>
@@ -37,7 +47,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="store_name"
               required
               defaultValue={settings.store_name}
-              className="rounded-none"
             />
           </div>
           <div className="w-40">
@@ -47,6 +56,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               onChange={setLogoUrl}
               folder="brand"
               aspect="aspect-square"
+              savingRef={savingRef}
             />
           </div>
         </div>
@@ -62,7 +72,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="whatsapp"
               placeholder="5511999999999"
               defaultValue={settings.whatsapp ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -72,7 +81,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="email"
               type="email"
               defaultValue={settings.email ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -82,7 +90,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="instagram"
               placeholder="@kingstore"
               defaultValue={settings.instagram ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -92,7 +99,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="tiktok"
               placeholder="@kingstore"
               defaultValue={settings.tiktok ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -102,7 +108,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="youtube"
               placeholder="@kingstore"
               defaultValue={settings.youtube ?? ""}
-              className="rounded-none"
             />
           </div>
         </div>
@@ -117,7 +122,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               id="shipping_note"
               name="shipping_note"
               defaultValue={settings.shipping_note ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -126,7 +130,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               id="free_shipping_note"
               name="free_shipping_note"
               defaultValue={settings.free_shipping_note ?? ""}
-              className="rounded-none"
             />
           </div>
         </div>
@@ -142,7 +145,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               name="announcement"
               rows={2}
               defaultValue={settings.announcement ?? ""}
-              className="rounded-none"
             />
           </div>
           <div className="flex items-center gap-3">

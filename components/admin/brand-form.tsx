@@ -63,7 +63,6 @@ export function BrandForm({
             setName(e.target.value);
             if (!slugTouched) setSlug(slugify(e.target.value));
           }}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -77,7 +76,6 @@ export function BrandForm({
             setSlugTouched(true);
             setSlug(slugify(e.target.value));
           }}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -87,7 +85,6 @@ export function BrandForm({
           name="description"
           rows={3}
           defaultValue={brand?.description ?? ""}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -98,7 +95,7 @@ export function BrandForm({
           type="number"
           min={0}
           defaultValue={brand?.position ?? 0}
-          className="w-32 rounded-none"
+          className="w-32"
         />
       </div>
       <div className="flex items-center gap-3">

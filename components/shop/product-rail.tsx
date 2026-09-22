@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ProductCard } from "./product-card";
+import { ScrollRail } from "./scroll-rail";
 import type { ProductListItem } from "@/lib/data/products";
 
 export function ProductRail({
@@ -27,13 +28,13 @@ export function ProductRail({
           </Link>
         )}
       </div>
-      <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
+      <ScrollRail className="gap-4 pb-2" label={title}>
         {products.map((product) => (
           <div key={product.id} className="w-[45vw] shrink-0 sm:w-56 lg:w-64">
             <ProductCard product={product} />
           </div>
         ))}
-      </div>
+      </ScrollRail>
     </section>
   );
 }

@@ -4,7 +4,7 @@ import { Plus, Pencil } from "lucide-react";
 import { getAllCouponsAdmin } from "@/lib/data/coupons";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/admin/status-badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCouponAction } from "@/lib/actions/coupons";
 import {
@@ -65,9 +65,7 @@ export default async function AdminCouponsPage() {
                   {coupon.expires_at ? formatDate(coupon.expires_at) : "—"}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={coupon.active ? "default" : "outline"} className="rounded-none">
-                    {coupon.active ? "Ativo" : "Inativo"}
-                  </Badge>
+                  <ActiveBadge active={coupon.active} labels={["Ativo", "Inativo"]} />
                 </TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <Button variant="ghost" size="icon-sm" asChild>

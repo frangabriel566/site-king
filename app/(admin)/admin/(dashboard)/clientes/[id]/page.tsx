@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getCustomerByIdAdmin } from "@/lib/data/customers";
 import { getOrdersByCustomerAdmin } from "@/lib/data/orders";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, ORDER_STATUS_TONE } from "@/components/admin/status-badge";
 
 export const metadata: Metadata = { title: "Cliente — Painel" };
 
@@ -40,15 +40,15 @@ export default async function AdminCustomerDetailPage({
       </p>
 
       <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="border border-line p-4 md:p-5">
+        <div className="rounded-lg border border-line bg-card p-4 md:p-5">
           <p className="text-label mb-2">Pedidos</p>
           <p className="text-xl md:text-2xl">{orders.length}</p>
         </div>
-        <div className="border border-line p-4 md:p-5">
+        <div className="rounded-lg border border-line bg-card p-4 md:p-5">
           <p className="text-label mb-2">Total gasto</p>
           <p className="text-xl md:text-2xl">{formatCurrency(totalSpent)}</p>
         </div>
-        <div className="border border-line p-4 md:p-5">
+        <div className="rounded-lg border border-line bg-card p-4 md:p-5">
           <p className="text-label mb-2">Nascimento</p>
           <p className="text-xl md:text-2xl">{formatDate(customer.birthdate)}</p>
         </div>
@@ -61,13 +61,13 @@ export default async function AdminCustomerDetailPage({
         <ul className="divide-y divide-line border-y border-line">
           {orders.map((order) => (
             <li key={order.id} className="flex items-center justify-between py-4 text-sm">
-              <Link href={`/admin/pedidos/${order.id}`} className="hover:text-gold">
+              <Link href={`/admin/pedidos/${order.id}`} className="hover:text-accent-light">
                 #{order.order_number}
               </Link>
               <span className="text-ink-muted">{formatDateTime(order.created_at)}</span>
-              <Badge variant="outline" className="rounded-none">
+              <StatusBadge tone={ORDER_STATUS_TONE[order.status]}>
                 {STATUS_LABEL[order.status] ?? order.status}
-              </Badge>
+              </StatusBadge>
               <span>{formatCurrency(order.total)}</span>
             </li>
           ))}

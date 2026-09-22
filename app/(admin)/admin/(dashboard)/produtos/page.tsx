@@ -5,7 +5,7 @@ import { Plus, Pencil } from "lucide-react";
 import { getAllProductsAdmin } from "@/lib/data/products";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, PRODUCT_STATUS_TONE } from "@/components/admin/status-badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteProductAction } from "@/lib/actions/products";
 
@@ -52,9 +52,9 @@ export default async function AdminProductsPage() {
             return (
               <div
                 key={product.id}
-                className="flex flex-wrap items-center gap-4 border border-line p-4 md:gap-5"
+                className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-card p-4 transition-colors duration-150 ease-out hover:border-line-strong md:gap-5"
               >
-                <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-[#111111]">
+                <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-field">
                   {thumbnail && (
                     <Image
                       src={thumbnail}
@@ -73,11 +73,11 @@ export default async function AdminProductsPage() {
                   </p>
                 </div>
                 {product.featured && (
-                  <Badge className="rounded-none">Destaque</Badge>
+                  <StatusBadge tone="info">Destaque</StatusBadge>
                 )}
-                <Badge variant="outline" className="rounded-none">
+                <StatusBadge tone={PRODUCT_STATUS_TONE[product.status]}>
                   {STATUS_LABEL[product.status] ?? product.status}
-                </Badge>
+                </StatusBadge>
                 <Button variant="ghost" size="icon-sm" asChild>
                   <Link href={`/admin/produtos/${product.id}`} aria-label="Editar produto">
                     <Pencil className="size-4" />

@@ -39,13 +39,11 @@ export function AttributesEditor({
               placeholder="Atributo (ex: Gola)"
               value={row.key}
               onChange={(e) => update(index, { key: e.target.value })}
-              className="rounded-none"
             />
             <Input
               placeholder="Valor (ex: Careca)"
               value={row.value}
               onChange={(e) => update(index, { value: e.target.value })}
-              className="rounded-none"
             />
             <Button
               type="button"

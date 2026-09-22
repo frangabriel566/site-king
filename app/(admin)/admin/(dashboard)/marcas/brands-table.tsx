@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteBrandAction } from "@/lib/actions/brands";
@@ -43,11 +43,11 @@ export function BrandsTable({ brands }: { brands: AdminBrandListItem[] }) {
           <TableRow key={brand.id} className="border-line">
             <TableCell>
               {brand.logo_url ? (
-                <div className="relative size-9 overflow-hidden bg-[#111111]">
+                <div className="relative size-9 overflow-hidden bg-field">
                   <Image src={brand.logo_url} alt="" fill sizes="36px" className="object-contain" />
                 </div>
               ) : (
-                <div className="size-9 bg-[#111111]" />
+                <div className="size-9 bg-field" />
               )}
             </TableCell>
             <TableCell className="font-medium">{brand.name}</TableCell>
@@ -55,9 +55,7 @@ export function BrandsTable({ brands }: { brands: AdminBrandListItem[] }) {
             <TableCell className="text-ink-muted">{brand.productCount}</TableCell>
             <TableCell className="text-ink-muted">{brand.position}</TableCell>
             <TableCell>
-              <Badge variant={brand.active ? "default" : "outline"} className="rounded-none">
-                {brand.active ? "Ativa" : "Inativa"}
-              </Badge>
+              <ActiveBadge active={brand.active} labels={["Ativa", "Inativa"]} />
             </TableCell>
             <TableCell className="flex justify-end gap-1">
               <Button variant="ghost" size="icon-sm" asChild>

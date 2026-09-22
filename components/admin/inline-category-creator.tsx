@@ -38,7 +38,7 @@ export function InlineCategoryCreator({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm rounded-none border-line bg-[#111111] text-fg">
+      <DialogContent className="max-w-sm border-line bg-card text-fg">
         <DialogTitle className="text-heading text-lg">Nova categoria</DialogTitle>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -49,7 +49,6 @@ export function InlineCategoryCreator({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Calçados"
-              className="rounded-none"
             />
           </div>
           <Button type="submit" disabled={pending || !name.trim()} className="w-fit">

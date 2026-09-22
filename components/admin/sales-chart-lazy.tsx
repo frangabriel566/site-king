@@ -7,7 +7,7 @@ const SalesChart = dynamic(
   () => import("./sales-chart").then((mod) => mod.SalesChart),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-64 w-full rounded-none bg-[#161616]" />,
+    loading: () => <Skeleton className="h-64 w-full bg-surface-2" />,
   },
 );
 

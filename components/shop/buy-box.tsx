@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
@@ -43,6 +44,9 @@ export function BuyBox({
 }) {
   const { addItem, open } = useCart();
   const router = useRouter();
+  const discountPercent = product.compare_at_price
+    ? Math.round((1 - product.price / product.compare_at_price) * 100)
+    : 0;
   const [isPending, startTransition] = useTransition();
   const [added, setAdded] = useState(false);
   const variants = product.product_variants;
@@ -67,6 +71,7 @@ export function BuyBox({
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sizeSectionRef = useRef<HTMLDivElement>(null);
 
   // Any color change clears the chosen size — including the ones the
   // gallery makes on its own while autoplaying, which never come through
@@ -93,9 +98,25 @@ export function BuyBox({
     ? simpleVariant
     : sizesForColor.find((v) => v.size === selectedSize);
 
+  // Every size at zero is a sold-out product, not a product whose sizes all
+  // happen to be disabled — say so once, plainly, instead of leaving the
+  // shopper to work it out from a row of struck-through buttons.
+  const allOutOfStock = variants.every((variant) => variant.stock <= 0);
+
   function buildCartItem() {
     if (!selectedVariant || selectedVariant.stock <= 0) {
-      setError(isSimpleProduct ? "Produto esgotado." : "Selecione um tamanho disponível.");
+      setError(
+        allOutOfStock
+          ? "Produto esgotado."
+          : isSimpleProduct
+            ? "Produto esgotado."
+            : "Escolha um tamanho para continuar.",
+      );
+      // Send them to the control that's blocking the purchase rather than
+      // leaving a line of red text below the fold.
+      if (!isSimpleProduct && !allOutOfStock) {
+        sizeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       return null;
     }
     setError(null);
@@ -131,36 +152,66 @@ export function BuyBox({
 
   return (
     <div>
-      {product.badge && (
-        <span className="mb-3 inline-block rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-fg">
-          {BADGE_LABEL[product.badge]}
-        </span>
+      {(product.badge || product.category) && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {product.badge && (
+            <span className="inline-block rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-fg">
+              {BADGE_LABEL[product.badge]}
+            </span>
+          )}
+          {product.category && (
+            <Link
+              href={`/colecao?categoria=${product.category.slug}`}
+              className="text-sm font-medium text-gold-text underline-offset-4 hover:underline"
+            >
+              Em {product.category.name}
+            </Link>
+          )}
+        </div>
       )}
 
       <h1 className="text-2xl font-bold leading-tight text-fg">{product.name}</h1>
-      <p className="mt-1 text-xs text-muted-foreground">Ref. {product.id.slice(0, 8).toUpperCase()}</p>
+      {/* The operator's own code when there is one — a sliced uuid is a
+          database id, not a reference anybody can look up. */}
+      <p className="mt-1 text-xs text-muted-foreground">
+        Ref. {product.manufacturer_ref || product.id.slice(0, 8).toUpperCase()}
+      </p>
       {product.short_description && (
         <p className="mt-2 text-sm text-fg">{product.short_description}</p>
       )}
 
-      <div className="mt-3 sm:mt-4">
+      <div className="mt-3 rounded-lg border border-line p-4 sm:mt-4">
         {product.compare_at_price && (
-          <p className="text-sm text-muted-foreground line-through">
-            {formatCurrency(product.compare_at_price)}
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground line-through">
+              {formatCurrency(product.compare_at_price)}
+            </span>
+            {discountPercent > 0 && (
+              <span className="rounded-md bg-gold-soft px-1.5 py-0.5 text-xs font-bold text-fg">
+                {discountPercent}% OFF
+              </span>
+            )}
           </p>
         )}
-        <p className="text-[26px] font-bold text-price">{formatCurrency(product.price)}</p>
-        {product.compare_at_price && (
-          <p className="text-sm font-medium text-discount">
-            {formatCurrency(product.price)} no Pix
-          </p>
+        <p className="mt-1 text-[26px] font-bold leading-none text-price">
+          {formatCurrency(product.price)}
+          <span className="ml-1.5 text-sm font-semibold text-discount">no Pix</span>
+        </p>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {formatInstallments(product.price)}
+        </p>
+        {product.collection && (
+          <span className="mt-3 inline-block rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {product.collection}
+          </span>
         )}
-        <p className="text-sm text-muted-foreground">{formatInstallments(product.price)}</p>
       </div>
 
       {colors.length > 0 && (
         <div className="mt-5 sm:mt-6">
-          <p className="mb-3 text-sm font-medium text-fg">Cor — {selectedColor}</p>
+          <p className="mb-3 text-sm text-muted-foreground">
+            <span className="font-semibold text-fg">Cor:</span> {selectedColor}
+          </p>
           <div className="flex flex-wrap gap-2">
             {colors.map(({ color, color_hex, image_url }) => (
               <button
@@ -204,9 +255,17 @@ export function BuyBox({
       )}
 
       {!isSimpleProduct && (
-        <div className="mt-5 sm:mt-6">
+        <div
+          ref={sizeSectionRef}
+          className={`mt-5 scroll-mt-24 rounded-lg transition-shadow duration-200 ease-out sm:mt-6 ${
+            error && !selectedSize ? "ring-2 ring-alert ring-offset-4 ring-offset-bg" : ""
+          }`}
+        >
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-fg">Tamanho</p>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-fg">Tamanho:</span>{" "}
+              {selectedSize ?? "selecione"}
+            </p>
             <SizeGuideModal sizes={allSizes} />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -222,9 +281,13 @@ export function BuyBox({
                     setError(null);
                   }}
                   aria-pressed={selectedSize === variant.size}
+                  // Unavailable reads as a filled, greyed-out key — the same
+                  // way a marketplace listing shows a size it can't sell —
+                  // and keeps the strike-through so the state doesn't rest
+                  // on colour alone.
                   className={`relative flex h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors duration-150 ease-out ${
                     outOfStock
-                      ? "cursor-not-allowed border-line text-muted-foreground"
+                      ? "cursor-not-allowed border-line bg-surface text-muted-foreground/70"
                       : selectedSize === variant.size
                         ? "border-cta bg-cta text-white"
                         : "border-line text-fg hover:border-cta"
@@ -238,8 +301,10 @@ export function BuyBox({
         </div>
       )}
 
-      {isSimpleProduct && simpleVariant && simpleVariant.stock <= 0 && (
-        <p className="mt-6 text-sm font-medium text-alert">Produto esgotado.</p>
+      {allOutOfStock && (
+        <p className="mt-6 text-sm font-medium text-alert">
+          Produto esgotado{isSimpleProduct ? "" : " em todos os tamanhos"}.
+        </p>
       )}
       {error && <p className="mt-3 text-xs text-alert">{error}</p>}
 
@@ -248,16 +313,16 @@ export function BuyBox({
           size="xl"
           className="w-full bg-cta text-white hover:bg-cta/90"
           onClick={handleBuyNow}
-          disabled={isPending}
+          disabled={isPending || allOutOfStock}
         >
-          {isPending ? "Comprando…" : "Comprar agora"}
+          {isPending ? "Comprando…" : allOutOfStock ? "Esgotado" : "Comprar agora"}
         </Button>
         <Button
           size="xl"
           variant="outline"
           className="w-full"
           onClick={handleAddToBag}
-          disabled={added}
+          disabled={added || allOutOfStock}
         >
           {added ? "Adicionado ✓" : "Adicionar à sacola"}
         </Button>

@@ -11,7 +11,13 @@ import { OrderSummary } from "@/components/shop/order-summary";
 import { EmptyState } from "@/components/shop/empty-state";
 import { getCheckoutContextAction } from "@/lib/actions/checkout-context";
 import { reviseCartAction, createOrderAction } from "@/lib/actions/checkout";
-import { SHIPPING_METHODS, FREE_SHIPPING_THRESHOLD, type ShippingMethod } from "@/lib/constants";
+import {
+  SHIPPING_METHODS,
+  FREE_SHIPPING_THRESHOLD,
+  CHECKOUT_METHODS,
+  type CheckoutMethod,
+  type ShippingMethod,
+} from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import type { RevisedItem } from "@/lib/data/checkout";
 
@@ -24,7 +30,19 @@ const STEP_LABELS: Record<Step, string> = {
   4: "Pagamento",
 };
 
-export function CheckoutWizard({ paymentProvider }: { paymentProvider: string }) {
+export function CheckoutWizard({
+  onlineAvailable,
+  initialMethod,
+}: {
+  /** False when the store has no online checkout configured — then there
+   * is nothing to choose between and the payment step says so instead of
+   * offering an option that can't be honoured. */
+  onlineAvailable: boolean;
+  /** Pre-selected from the product page, which is where the shopper picks
+   * between paying here and finishing on WhatsApp. They can still change
+   * it below — the order is only created at the end of this wizard. */
+  initialMethod: CheckoutMethod;
+}) {
   const { items, clear, isHydrated } = useCart();
   const router = useRouter();
 
@@ -34,6 +52,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [address, setAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
+  const [checkoutMethod, setCheckoutMethod] = useState<CheckoutMethod>(initialMethod);
   const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [revised, setRevised] = useState<RevisedItem[]>([]);
   const [revising, setRevising] = useState(true);
@@ -80,6 +99,7 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
     const result = await createOrderAction({
       address,
       shippingMethod,
+      method: checkoutMethod,
       couponCode: coupon?.code,
       items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
     });
@@ -240,11 +260,50 @@ export function CheckoutWizard({ paymentProvider }: { paymentProvider: string })
         {step === 4 && (
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Pagamento</h2>
-            <p className="max-w-sm text-sm text-ink-muted">
-              {paymentProvider === "whatsapp"
-                ? "Ao confirmar, você será direcionado ao WhatsApp para concluir o pagamento com a King Store."
-                : "Ao confirmar, você será direcionado ao Mercado Pago para concluir o pagamento com segurança."}
-            </p>
+
+            {onlineAvailable ? (
+              <>
+                <p className="mb-4 max-w-sm text-sm text-ink-muted">
+                  Escolha como quer finalizar. O pedido é registrado do mesmo
+                  jeito nos dois casos.
+                </p>
+                <div className="flex flex-col gap-3">
+                  {(Object.keys(CHECKOUT_METHODS) as CheckoutMethod[]).map((option) => {
+                    const info = CHECKOUT_METHODS[option];
+                    return (
+                      <label
+                        key={option}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 text-sm transition-colors duration-150 ease-out ${
+                          checkoutMethod === option
+                            ? "border-fg"
+                            : "border-line hover:border-ink-muted"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="checkout-method"
+                          checked={checkoutMethod === option}
+                          onChange={() => setCheckoutMethod(option)}
+                          className="mt-0.5 accent-fg"
+                        />
+                        <span>
+                          {info.label}
+                          <span className="block text-xs text-ink-muted">
+                            {info.description}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="max-w-sm text-sm text-ink-muted">
+                Ao confirmar, você será direcionado ao WhatsApp para concluir o
+                pagamento com a King Store.
+              </p>
+            )}
+
             <div className="mt-8 flex gap-3">
               <Button variant="outline" size="lg" onClick={() => setStep(3)}>
                 Voltar

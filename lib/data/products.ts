@@ -1,7 +1,12 @@
 ﻿import { createPublicClient } from "@/lib/supabase/public";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables, ProductBadge } from "@/lib/database.types";
-import { COLLECTION_PAGE_SIZE, SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
+import {
+  COLLECTION_PAGE_SIZE,
+  SIZE_ORDER,
+  isColorlessVariant,
+  isSimpleVariant,
+} from "@/lib/constants";
 import { safeQuery } from "./safe";
 
 export type ProductImage = Tables<"product_images">;
@@ -70,8 +75,9 @@ function toListItem(row: {
   let inStock = false;
   let totalStock = 0;
   for (const variant of row.product_variants) {
-    const isSimple = isSimpleVariant(variant.color, variant.size);
-    if (!isSimple && !colorMap.has(variant.color)) {
+    // Sentinel colours are bookkeeping, not a colourway the shopper can
+    // pick — a card showing a "Padrão" swatch would be showing plumbing.
+    if (!isColorlessVariant(variant.color) && !colorMap.has(variant.color)) {
       colorMap.set(variant.color, variant.color_hex);
     }
     if (variant.stock > 0) inStock = true;
@@ -95,83 +101,65 @@ function toListItem(row: {
 }
 
 /**
- * Fills a home rail with badge-tagged products first (the merchant's
- * explicit "onde aparece" pick, guaranteed a slot), then tops up any
- * remaining slots from products with NO badge at all, using the rail's old
- * implicit signal — so a product nobody has tagged behaves exactly as it
- * did before this control existed. Once a product carries any badge value
- * it belongs to exactly that one rail: the `.is("badge", null)` filter on
- * the fallback keeps it out of every other rail's fallback pool (it would
- * otherwise still surface there via `featured`/`compare_at_price`, and
- * "Produtos" the catalog rail excludes it too — see `excludeBadged` on
- * `listProducts`).
+ * A home rail holds exactly the products the merchant placed there in
+ * "Exibição" (products.badge) — nothing else.
+ *
+ * It used to top a short rail up with untagged products, using each
+ * rail's old implicit signal (newest for Lançamentos, a promo price for
+ * Ofertas, the destaque switch for Mais vendidos). That made every newly
+ * registered product show up in rails nobody had put it in — a product
+ * saved as "Produtos" still surfaced under Lançamentos, since untagged
+ * plus no filter matched everything. The placement now decides, and a
+ * rail nobody has filled renders nothing at all: ProductRail and
+ * OffersBlock both return null when empty, so the home closes the gap.
+ *
+ * `featured` no longer decides *whether* a product is on a rail, only
+ * that it leads the one it was placed in.
  */
-async function fetchRailWithBadgeFallback(
+async function fetchRail(
   badgeValue: ProductBadge,
   limit: number,
   orderColumn: "position" | "created_at",
-  applyFallbackFilter: (
-    query: ReturnType<ReturnType<typeof createPublicClient>["from"]>,
-  ) => ReturnType<ReturnType<typeof createPublicClient>["from"]>,
 ): Promise<ProductListItem[]> {
   const supabase = createPublicClient();
-  const ascending = orderColumn === "position";
 
-  const { data: tagged } = await supabase
+  const { data } = await supabase
     .from("products")
     .select(LIST_SELECT)
     .eq("status", "active")
     .eq("badge", badgeValue)
-    .order(orderColumn, { ascending })
+    .order("featured", { ascending: false })
+    .order(orderColumn, { ascending: orderColumn === "position" })
+    // Every product starts at position 0, so ordering by position alone
+    // leaves Postgres free to hand back ties in a different order on every
+    // request — a new product landed inside or outside the rail at random.
+    // Newest wins a tie, which also puts a just-registered product first.
+    .order("created_at", { ascending: false })
     .limit(limit);
 
-  const items = (tagged ?? []).map(toListItem);
-  if (items.length >= limit) return items.slice(0, limit);
-
-  const fallbackQuery = applyFallbackFilter(
-    supabase.from("products").select(LIST_SELECT).eq("status", "active").is("badge", null),
-  )
-    .order(orderColumn, { ascending })
-    .limit(limit - items.length);
-
-  const { data: rest } = await fallbackQuery;
-  return [...items, ...(rest ?? []).map(toListItem)];
+  return (data ?? []).map(toListItem);
 }
 
 export async function getFeaturedProducts(limit = 4): Promise<ProductListItem[]> {
-  return safeQuery(
-    () =>
-      fetchRailWithBadgeFallback(
-        "mais_vendido",
-        limit,
-        "position",
-        (query) => query.eq("featured", true),
-      ),
-    [],
-  );
+  return safeQuery(() => fetchRail("mais_vendido", limit, "position"), []);
 }
 
 export async function getNewArrivals(limit = 8): Promise<ProductListItem[]> {
-  return safeQuery(
-    () => fetchRailWithBadgeFallback("lancamento", limit, "created_at", (query) => query),
-    [],
-  );
+  return safeQuery(() => fetchRail("lancamento", limit, "created_at"), []);
 }
 
-/** Products currently marked down — "Ofertas" home rail. */
+/** "Ofertas" home rail — the products placed there, not every marked-down
+ * product: a discount shows on the product's own card wherever it sits. */
 export async function getOnSaleProducts(limit = 8): Promise<ProductListItem[]> {
-  return safeQuery(
-    () =>
-      fetchRailWithBadgeFallback("oferta", limit, "position", (query) =>
-        query.not("compare_at_price", "is", null),
-      ),
-    [],
-  );
+  return safeQuery(() => fetchRail("oferta", limit, "position"), []);
 }
 
 export type ProductSort = "relevance" | "newest" | "price-asc" | "price-desc";
 
 export type ProductListFilters = {
+  /** Overrides the /colecao page size. The home rails use it to show the
+   * whole shelf at once instead of a first page. */
+  limit?: number;
   category?: string;
   brand?: string;
   sizes?: string[];
@@ -186,6 +174,10 @@ export type ProductListFilters = {
    * doesn't also show up here. Leave unset for the full /colecao catalog,
    * which lists every active product regardless of badge. */
   excludeBadged?: boolean;
+  /** Home rails only: products with the destaque switch on lead the list,
+   * matching the three badge rails. The catalog leaves it off so the
+   * shopper's own sort is the only thing ordering /colecao. */
+  featuredFirst?: boolean;
 };
 
 export type ProductListResult = {
@@ -214,7 +206,7 @@ export async function listProducts(
   filters: ProductListFilters = {},
 ): Promise<ProductListResult> {
   const page = Math.max(1, filters.page ?? 1);
-  const pageSize = COLLECTION_PAGE_SIZE;
+  const pageSize = filters.limit ?? COLLECTION_PAGE_SIZE;
   const emptyResult: ProductListResult = {
     items: [],
     total: 0,
@@ -280,7 +272,11 @@ export async function listProducts(
         query = query.order("price", { ascending: false });
         break;
       default:
+        if (filters.featuredFirst) query = query.order("featured", { ascending: false });
         query = query.order("position", { ascending: true });
+        // See fetchRail: position is 0 for nearly everything, so without
+        // this the tie order is whatever the database felt like.
+        query = query.order("created_at", { ascending: false });
     }
 
     const from = (page - 1) * pageSize;
@@ -363,6 +359,17 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
  * without this, two different products can independently land on the
  * same generated SKU and only find out when the save is rejected.
  */
+/** Every slug already taken, so the form can settle on a free one while
+ * the operator types instead of failing on the unique index at save. */
+export async function getAllProductSlugs(excludeProductId?: string): Promise<string[]> {
+  const supabase = await createClient();
+  let query = supabase.from("products").select("slug");
+  if (excludeProductId) query = query.neq("id", excludeProductId);
+
+  const { data } = await query;
+  return (data ?? []).map((product) => product.slug);
+}
+
 export async function getAllVariantSkus(excludeProductId?: string): Promise<string[]> {
   const supabase = await createClient();
   let query = supabase.from("product_variants").select("sku, product_id");
@@ -464,8 +471,11 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     const colorMap = new Map<string, string | null>();
     for (const row of data ?? []) {
       if (isSimpleVariant(row.color, row.size)) continue;
+      // A one-colourway product still contributes its sizes to the filter —
+      // only its sentinel colour is left out of the colour list.
       sizeSet.add(row.size);
-      if (!colorMap.has(row.color)) colorMap.set(row.color, row.color_hex);
+      if (isColorlessVariant(row.color) || colorMap.has(row.color)) continue;
+      colorMap.set(row.color, row.color_hex);
     }
 
     return {

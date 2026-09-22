@@ -7,9 +7,22 @@ import { requireAdmin } from "./require-admin";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
+/**
+ * `("/", "layout")` rather than a list of pages, matching what the brand
+ * and category actions already do.
+ *
+ * The page-scoped form only clears the exact routes named, and products
+ * surface on more of them than a list can keep up with: /marca/[slug] was
+ * missing outright, and a page-scoped call leaves the client router cache
+ * for other segments holding its old payload — so a product saved in the
+ * admin stayed invisible on the storefront until some *other* action
+ * (editing a brand, say) invalidated the tree the broad way.
+ *
+ * Over-invalidating costs a re-render of pages that did not change. Under-
+ * invalidating costs the operator trusting the panel, which is worse.
+ */
 function revalidateStorefront(slug?: string) {
-  revalidatePath("/");
-  revalidatePath("/colecao");
+  revalidatePath("/", "layout");
   revalidatePath("/admin/produtos");
   revalidatePath("/admin/estoque");
   if (slug) revalidatePath(`/produto/${slug}`);

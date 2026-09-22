@@ -5,29 +5,65 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* :root — admin panel palette. Editorial dark, brutalist, square      */
-/* corners. This is now ONLY the admin theme (and the pre-hydration    */
-/* default) — the public storefront overrides every one of these      */
-/* tokens inside .storefront-theme below. Do not add public-storefront */
-/* styling here; add it to the scoped block instead.                   */
+/* :root — admin panel palette. Dark, soft-cornered, blue accent. This */
+/* is ONLY the admin theme (and the pre-hydration default) — the       */
+/* public storefront overrides every one of these tokens inside        */
+/* .storefront-theme below. Do not add public-storefront styling here; */
+/* add it to the scoped block instead.                                 */
 /* ------------------------------------------------------------------ */
 :root {
-  --bg: #0a0a0a;
-  --fg: #ffffff;
-  --muted: #8a8a8a;
-  --line: rgba(255, 255, 255, 0.12);
-  --accent: #c9a227;
+  /* ---- grounds ---------------------------------------------------- */
+  --bg: #080d16;
+  --sidebar-bg: #0c1220;
+  --header-bg: #0a101c;
+  /* cards, and the nested "card inside a card" one step lighter */
+  --surface: #111827;
+  --surface-2: #151e2e;
+  /* Inputs sit *below* the card they're on, not above it. */
+  --field: #0d1524;
+
+  /* ---- ink -------------------------------------------------------- */
+  --fg: #f8fafc;
+  --muted: #94a3b8;
+  --ink-subtle: #64748b;
+
+  /* ---- lines ------------------------------------------------------ */
+  --line: #263247;
+  --line-soft: #1e293b;
+  /* One step brighter than --line: secondary-button borders and the
+     scrollbar thumb on hover, where a hairline would disappear. */
+  --line-strong: #334155;
+
+  /* ---- blue ------------------------------------------------------- */
+  --accent: #2563eb;
+  --accent-hover: #3b82f6;
+  --accent-active: #1d4ed8;
+  --accent-light: #60a5fa;
+  /* Translucent blues carry every "this is active/hovered" state. They
+     stay translucent on purpose: over a card (#111827) or the sidebar
+     (#0c1220) each one tints whatever it sits on instead of punching a
+     flat blue rectangle into the layout. */
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --accent-soft-hover: rgba(37, 99, 235, 0.18);
+  --accent-ring: rgba(37, 99, 235, 0.12);
+  /* The shop's brand gold. Admin markup no longer uses `text-gold` &c. —
+     it asks for the accent by name — but the token stays defined here as
+     the fallback for any storefront component that ends up rendered
+     outside `.storefront-theme` (a portal, say), so `text-gold` never
+     resolves to nothing. The shop sets its own literal value below. */
   --gold: var(--accent);
 
-  /* internal surfaces derived from the palette above, not part of the
-     literal brand token list but needed to theme shadcn components */
-  --surface: #111111;
-  --surface-2: #161616;
-  --surface-muted: #141414;
-  --surface-hover: #1a1a1a;
-  --danger: #e5484d;
-  --success: #4caf6f;
-  --warning: #d9a441;
+  /* ---- semantic --------------------------------------------------- */
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+
+  /* Hover/selected surfaces are a blue wash rather than a lighter grey,
+     which is what makes every hover in the panel read as the same
+     gesture — table rows, ghost buttons and dropdown items all land on
+     `bg-muted` / `bg-accent`. */
+  --surface-muted: rgba(37, 99, 235, 0.1);
+  --surface-hover: var(--accent-soft-hover);
 
   --background: var(--bg);
   --foreground: var(--fg);
@@ -35,29 +71,29 @@
   --card-foreground: var(--fg);
   --popover: var(--surface);
   --popover-foreground: var(--fg);
-  --primary: var(--fg);
-  --primary-foreground: var(--bg);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted-surface: var(--surface-muted);
   --muted-foreground: var(--muted);
-  --accent-surface: var(--surface-hover);
+  --accent-surface: var(--accent-soft);
   --accent-foreground: var(--fg);
   --destructive: var(--danger);
   --border: var(--line);
   --input: var(--line);
   --ring: var(--accent);
   --chart-1: var(--accent);
-  --chart-2: #d9d9d9;
-  --chart-3: #8a8a8a;
-  --chart-4: #4d4d4d;
-  --chart-5: #2a2a2a;
-  --radius: 0rem;
-  --sidebar: var(--surface);
+  --chart-2: var(--accent-light);
+  --chart-3: #64748b;
+  --chart-4: #334155;
+  --chart-5: #1e293b;
+  --radius: 0.5rem;
+  --sidebar: var(--sidebar-bg);
   --sidebar-foreground: var(--fg);
-  --sidebar-primary: var(--fg);
-  --sidebar-primary-foreground: var(--bg);
-  --sidebar-accent: var(--surface-hover);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--accent-soft);
   --sidebar-accent-foreground: var(--fg);
   --sidebar-border: var(--line);
   --sidebar-ring: var(--accent);
@@ -93,6 +129,21 @@
   --alert: #c0392b;
 
   --accent: var(--gold-text);
+  /* The admin's blue scale has storefront counterparts purely so a shared
+     component that reaches for one of these tokens never drags admin blue
+     onto the shop. Nothing here is the panel's blue. */
+  --accent-hover: var(--gold);
+  --accent-active: var(--gold-text);
+  --accent-light: var(--gold-soft);
+  --accent-soft: rgba(201, 162, 39, 0.12);
+  --accent-soft-hover: rgba(201, 162, 39, 0.18);
+  --accent-ring: rgba(201, 162, 39, 0.16);
+
+  /* Shop inputs keep sitting directly on whatever panel holds them. */
+  --field: transparent;
+  --line-soft: #ecebe7;
+  --line-strong: #d6d3cd;
+  --ink-subtle: #8b9099;
 
   --surface-2: #efede8;
   --surface-muted: #f1f0ec;
@@ -129,11 +180,87 @@
   color: var(--fg);
 }
 
+/* ------------------------------------------------------------------ */
+/* .admin-theme — element-level chrome for the panel (scrollbars, the   */
+/* native colour of form controls). Tokens above already cover anything */
+/* styled through a class; this block is only for what CSS can't reach  */
+/* from a utility. Scoped so the storefront keeps browser defaults.     */
+/* ------------------------------------------------------------------ */
+.admin-theme {
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+.admin-theme ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-theme ::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.admin-theme ::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+}
+
+.admin-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
+}
+
+/* Native widgets the panel can't reach with a class: the date picker's
+   calendar button, the colour swatch in the variant editor. */
+.admin-theme ::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.5);
+}
+
+.admin-theme ::selection {
+  background: var(--accent-soft-hover);
+  color: var(--fg);
+}
+
+/* One step quieter than --muted (the label colour), so a placeholder never
+   competes with a filled-in value. Scoped here rather than baked into the
+   shared Input so the storefront keeps its own placeholder contrast. */
+.admin-theme ::placeholder {
+  color: var(--ink-subtle);
+}
+
+/* Secondary buttons: a card-coloured face with a border bright enough to
+   read against it, picking up blue only on hover. Done here, on the
+   variant's data attribute, instead of in components/ui/button.tsx —
+   that file is shared with the storefront, and the shop's outline buttons
+   (Adicionar à sacola, filtros) are staying exactly as they are. */
+.admin-theme [data-slot="button"][data-variant="outline"] {
+  background-color: var(--card);
+  border-color: var(--line-strong);
+}
+
+.admin-theme [data-slot="button"][data-variant="outline"]:hover {
+  border-color: var(--accent);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-fg: var(--fg);
   --color-ink-muted: var(--muted);
+  --color-ink-subtle: var(--ink-subtle);
   --color-hairline: var(--line);
+  /* `border-line` is used all over the admin markup. Until now no such
+     color existed, so the class was a no-op that happened to look right
+     because `@layer base` paints every element's border with --border.
+     Naming it here makes that markup mean what it says, and gives the
+     softer in-card separator (--line-soft) a class of its own. */
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+  --color-field: var(--field);
+  --color-accent-solid: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-soft: var(--accent-soft);
+  --color-surface-2: var(--surface-2);
   --color-surface: var(--surface);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
@@ -181,10 +308,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* Derived proportionally (not by fixed px offset) from --radius so that
-     the admin panel's --radius: 0rem collapses every step to exactly 0 —
-     a fixed-offset scale (var(--radius) + 4px etc.) would leak rounding
-     into the admin's larger steps even when the base radius is 0. */
+  /* Derived proportionally (not by fixed px offset) from --radius, so a
+     theme that changes the base radius scales every step with it instead
+     of drifting: at the admin's 0.5rem this yields 0.25 / 0.375 / 0.5 /
+     0.75 / 1rem, and a theme that sets 0 still collapses cleanly to 0. */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);

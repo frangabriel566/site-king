@@ -1,4 +1,4 @@
-import { isSimpleVariant } from "@/lib/constants";
+import { isColorlessVariant, isSimpleVariant } from "@/lib/constants";
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -64,12 +64,15 @@ export function formatPhone(value: string): string {
 
 /** "Cor · Tamanho" for display — null for a "produto sem variações" item
  *  (stored under the sentinel color/size from lib/constants), since there's
- *  nothing meaningful to show the shopper for those. */
+ *  nothing meaningful to show the shopper for those, and the size alone for
+ *  a product sold in one colourway, whose rows all carry the sentinel
+ *  color. */
 export function formatVariantLabel(
   color: string | null | undefined,
   size: string | null | undefined,
 ): string | null {
   if (isSimpleVariant(color ?? "", size ?? "")) return null;
+  if (isColorlessVariant(color ?? "")) return size || null;
   if (!color) return size || null;
   if (!size) return color;
   return `${color} · ${size}`;

@@ -46,7 +46,7 @@ export function AdminSidebar({ email }: { email: string | null }) {
       {/* barra superior do mobile — o painel fixo de 256px não cabe ao lado
           do conteúdo num celular, então abaixo de md ele vira gaveta e só
           este cabeçalho fica visível. */}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-line bg-[#0a0a0a] px-4 md:hidden print:hidden">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-line bg-[var(--header-bg)] px-4 md:hidden print:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -60,7 +60,7 @@ export function AdminSidebar({ email }: { email: string | null }) {
         </p>
       </header>
 
-      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-[#0a0a0a] md:flex print:hidden">
+      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-sidebar md:flex print:hidden">
         <SidebarPanel pathname={pathname} email={email} />
       </aside>
 
@@ -68,7 +68,7 @@ export function AdminSidebar({ email }: { email: string | null }) {
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="gap-0 border-r border-line bg-[#0a0a0a] p-0 text-fg"
+          className="admin-theme gap-0 border-r border-line bg-sidebar p-0 text-fg"
         >
           <SheetTitle className="sr-only">Menu do painel</SheetTitle>
           <SidebarPanel
@@ -127,13 +127,23 @@ function SidebarPanel({
                 <Link
                   href={item.href}
                   onClick={onNavigate}
-                  className={`flex items-center gap-3 px-3 py-3 text-sm transition-colors duration-150 ease-out md:py-2.5 ${
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative flex items-center gap-3 overflow-hidden rounded-lg border px-3 py-3 text-sm transition-colors duration-150 ease-out md:py-2.5 ${
                     isActive
-                      ? "bg-white text-black"
-                      : "text-ink-muted hover:bg-[#161616] hover:text-fg"
+                      ? "border-[color-mix(in_srgb,var(--accent-hover)_30%,transparent)] bg-[var(--accent-soft-hover)] font-medium text-fg"
+                      : "border-transparent text-ink-muted hover:bg-[var(--accent-soft)] hover:text-fg"
                   }`}
                 >
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-accent-solid"
+                    />
+                  )}
+                  <Icon
+                    className={`size-4 shrink-0 ${isActive ? "text-accent-light" : ""}`}
+                    aria-hidden="true"
+                  />
                   {item.label}
                 </Link>
               </li>
@@ -147,7 +157,7 @@ function SidebarPanel({
           href="/"
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-3 px-3 py-2.5 text-sm text-ink-muted transition-colors duration-150 ease-out hover:bg-[#161616] hover:text-fg"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink-muted transition-colors duration-150 ease-out hover:bg-[var(--accent-soft)] hover:text-fg"
         >
           <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
           Ver loja
@@ -158,7 +168,7 @@ function SidebarPanel({
         <form action={adminLogoutAction}>
           <button
             type="submit"
-            className="mt-1 flex w-full items-center gap-3 px-3 py-2.5 text-sm text-ink-muted transition-colors duration-150 ease-out hover:bg-[#161616] hover:text-fg"
+            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink-muted transition-colors duration-150 ease-out hover:bg-[var(--accent-soft)] hover:text-fg"
           >
             <LogOut className="size-4 shrink-0" aria-hidden="true" />
             Sair

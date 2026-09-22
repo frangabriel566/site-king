@@ -3,7 +3,7 @@ import { ProductForm } from "@/components/admin/product-form";
 import { createProductAction } from "@/lib/actions/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
 import { getAllBrandsAdmin } from "@/lib/data/brands";
-import { getAllVariantSkus } from "@/lib/data/products";
+import { getAllProductSlugs, getAllVariantSkus } from "@/lib/data/products";
 
 export const metadata: Metadata = { title: "Novo produto — Painel" };
 
@@ -17,22 +17,27 @@ export default async function NewProductPage({
 }: {
   searchParams: Promise<NewProductSearchParams>;
 }) {
-  const [categories, brands, existingSkus, params] = await Promise.all([
+  const [categories, brands, existingSkus, existingSlugs, params] = await Promise.all([
     getAllCategoriesAdmin(),
     getAllBrandsAdmin(),
     getAllVariantSkus(),
+    getAllProductSlugs(),
     searchParams,
   ]);
 
   return (
     <div>
       <p className="text-label mb-2">Produtos</p>
-      <h1 className="text-heading mb-8 text-3xl">Novo produto</h1>
+      <h1 className="text-heading text-3xl">Novo produto</h1>
+      <p className="mb-6 mt-2 text-sm text-ink-muted">
+        Cadastre um produto em 4 etapas de forma rápida.
+      </p>
       <ProductForm
         action={createProductAction}
         categories={categories}
         brands={brands}
         existingSkus={existingSkus}
+        existingSlugs={existingSlugs}
         initialCategoryId={params.categoria}
         initialBrandId={params.marca}
       />

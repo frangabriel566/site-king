@@ -31,7 +31,7 @@ export function StockInput({ variantId, stock }: { variantId: string; stock: num
       disabled={pending}
       onChange={(e) => setValue(Number(e.target.value))}
       onBlur={commit}
-      className={`w-24 rounded-none ${
+      className={`w-24 ${
         value <= LOW_STOCK_THRESHOLD ? "border-[var(--warning)] text-[var(--warning)]" : ""
       }`}
     />

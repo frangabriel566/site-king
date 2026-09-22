@@ -3,10 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { reviseCartItems, type ReviseCartResult } from "@/lib/data/checkout";
 import { addressSchema } from "@/lib/validations/address";
-import { getPaymentProvider, type PaymentInitResult } from "@/lib/payments";
+import {
+  getPaymentProvider,
+  resolvePaymentMethod,
+  type PaymentInitResult,
+} from "@/lib/payments";
 import {
   FREE_SHIPPING_THRESHOLD,
   SHIPPING_METHODS,
+  isCheckoutMethod,
+  type CheckoutMethod,
   type ShippingMethod,
 } from "@/lib/constants";
 
@@ -51,6 +57,10 @@ export type CreateOrderInput = {
     state: string;
   };
   shippingMethod: ShippingMethod;
+  /** Where the shopper chose to finish paying. Omitted means "whatever the
+   * store is configured for", which is how this behaved before the choice
+   * existed. */
+  method?: CheckoutMethod;
   couponCode?: string;
   items: { variantId: string; qty: number }[];
 };
@@ -108,6 +118,13 @@ export async function createOrderAction(
     if (coupons && coupons.length > 0) discount = coupons[0].discount;
   }
 
+  // Resolved before the insert so the row records the route the order
+  // actually took, not the route that was asked for — the two differ when
+  // the store has no online checkout configured.
+  const paymentMethod = resolvePaymentMethod(
+    isCheckoutMethod(input.method) ? input.method : undefined,
+  );
+
   const shippingInfo = SHIPPING_METHODS[input.shippingMethod];
   const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : shippingInfo.price;
   const total = Math.max(subtotal + shipping - discount, 0);
@@ -132,7 +149,7 @@ export async function createOrderAction(
       shipping,
       discount,
       total,
-      payment_method: process.env.PAYMENT_PROVIDER ?? "mercadopago",
+      payment_method: paymentMethod,
       shipping_address: addressParsed.data,
       customer_snapshot: {
         name: customer.name,
@@ -165,7 +182,9 @@ export async function createOrderAction(
   }
 
   try {
-    const provider = getPaymentProvider();
+    const provider = getPaymentProvider(
+      isCheckoutMethod(input.method) ? input.method : undefined,
+    );
     const payment = await provider.createPayment({
       orderId: order.id,
       orderNumber: order.order_number,

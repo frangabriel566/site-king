@@ -85,30 +85,30 @@ export function BannerForm({
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="eyebrow">Eyebrow</Label>
-          <Input id="eyebrow" value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} className="rounded-none" />
+          <Input id="eyebrow" value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="wordmark">Wordmark</Label>
-          <Input id="wordmark" value={wordmark} onChange={(e) => setWordmark(e.target.value)} className="rounded-none" />
+          <Input id="wordmark" value={wordmark} onChange={(e) => setWordmark(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="line1">Headline linha 1</Label>
-            <Input id="line1" value={line1} onChange={(e) => setLine1(e.target.value)} className="rounded-none" />
+            <Input id="line1" value={line1} onChange={(e) => setLine1(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="line2">Headline linha 2</Label>
-            <Input id="line2" value={line2} onChange={(e) => setLine2(e.target.value)} className="rounded-none" />
+            <Input id="line2" value={line2} onChange={(e) => setLine2(e.target.value)} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="ctaLabel">CTA — texto</Label>
-            <Input id="ctaLabel" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} className="rounded-none" />
+            <Input id="ctaLabel" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="ctaHref">CTA — link</Label>
-            <Input id="ctaHref" value={ctaHref} onChange={(e) => setCtaHref(e.target.value)} className="rounded-none" />
+            <Input id="ctaHref" value={ctaHref} onChange={(e) => setCtaHref(e.target.value)} />
           </div>
         </div>
 
@@ -132,10 +132,10 @@ export function BannerForm({
         <div className="flex flex-col gap-2">
           <Label htmlFor="featured_product">Produto em destaque</Label>
           <Select value={featuredProductId} onValueChange={setFeaturedProductId}>
-            <SelectTrigger id="featured_product" className="rounded-none">
+            <SelectTrigger id="featured_product">
               <SelectValue placeholder="Nenhum" />
             </SelectTrigger>
-            <SelectContent className="rounded-none">
+            <SelectContent>
               <SelectItem value={NONE}>Nenhum</SelectItem>
               {productOptions.map((product) => (
                 <SelectItem key={product.id} value={product.id}>
@@ -165,7 +165,7 @@ export function BannerForm({
               min={0}
               value={position}
               onChange={(e) => setPosition(Number(e.target.value))}
-              className="w-24 rounded-none"
+              className="w-24"
             />
           </div>
         </div>

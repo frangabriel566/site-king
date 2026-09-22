@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { AlertTriangle } from "lucide-react";
 import { getInventoryRows } from "@/lib/data/inventory";
-import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
+import { LOW_STOCK_THRESHOLD, isColorlessVariant } from "@/lib/constants";
 import {
   Table,
   TableBody,
@@ -50,7 +50,7 @@ export default async function AdminInventoryPage() {
               <TableRow key={row.id} className="border-line">
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="relative size-10 shrink-0 overflow-hidden bg-[#111111]">
+                    <div className="relative size-10 shrink-0 overflow-hidden bg-field">
                       {row.product.image && (
                         <Image
                           src={row.product.image}
@@ -64,7 +64,9 @@ export default async function AdminInventoryPage() {
                     <span className="truncate">{row.product.name}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-ink-muted">{row.color}</TableCell>
+                <TableCell className="text-ink-muted">
+                  {isColorlessVariant(row.color) ? "—" : row.color}
+                </TableCell>
                 <TableCell className="text-ink-muted">{row.size}</TableCell>
                 <TableCell className="text-ink-muted">{row.sku ?? "—"}</TableCell>
                 <TableCell>

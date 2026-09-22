@@ -48,7 +48,7 @@ export default async function AdminReviewsPage() {
                     <Link
                       href={`/produto/${review.product.slug}`}
                       target="_blank"
-                      className="hover:text-gold"
+                      className="hover:text-accent-light"
                     >
                       {review.product.name}
                     </Link>
@@ -64,8 +64,13 @@ export default async function AdminReviewsPage() {
                     {Array.from({ length: 5 }, (_, i) => (
                       <Star
                         key={i}
+                        // Amber, not the panel's blue: a rating star is a
+                        // rating star everywhere, and blue here would read as
+                        // "selected" rather than "scored".
                         className={`size-4 ${
-                          i < review.rating ? "fill-gold text-gold" : "text-line"
+                          i < review.rating
+                            ? "fill-[var(--warning)] text-[var(--warning)]"
+                            : "text-line-strong"
                         }`}
                         strokeWidth={1.5}
                       />

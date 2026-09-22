@@ -38,9 +38,13 @@ export function ProductGallery({
   onSelectColor,
   autoplay = false,
   onInteract,
+  discountPercent = 0,
 }: {
   slides: GallerySlide[];
   productName: string;
+  /** Drawn as a ribbon across the foot of the photo, the way a marked-down
+   * item is flagged on a marketplace listing. 0 hides it. */
+  discountPercent?: number;
   selectedColor: string;
   onSelectColor: (color: string) => void;
   /** Rotates the slides on its own while the shopper hasn't touched
@@ -150,11 +154,13 @@ export function ProductGallery({
           ))}
         </div>
 
-        <div
-          className="min-w-0 flex-1 overflow-hidden"
-          ref={emblaRef}
-          onPointerDown={onInteract}
-        >
+        <div className="relative min-w-0 flex-1">
+          {discountPercent > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-lg bg-gold-soft py-1.5 text-center text-sm font-bold text-fg">
+              -{discountPercent}% OFF
+            </div>
+          )}
+          <div className="overflow-hidden" ref={emblaRef} onPointerDown={onInteract}>
           <div className="flex">
             {slides.map((slide, index) => (
               <div key={slide.id} className="min-w-0 flex-[0_0_100%]">
@@ -189,8 +195,8 @@ export function ProductGallery({
                     alt={slide.alt ?? productName}
                     fill
                     priority={index === 0}
-                    quality={90}
-                    sizes="(min-width: 1024px) 900px, (min-width: 768px) 70vw, 100vw"
+                    quality={95}
+                    sizes="(min-width: 1024px) 1200px, (min-width: 768px) 80vw, 100vw"
                     className="object-cover transition-transform duration-200 ease-out"
                     style={
                       zoom && selected === index
@@ -204,6 +210,7 @@ export function ProductGallery({
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>

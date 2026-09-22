@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { ActiveBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCategoryAction } from "@/lib/actions/categories";
@@ -44,12 +44,7 @@ export function CategoriesTable({ categories }: { categories: Category[] }) {
             <TableCell className="text-ink-muted">{category.slug}</TableCell>
             <TableCell className="text-ink-muted">{category.position}</TableCell>
             <TableCell>
-              <Badge
-                variant={category.active ? "default" : "outline"}
-                className="rounded-none"
-              >
-                {category.active ? "Ativa" : "Inativa"}
-              </Badge>
+              <ActiveBadge active={category.active} labels={["Ativa", "Inativa"]} />
             </TableCell>
             <TableCell className="flex justify-end gap-1">
               <Button variant="ghost" size="icon-sm" asChild>

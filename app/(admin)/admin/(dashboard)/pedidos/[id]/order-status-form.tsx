@@ -53,14 +53,14 @@ export function OrderStatusForm({
   }
 
   return (
-    <div className="flex flex-col gap-4 border border-line p-5 print:hidden">
+    <div className="flex flex-col gap-4 rounded-lg border border-line bg-card p-5 print:hidden">
       <div className="flex flex-col gap-2">
         <Label htmlFor="order-status">Status</Label>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger id="order-status" className="rounded-none">
+          <SelectTrigger id="order-status">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="rounded-none">
+          <SelectContent>
             {STATUS_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -75,7 +75,6 @@ export function OrderStatusForm({
           id="tracking-code"
           value={trackingCode}
           onChange={(e) => setTrackingCode(e.target.value)}
-          className="rounded-none"
         />
       </div>
       <div className="flex items-center gap-3">

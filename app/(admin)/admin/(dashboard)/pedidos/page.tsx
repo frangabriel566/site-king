@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllOrdersAdmin } from "@/lib/data/orders";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, ORDER_STATUS_TONE } from "@/components/admin/status-badge";
 import {
   Table,
   TableBody,
@@ -22,11 +22,6 @@ const STATUS_LABEL: Record<string, string> = {
   shipped: "Enviado",
   delivered: "Entregue",
   canceled: "Cancelado",
-};
-
-const STATUS_VARIANT: Record<string, "default" | "outline"> = {
-  paid: "default",
-  delivered: "default",
 };
 
 export default async function AdminOrdersPage({
@@ -65,7 +60,7 @@ export default async function AdminOrdersPage({
               return (
                 <TableRow key={order.id} className="border-line">
                   <TableCell>
-                    <Link href={`/admin/pedidos/${order.id}`} className="hover:text-gold">
+                    <Link href={`/admin/pedidos/${order.id}`} className="hover:text-accent-light">
                       #{order.order_number}
                     </Link>
                   </TableCell>
@@ -76,12 +71,9 @@ export default async function AdminOrdersPage({
                     {snapshot?.name ?? "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={STATUS_VARIANT[order.status] ?? "outline"}
-                      className="rounded-none"
-                    >
+                    <StatusBadge tone={ORDER_STATUS_TONE[order.status]}>
                       {STATUS_LABEL[order.status] ?? order.status}
-                    </Badge>
+                    </StatusBadge>
                   </TableCell>
                   <TableCell className="text-right">
                     {formatCurrency(order.total)}

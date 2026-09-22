@@ -42,17 +42,17 @@ export function CouponForm({
           name="code"
           required
           defaultValue={coupon?.code}
-          className="rounded-none uppercase"
+          className="uppercase"
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="type">Tipo</Label>
           <Select name="type" defaultValue={coupon?.type ?? "percent"}>
-            <SelectTrigger id="type" className="rounded-none">
+            <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-none">
+            <SelectContent>
               <SelectItem value="percent">Percentual (%)</SelectItem>
               <SelectItem value="fixed">Valor fixo (R$)</SelectItem>
             </SelectContent>
@@ -68,7 +68,6 @@ export function CouponForm({
             min={0}
             required
             defaultValue={coupon?.value}
-            className="rounded-none"
           />
         </div>
       </div>
@@ -81,7 +80,6 @@ export function CouponForm({
           step="0.01"
           min={0}
           defaultValue={coupon?.min_total ?? 0}
-          className="rounded-none"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -91,7 +89,6 @@ export function CouponForm({
           name="expires_at"
           type="date"
           defaultValue={coupon?.expires_at ? coupon.expires_at.slice(0, 10) : ""}
-          className="rounded-none"
         />
       </div>
       <div className="flex items-center gap-3">

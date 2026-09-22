@@ -39,7 +39,7 @@ export default async function AdminCustomersPage() {
             {customers.map((customer) => (
               <TableRow key={customer.id} className="border-line">
                 <TableCell>
-                  <Link href={`/admin/clientes/${customer.id}`} className="hover:text-gold">
+                  <Link href={`/admin/clientes/${customer.id}`} className="hover:text-accent-light">
                     {customer.name}
                   </Link>
                 </TableCell>

@@ -5,8 +5,17 @@ import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/lib/validations/customer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestOrigin } from "@/lib/site-url";
 
-export type AuthState = { status: "idle" | "error" | "success"; message?: string };
+/** `pending` is a *success* that isn't finished: the account exists and
+ *  the confirmation mail is out, but there is no session until the
+ *  customer clicks the link. It used to be reported as `error`, which
+ *  put a red "something went wrong" toast on a signup that had in fact
+ *  worked. */
+export type AuthState = {
+  status: "idle" | "error" | "success" | "pending";
+  message?: string;
+};
 
 async function performSignUp(formData: FormData): Promise<AuthState> {
   const parsed = signUpSchema.safeParse({
@@ -24,7 +33,18 @@ async function performSignUp(formData: FormData): Promise<AuthState> {
   const { name, email, password, phone, birthdate } = parsed.data;
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  // Without `emailRedirectTo`, Supabase falls back to the project's
+  // Site URL — which is whatever was typed into the dashboard once, and
+  // was still `http://localhost:3000`, so every confirmation mail sent a
+  // customer to a machine that isn't theirs. Sending the origin the
+  // signup actually came from keeps the link on the same deployment.
+  const emailRedirectTo = `${await getRequestOrigin()}/auth/callback`;
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo },
+  });
   if (error || !data.user) {
     return {
       status: "error",
@@ -52,8 +72,9 @@ async function performSignUp(formData: FormData): Promise<AuthState> {
 
   if (!data.session) {
     return {
-      status: "error",
-      message: "Confirme seu e-mail para concluir o cadastro e depois entre normalmente.",
+      status: "pending",
+      message:
+        "Conta criada. Enviamos um e-mail de confirmação — abra o link para ativar seu acesso.",
     };
   }
 

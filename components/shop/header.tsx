@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Menu, User, ShoppingBag, X, Truck, MessageCircle } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
@@ -20,45 +21,65 @@ export function Header({
   const [mobileOpen, setMobileOpen] = useState(false);
   const { count, open: openBag, isHydrated } = useCart();
 
+  // The links inside the drawer close it themselves, but that misses
+  // every other way the route can change — the back button above all,
+  // which would otherwise drop someone on the new page with the menu
+  // still over it and the body scroll still locked.
+  const pathname = usePathname();
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   return (
     <>
-      {/* top thin bar — free shipping note + contact channel. Plain
-          document flow (not part of the sticky header below, not
-          JS-controlled) so it scrolls away on its own the moment the page
-          moves — a JS-driven height/opacity collapse here was animating a
-          layout-affecting property on content sitting right above a
-          `position: sticky` element, which is a known class of Chromium
-          quirk: the browser can shift window.scrollY itself as a side
-          effect of that reflow, which re-triggers the scroll listener and
-          produces a visible flicker loop. Letting native scrolling do the
-          hiding sidesteps the bug entirely — no listener, nothing to
-          fight with. */}
-      <div className="border-b border-white/10 bg-black text-bg">
-        <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
-          <div aria-hidden="true" />
-          <p className="flex items-center justify-center gap-2 truncate text-center">
-            <Truck className="size-3.5 shrink-0" aria-hidden="true" />
-            {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
-          </p>
-          {settings.whatsapp ? (
-            <a
-              href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden shrink-0 items-center justify-self-end gap-2 hover:text-gold sm:flex"
-            >
-              <MessageCircle className="size-3.5" aria-hidden="true" />
-              Fale conosco
-            </a>
-          ) : (
-            <div aria-hidden="true" />
-          )}
-        </div>
-      </div>
+      {/* One sticky block: announcement bar, logo row and the mobile
+          search row all pin together at `top: 0`, and nothing inside ever
+          changes height while scrolling.
 
-      {/* sticky header — logo, search, account + bag. Height is constant
-          (no scroll-driven resize) for the same reason as above. */}
+          The announcement bar used to sit in plain document flow above
+          this, which meant the header spent its first ~37px of scroll
+          travelling before it pinned. On iOS that travel is where the
+          jumping came from: Safari resizes the visual viewport as its
+          address bar collapses, and a sticky element still in its
+          pre-pinned phase gets re-resolved against a viewport that moved
+          under it — so the header visibly slid over the banner and the
+          bar appeared to come back. Pinned from scroll 0 there is no
+          travel phase left to go wrong.
+
+          Hiding the bar on scroll would still be possible, but only with
+          `transform: translateY(...)` on this whole block — never height
+          or display, which is what caused an earlier reflow/flicker loop
+          here. */}
       <header className="sticky top-0 z-40 w-full bg-black text-bg">
+        {/* `select-none` here is load-bearing on iOS, not cosmetic: with
+            the text selectable, a tap that drifts even slightly — which
+            is most real thumb taps — makes Safari start a selection on
+            this line and raise the Copiar/Pesquisar/Traduzir callout
+            instead of delivering the tap. The menu button sits directly
+            under this bar, so that is what swallowed the presses. */}
+        <div className="select-none border-b border-white/10">
+          <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
+            <div aria-hidden="true" />
+            <p className="flex items-center justify-center gap-2 truncate text-center">
+              <Truck className="size-3.5 shrink-0" aria-hidden="true" />
+              {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
+            </p>
+            {settings.whatsapp ? (
+              <a
+                href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden shrink-0 touch-manipulation items-center justify-self-end gap-2 hover:text-gold sm:flex"
+              >
+                <MessageCircle className="size-3.5" aria-hidden="true" />
+                Fale conosco
+              </a>
+            ) : (
+              <div aria-hidden="true" />
+            )}
+          </div>
+        </div>
+
         <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 md:flex md:gap-8 md:px-8">
           {/* Icon buttons carry a 44px hit area (`size-11`) even though
               the glyph is 20–24px: a target the size of the icon alone is
@@ -70,14 +91,14 @@ export function Header({
               `relative z-10` keeps a wide logo from ever covering them. */}
           <button
             type="button"
-            className="relative z-10 -ml-2.5 flex size-11 touch-manipulation items-center justify-center justify-self-start md:hidden"
+            className="relative z-10 -ml-2.5 flex size-11 touch-manipulation select-none items-center justify-center justify-self-start md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menu"
           >
             <Menu className="size-6" aria-hidden="true" />
           </button>
 
-          <Link href="/" className="col-start-2 shrink-0 justify-self-center">
+          <Link href="/" className="col-start-2 shrink-0 select-none justify-self-center">
             {settings.logo_url ? (
               <Image
                 src={settings.logo_url}
@@ -102,7 +123,7 @@ export function Header({
             <Link
               href="/conta"
               aria-label="Entrar"
-              className="flex min-h-11 touch-manipulation items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
+              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
             >
               <User className="size-5" aria-hidden="true" />
               <span className="hidden lg:inline">Entrar</span>
@@ -110,7 +131,7 @@ export function Header({
             <button
               type="button"
               onClick={openBag}
-              className="flex min-h-11 touch-manipulation items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
+              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
               aria-label={`Abrir sacola${isHydrated && count > 0 ? `, ${count} ${count === 1 ? "item" : "itens"}` : ""}`}
             >
               {/* The badge anchors to the glyph, not to the padded
@@ -166,7 +187,7 @@ export function Header({
               type="button"
               onClick={() => setMobileOpen(false)}
               aria-label="Fechar menu"
-              className="-mr-2.5 flex size-11 touch-manipulation items-center justify-center"
+              className="-mr-2.5 flex size-11 touch-manipulation select-none items-center justify-center"
             >
               <X className="size-6" aria-hidden="true" />
             </button>

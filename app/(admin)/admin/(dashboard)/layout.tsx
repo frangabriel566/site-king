@@ -13,7 +13,7 @@ export default async function AdminDashboardLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <div className="admin-theme min-h-screen bg-bg text-fg md:flex">
+    <div className="admin-theme min-h-dvh bg-bg text-fg md:flex">
       <AdminSidebar email={user?.email ?? null} />
       <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 md:px-10 md:py-8">
         {children}

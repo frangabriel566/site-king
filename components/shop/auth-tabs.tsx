@@ -89,6 +89,12 @@ function SignUpForm({
 
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
+    // The account was created; it just needs the e-mail link clicked. A
+    // red toast here read as a failed signup and sent people back to fill
+    // the form in again.
+    if (state.status === "pending" && state.message) {
+      toast.info(state.message, { duration: 8000 });
+    }
     if (state.status === "success") onSuccess?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);

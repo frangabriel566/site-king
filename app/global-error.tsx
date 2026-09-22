@@ -15,7 +15,7 @@ export default function GlobalError({
 
   return (
     <html lang="pt-BR">
-      <body className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-8 text-center text-white">
+      <body className="flex min-h-dvh flex-col items-center justify-center bg-[#0a0a0a] px-8 text-center text-white">
         <p className="mb-6 text-[11px] uppercase tracking-[0.18em] text-[#8a8a8a]">
           Algo deu errado
         </p>

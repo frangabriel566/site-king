@@ -13,7 +13,7 @@ export default async function AdminLoginPage({
   const { next } = await searchParams;
 
   return (
-    <div className="admin-theme flex min-h-screen items-center justify-center bg-bg px-8 text-fg">
+    <div className="admin-theme flex min-h-dvh items-center justify-center bg-bg px-8 text-fg">
       <div className="w-full max-w-sm">
         <p className="text-sm font-extrabold uppercase tracking-[0.1em]">
           King Store

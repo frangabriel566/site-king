@@ -332,6 +332,17 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+  /* iOS paints a grey box over anything tappable for ~300ms after a
+     touch, which on the black header reads as the control flashing and
+     on a fast second tap as the button "sticking". There is no Tailwind
+     utility for it, so it goes here. */
+  a,
+  button,
+  [role="button"],
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   ::selection {
     background: var(--fg);
     color: var(--bg);

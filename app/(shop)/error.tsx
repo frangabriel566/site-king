@@ -16,7 +16,7 @@ export default function ShopErrorBoundary({
   }, [error]);
 
   return (
-    <div className="storefront-theme flex min-h-screen flex-col items-center justify-center gap-4 bg-bg px-8 text-center text-fg">
+    <div className="storefront-theme flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-8 text-center text-fg">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Algo deu errado</p>
       <h1 className="text-2xl font-bold text-fg md:text-3xl">Erro inesperado</h1>
       <p className="max-w-md text-sm text-muted-foreground">

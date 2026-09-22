@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -30,6 +30,73 @@ export function Header({
     setMobileOpen(false);
   }, [pathname]);
 
+  /**
+   * Runs the action on the click when a click arrives, and on a short
+   * timer when one never does.
+   *
+   * Safari decides what a touch *was* — a tap, a scroll, a text
+   * selection, a double-tap zoom, or just "stop the momentum scroll" —
+   * before it synthesises a click, and every one of those outcomes eats
+   * the click rather than dispatching it. A sticky header makes it more
+   * likely still: WebKit keeps a hit-test region for the composited
+   * layer that can lag behind where the header is painted once the
+   * address bar has resized the visual viewport. Either way a visible,
+   * correctly sized button ends up doing nothing at all.
+   *
+   * Arming a fallback on pointerup and cancelling it the instant a click
+   * shows up leaves the working path exactly as it was — the fallback
+   * only ever runs when the click was genuinely lost. Opening on
+   * pointerdown instead is faster but wrong: it drops a full-screen
+   * drawer under a finger that is still down, and the click that follows
+   * lands on whichever menu item the drawer just put there (it opened
+   * the menu and immediately navigated to the first category).
+   */
+  const fallback = useRef<number | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  useEffect(
+    () => () => {
+      if (fallback.current !== null) window.clearTimeout(fallback.current);
+    },
+    [],
+  );
+
+  function pressProps(run: () => void) {
+    const cancel = () => {
+      if (fallback.current === null) return;
+      window.clearTimeout(fallback.current);
+      fallback.current = null;
+    };
+    return {
+      onPointerDown: (event: React.PointerEvent) => {
+        if (event.pointerType === "mouse") return;
+        pressStart.current = { x: event.clientX, y: event.clientY };
+      },
+      onPointerUp: (event: React.PointerEvent) => {
+        if (event.pointerType === "mouse") return;
+        const from = pressStart.current;
+        // A finger that travelled was scrolling, not pressing. (Safari
+        // usually sends pointercancel for that, but not always.)
+        if (
+          !from ||
+          Math.abs(event.clientX - from.x) > 10 ||
+          Math.abs(event.clientY - from.y) > 10
+        ) {
+          return;
+        }
+        cancel();
+        fallback.current = window.setTimeout(() => {
+          fallback.current = null;
+          run();
+        }, 320);
+      },
+      onPointerCancel: cancel,
+      onClick: () => {
+        cancel();
+        run();
+      },
+    };
+  }
+
   return (
     <>
       {/* One sticky block: announcement bar, logo row and the mobile
@@ -50,7 +117,13 @@ export function Header({
           `transform: translateY(...)` on this whole block — never height
           or display, which is what caused an earlier reflow/flicker loop
           here. */}
-      <header className="sticky top-0 z-40 w-full bg-black text-bg">
+      {/* `transform-gpu` (a plain translateZ(0)) pins this to its own
+          compositing layer up front. WebKit otherwise promotes and
+          re-promotes a sticky header as the page scrolls, and the
+          hit-test region it keeps for that layer can lag a frame or more
+          behind where the header is painted — which is what makes every
+          control in it stop responding while still looking normal. */}
+      <header className="sticky top-0 z-40 w-full transform-gpu bg-black text-bg">
         {/* `select-none` here is load-bearing on iOS, not cosmetic: with
             the text selectable, a tap that drifts even slightly — which
             is most real thumb taps — makes Safari start a selection on
@@ -92,7 +165,7 @@ export function Header({
           <button
             type="button"
             className="relative z-10 -ml-2.5 flex size-11 touch-manipulation select-none items-center justify-center justify-self-start md:hidden"
-            onClick={() => setMobileOpen(true)}
+            {...pressProps(() => setMobileOpen(true))}
             aria-label="Abrir menu"
           >
             <Menu className="size-6" aria-hidden="true" />
@@ -120,17 +193,25 @@ export function Header({
           </div>
 
           <div className="relative z-10 col-start-3 -mr-2.5 flex items-center justify-self-end md:ml-auto md:-mr-3">
-            <Link
+            {/* A plain anchor, not next/link, and deliberately so: Link
+                intercepts the click and hands the navigation to the
+                router, so anything wrong with the router or with the
+                click itself leaves the control dead. A bare href is the
+                one thing on this header that cannot be broken by
+                JavaScript — the browser navigates even with the bundle
+                unloaded or erroring. The cost is a full page load on a
+                link that gets used once a session. */}
+            <a
               href="/conta"
               aria-label="Entrar"
               className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
             >
               <User className="size-5" aria-hidden="true" />
               <span className="hidden lg:inline">Entrar</span>
-            </Link>
+            </a>
             <button
               type="button"
-              onClick={openBag}
+              {...pressProps(openBag)}
               className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
               aria-label={`Abrir sacola${isHydrated && count > 0 ? `, ${count} ${count === 1 ? "item" : "itens"}` : ""}`}
             >
@@ -176,7 +257,7 @@ export function Header({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="w-full max-w-full gap-0 border-r border-line bg-white p-0 text-fg sm:max-w-full"
+          className="storefront-theme w-full max-w-full gap-0 border-r border-line bg-white p-0 text-fg sm:max-w-full"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center justify-between bg-black px-6 text-bg">

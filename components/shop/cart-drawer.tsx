@@ -22,7 +22,7 @@ export function CartDrawer() {
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent
-        className="flex w-full flex-col gap-0 border-l border-line bg-white p-0 text-fg sm:max-w-md"
+        className="storefront-theme flex w-full flex-col gap-0 border-l border-line bg-white p-0 text-fg sm:max-w-md"
         showCloseButton={false}
       >
         <SheetTitle className="sr-only">Sacola</SheetTitle>

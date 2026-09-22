@@ -291,7 +291,7 @@ export function CollectionFilters({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-white p-6 text-fg sm:max-w-sm"
+          className="storefront-theme w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-white p-6 text-fg sm:max-w-sm"
         >
           <SheetTitle className="sr-only">Filtros</SheetTitle>
           <div className="mb-6 flex items-center justify-between">

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
+import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,35 +12,12 @@ import { EmptyState } from "@/components/shop/empty-state";
 
 export function BagView() {
   const { items, subtotal, setQty, removeItem, isHydrated } = useCart();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setSelectedIds((prev) => {
-      const validIds = new Set(items.map((i) => i.variantId));
-      const next = new Set([...prev].filter((id) => validIds.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }, [items]);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? new Set(items.map((i) => i.variantId)) : new Set());
-  };
+  const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
+    useBagSelection(items);
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
-    setSelectedIds(new Set());
   };
-
-  const allSelected = items.length > 0 && selectedIds.size === items.length;
 
   if (isHydrated && items.length === 0) {
     return (

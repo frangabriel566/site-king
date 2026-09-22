@@ -46,7 +46,12 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // No backdrop-filter here on purpose: blurring a full-viewport
+        // layer forces the compositor to re-filter everything behind it
+        // for every frame of the fade, which is what made opening the
+        // mobile menu and the bag stutter on phones. The scrim alone
+        // reads the same at 10% black.
+        "fixed inset-0 z-50 bg-black/10 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}

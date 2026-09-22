@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
@@ -8,39 +7,17 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCart } from "@/lib/cart/context";
+import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 
 export function CartDrawer() {
   const { items, subtotal, isOpen, close, setQty, removeItem } = useCart();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setSelectedIds((prev) => {
-      const validIds = new Set(items.map((i) => i.variantId));
-      const next = new Set([...prev].filter((id) => validIds.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }, [items]);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? new Set(items.map((i) => i.variantId)) : new Set());
-  };
+  const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
+    useBagSelection(items);
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
-    setSelectedIds(new Set());
   };
-
-  const allSelected = items.length > 0 && selectedIds.size === items.length;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>

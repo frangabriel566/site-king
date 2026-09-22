@@ -18,7 +18,7 @@ export function Header({
   categories: Category[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { count, toggle, isHydrated } = useCart();
+  const { count, open: openBag, isHydrated } = useCart();
 
   return (
     <>
@@ -59,10 +59,18 @@ export function Header({
       {/* sticky header — logo, search, account + bag. Height is constant
           (no scroll-driven resize) for the same reason as above. */}
       <header className="sticky top-0 z-40 w-full bg-black text-bg">
-        <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4 md:flex md:gap-8 md:px-8">
+        <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 md:flex md:gap-8 md:px-8">
+          {/* Icon buttons carry a 44px hit area (`size-11`) even though
+              the glyph is 20–24px: a target the size of the icon alone is
+              under half the width of a fingertip, which is why taps kept
+              missing and the menu/bag felt like it needed several presses.
+              The negative margin cancels the extra padding so the icons
+              still line up with the `px-4` gutter, `touch-manipulation`
+              drops the browser's wait-for-double-tap delay, and
+              `relative z-10` keeps a wide logo from ever covering them. */}
           <button
             type="button"
-            className="justify-self-start md:hidden"
+            className="relative z-10 -ml-2.5 flex size-11 touch-manipulation items-center justify-center justify-self-start md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menu"
           >
@@ -90,27 +98,31 @@ export function Header({
             <HeaderSearch className="max-w-xl" />
           </div>
 
-          <div className="col-start-3 flex items-center justify-self-end gap-4 md:ml-auto md:gap-6">
+          <div className="relative z-10 col-start-3 -mr-2.5 flex items-center justify-self-end md:ml-auto md:-mr-3">
             <Link
               href="/conta"
               aria-label="Entrar"
-              className="flex items-center gap-2 text-sm hover:text-gold"
+              className="flex min-h-11 touch-manipulation items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
             >
               <User className="size-5" aria-hidden="true" />
               <span className="hidden lg:inline">Entrar</span>
             </Link>
             <button
               type="button"
-              onClick={toggle}
-              className="relative flex items-center gap-2 text-sm hover:text-gold"
+              onClick={openBag}
+              className="flex min-h-11 touch-manipulation items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
               aria-label={`Abrir sacola${isHydrated && count > 0 ? `, ${count} ${count === 1 ? "item" : "itens"}` : ""}`}
             >
-              <ShoppingBag className="size-5" aria-hidden="true" />
-              {isHydrated && count > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[10px] font-bold text-white">
-                  {count > 99 ? "99+" : count}
-                </span>
-              )}
+              {/* The badge anchors to the glyph, not to the padded
+                  button, so widening the hit area leaves it in place. */}
+              <span className="relative flex items-center">
+                <ShoppingBag className="size-5" aria-hidden="true" />
+                {isHydrated && count > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[10px] font-bold text-white">
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </span>
               <span className="hidden lg:inline">Sacola</span>
             </button>
           </div>
@@ -141,16 +153,21 @@ export function Header({
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
-          side="right"
+          side="left"
           showCloseButton={false}
-          className="w-full max-w-full gap-0 border-l border-line bg-white p-0 text-fg sm:max-w-full"
+          className="w-full max-w-full gap-0 border-r border-line bg-white p-0 text-fg sm:max-w-full"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center justify-between bg-black px-6 text-bg">
             <span className="text-sm font-extrabold uppercase tracking-[0.08em] text-gold">
               {settings.store_name}
             </span>
-            <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Fechar menu"
+              className="-mr-2.5 flex size-11 touch-manipulation items-center justify-center"
+            >
               <X className="size-6" aria-hidden="true" />
             </button>
           </div>

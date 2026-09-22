@@ -103,7 +103,13 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
               type="button"
               aria-label={`Ir para o slide ${index + 1}`}
               onClick={() => api?.scrollTo(index)}
-              className={`h-1.5 rounded-full transition-all duration-200 ease-out ${
+              // A 6px-tall dash is a marker, not a button — the pseudo
+              // gives each one a ~44px-tall strip to be tapped in without
+              // fattening the dashes themselves. The horizontal spread
+              // stops at 4px a side so neighbouring strips meet rather
+              // than overlap across the `gap-2`, which would hand a tap
+              // near the boundary to the wrong slide.
+              className={`relative touch-manipulation before:absolute before:-inset-x-1 before:-inset-y-5 before:content-[''] h-1.5 rounded-full transition-all duration-200 ease-out ${
                 index === selected ? "w-6 bg-white" : "w-1.5 bg-white/50"
               }`}
             />

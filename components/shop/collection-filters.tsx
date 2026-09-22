@@ -281,7 +281,7 @@ export function CollectionFilters({
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="mb-4 flex items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium lg:hidden"
+        className="mb-4 flex min-h-11 touch-manipulation items-center gap-2 rounded-md border border-line px-4 py-2 text-sm font-medium lg:hidden"
       >
         <SlidersHorizontal className="size-4" aria-hidden="true" />
         Filtrar {hasActiveFilters ? "•" : ""}
@@ -296,7 +296,12 @@ export function CollectionFilters({
           <SheetTitle className="sr-only">Filtros</SheetTitle>
           <div className="mb-6 flex items-center justify-between">
             <span className="text-sm font-semibold uppercase tracking-wide">Filtrar</span>
-            <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar filtros">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Fechar filtros"
+              className="-mr-2.5 flex size-11 touch-manipulation items-center justify-center"
+            >
               <X className="size-5" aria-hidden="true" />
             </button>
           </div>

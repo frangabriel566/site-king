@@ -39,7 +39,7 @@ export function CartDrawer() {
             type="button"
             onClick={close}
             aria-label="Fechar sacola"
-            className="flex size-8 items-center justify-center rounded-full border border-line text-muted-foreground transition-colors hover:bg-surface hover:text-fg"
+            className="relative flex size-8 touch-manipulation items-center justify-center rounded-full border border-line text-muted-foreground transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface hover:text-fg"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -102,7 +102,10 @@ export function CartDrawer() {
                       />
                     )}
                   </div>
-                  <div className="flex flex-1 flex-col gap-1">
+                  {/* Same `min-w-0` as the full sacola page: without it
+                      the column refuses to shrink and the remove button
+                      and line total spill past the drawer's edge. */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <Link
                         href={`/produto/${item.slug}`}
@@ -115,7 +118,11 @@ export function CartDrawer() {
                         type="button"
                         onClick={() => removeItem(item.variantId)}
                         aria-label={`Remover ${item.name}`}
-                        className="flex size-7 shrink-0 items-center justify-center rounded-full border border-alert/30 text-alert transition-colors hover:border-alert hover:bg-alert/10"
+                        // 28px of circle, 44px of target: the pseudo
+                        // widens what a thumb has to land on without
+                        // making the control itself heavier than the
+                        // line it sits on.
+                        className="relative flex size-7 shrink-0 touch-manipulation items-center justify-center rounded-full border border-alert/30 text-alert transition-colors before:absolute before:-inset-2 before:content-[''] hover:border-alert hover:bg-alert/10"
                       >
                         <Trash2 className="size-3.5" aria-hidden="true" />
                       </button>
@@ -125,13 +132,13 @@ export function CartDrawer() {
                         {formatVariantLabel(item.color, item.size)}
                       </p>
                     )}
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex items-center divide-x divide-line rounded-md border border-line">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <div className="flex shrink-0 items-center divide-x divide-line rounded-md border border-line">
                         <button
                           type="button"
                           onClick={() => setQty(item.variantId, item.qty - 1)}
                           aria-label="Diminuir quantidade"
-                          className="flex size-7 items-center justify-center transition-colors hover:bg-surface"
+                          className="relative flex size-7 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-2 before:content-[''] hover:bg-surface"
                         >
                           <Minus className="size-3" aria-hidden="true" />
                         </button>
@@ -140,7 +147,7 @@ export function CartDrawer() {
                           type="button"
                           onClick={() => setQty(item.variantId, item.qty + 1)}
                           aria-label="Aumentar quantidade"
-                          className="flex size-7 items-center justify-center transition-colors hover:bg-surface"
+                          className="relative flex size-7 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-2 before:content-[''] hover:bg-surface"
                         >
                           <Plus className="size-3" aria-hidden="true" />
                         </button>

@@ -78,7 +78,10 @@ export function BagView() {
                   aria-label={`Selecionar ${item.name}`}
                   className="mt-1 shrink-0"
                 />
-                <div className="relative size-24 shrink-0 overflow-hidden rounded-md border border-line bg-surface md:size-28">
+                {/* 80px on the narrowest phones: at 320px wide the photo
+                    at 96px left the quantity stepper without the room it
+                    needs and pushed it past the card. */}
+                <div className="relative size-20 shrink-0 overflow-hidden rounded-md border border-line bg-surface sm:size-24 md:size-28">
                 {item.image && (
                   <Image
                     src={item.image}
@@ -89,9 +92,15 @@ export function BagView() {
                   />
                 )}
               </div>
-              <div className="flex flex-1 flex-col justify-between">
+              {/* `min-w-0` on both this column and the title block: a
+                  flex item defaults to `min-width: auto`, which refuses to
+                  shrink below its content and pushed the remove button and
+                  the line total off the right edge of the card on a phone
+                  — the stepper plus a five-digit total needs more room
+                  than a 360px screen leaves once the photo is placed. */}
+              <div className="flex min-w-0 flex-1 flex-col justify-between">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <Link
                       href={`/produto/${item.slug}`}
                       className="text-sm font-semibold hover:text-gold-text"
@@ -108,18 +117,21 @@ export function BagView() {
                     type="button"
                     onClick={() => removeItem(item.variantId)}
                     aria-label={`Remover ${item.name}`}
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-alert/30 text-alert transition-colors hover:border-alert hover:bg-alert/10"
+                    className="relative flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full border border-alert/30 text-alert transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:border-alert hover:bg-alert/10"
                   >
                     <Trash2 className="size-4" />
                   </button>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center divide-x divide-line rounded-md border border-line">
+                {/* Wraps rather than overflows: on the narrowest phones
+                    the total drops under the stepper instead of being
+                    clipped by the card. */}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <div className="flex shrink-0 items-center divide-x divide-line rounded-md border border-line">
                     <button
                       type="button"
                       onClick={() => setQty(item.variantId, item.qty - 1)}
                       aria-label="Diminuir quantidade"
-                      className="flex size-8 items-center justify-center transition-colors hover:bg-surface"
+                      className="relative flex size-8 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface"
                     >
                       <Minus className="size-3.5" />
                     </button>
@@ -128,7 +140,7 @@ export function BagView() {
                       type="button"
                       onClick={() => setQty(item.variantId, item.qty + 1)}
                       aria-label="Aumentar quantidade"
-                      className="flex size-8 items-center justify-center transition-colors hover:bg-surface"
+                      className="relative flex size-8 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface"
                     >
                       <Plus className="size-3.5" />
                     </button>

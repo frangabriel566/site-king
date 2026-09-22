@@ -113,14 +113,19 @@ export function Footer({
         <div className="h-px bg-white/10" />
 
         <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:justify-between sm:pt-8">
-          <div className="flex items-center gap-5">
+          {/* The icons stay 20px; the links around them are 44px so they
+              can actually be hit with a thumb. `gap-1` keeps the glyphs
+              about as far apart as they looked before that padding
+              existed, and the negative margin pulls the first one back
+              onto the footer's left edge on desktop. */}
+          <div className="-ml-3 flex items-center gap-1">
             {settings.instagram && (
               <a
                 href={`https://instagram.com/${settings.instagram.replace("@", "")}`}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="text-bg/80 hover:text-gold"
+                className="flex size-11 touch-manipulation items-center justify-center text-bg/80 hover:text-gold"
               >
                 <Camera className="size-5" />
               </a>
@@ -131,7 +136,7 @@ export function Footer({
                 target="_blank"
                 rel="noreferrer"
                 aria-label="TikTok"
-                className="text-bg/80 hover:text-gold"
+                className="flex size-11 touch-manipulation items-center justify-center text-bg/80 hover:text-gold"
               >
                 <Music2 className="size-5" />
               </a>
@@ -142,7 +147,7 @@ export function Footer({
                 target="_blank"
                 rel="noreferrer"
                 aria-label="WhatsApp"
-                className="text-bg/80 hover:text-gold"
+                className="flex size-11 touch-manipulation items-center justify-center text-bg/80 hover:text-gold"
               >
                 <WhatsAppIcon className="size-5" />
               </a>

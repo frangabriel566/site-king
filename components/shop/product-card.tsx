@@ -74,7 +74,13 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           onClick={toggle}
           aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
           aria-pressed={isFavorite}
-          className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-fg shadow-sm transition-colors hover:bg-white"
+          // The circle stays 32px because a bigger one starts competing
+          // with the photo, but a 32px tap target is well under a
+          // fingertip — these are the dozens of little buttons that took
+          // two or three presses each. The pseudo-element widens the hit
+          // area to 44px without drawing anything, the same trade the
+          // header icons make with padding.
+          className="absolute right-2 top-2 flex size-8 touch-manipulation items-center justify-center rounded-full bg-white/90 text-fg shadow-sm transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-white"
         >
           <Heart
             className="size-4"

@@ -7,6 +7,7 @@ import { CartDrawer } from "@/components/shop/cart-drawer";
 import { WhatsAppFloat } from "@/components/shop/whatsapp-float";
 import { CookieBanner } from "@/components/shop/cookie-banner";
 import { HeaderDebug } from "@/components/shop/header-debug";
+import { OverlayGuard } from "@/components/shop/overlay-guard";
 import { Toaster } from "@/components/ui/sonner";
 
 /**
@@ -82,6 +83,9 @@ export default async function ShopLayout({
         <CartDrawer />
         <WhatsAppFloat phone={settings.whatsapp} />
         <CookieBanner />
+        {/* Renders nothing. Asserts that a closed overlay never leaves the
+            document locked — see the file for why that can happen. */}
+        <OverlayGuard />
         {/* Renders nothing at all unless the URL carries ?debug=1 — it is
             a field probe for the iOS header problem, not a feature. */}
         <HeaderDebug />

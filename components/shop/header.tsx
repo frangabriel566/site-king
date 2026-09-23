@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Menu, User, ShoppingBag, X, Truck, MessageCircle } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
+import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
 import type { Category } from "@/lib/data/categories";
@@ -33,10 +33,7 @@ export function Header({
   // every other way the route can change — the back button above all,
   // which would otherwise drop someone on the new page with the menu
   // still over it and the body scroll still locked.
-  const pathname = usePathname();
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useCloseOnNavigation(useCallback(() => setMobileOpen(false), []));
 
   /**
    * The first tap, replayed.

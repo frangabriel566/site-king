@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { CART_STORAGE_KEY } from "@/lib/constants";
+import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import type { CartItem } from "./types";
 
 type CartContextValue = {
@@ -85,6 +86,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return prev.map((i) => (i.variantId === variantId ? { ...i, qty } : i));
     });
   }, []);
+
+  // The bag lives up here in the layout, so it outlives every page under
+  // it. Without this it rode along through a route change still open,
+  // still holding the body lock, and left the next page unusable.
+  useCloseOnNavigation(useCallback(() => setIsOpen(false), []));
 
   const clear = useCallback(() => setItems([]), []);
   const open = useCallback(() => setIsOpen(true), []);

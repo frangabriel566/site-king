@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { X, SlidersHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { formatCurrency } from "@/lib/format";
@@ -31,6 +32,13 @@ export function CollectionFilters({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Picking a filter only rewrites the query string and deliberately
+  // leaves this open. Leaving the collection page entirely, or stepping
+  // back out of it, must not — this component unmounts with the page,
+  // and a Dialog torn down while still open is the one case its own
+  // cleanup is least likely to survive.
+  useCloseOnNavigation(useCallback(() => setMobileOpen(false), []));
 
   const activeCategory = searchParams.get("categoria") ?? "";
   const activeBrand = searchParams.get("marca") ?? "";

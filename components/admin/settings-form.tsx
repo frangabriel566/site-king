@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { updateSiteSettingsAction, type ActionResult } from "@/lib/actions/settings";
+import { formatCep } from "@/lib/format";
 import type { SiteSettings } from "@/lib/data/settings";
 
 const initialState: ActionResult = { status: "idle" };
@@ -180,7 +181,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
                 placeholder="00000-000"
                 inputMode="numeric"
                 maxLength={9}
-                defaultValue={settings.origin_cep ?? ""}
+                defaultValue={formatCep(settings.origin_cep ?? "")}
               />
             </div>
             <div className="flex flex-col gap-2">

@@ -46,12 +46,20 @@ export function FreightCalculator({
       return;
     }
 
+    // Only digits go over the wire — the dash is a display concern, and
+    // the API should never have to guess which of the two forms it got.
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setError("CEP de entrega inválido. Use os 8 dígitos, ex.: 01310-100.");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch("/api/frete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cep, items }),
+        body: JSON.stringify({ cep: digits, items }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {

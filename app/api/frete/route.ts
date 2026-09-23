@@ -19,7 +19,11 @@ import {
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  cep: z.string().trim().min(8).max(9),
+  // Deliberately loose: "01310-100", "01310100" and anything a shopper
+  // pastes with spaces all get here and are normalized below. Counting
+  // digits in the schema would turn a fixable typo into the generic
+  // "Dados inválidos.", which tells the shopper nothing.
+  cep: z.string().trim().max(20),
   items: z
     .array(
       z.object({
@@ -51,19 +55,49 @@ export async function POST(request: NextRequest) {
 
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+    // A bad CEP is the shopper's to fix; a bad item list is the app's
+    // bug. Saying which one it is costs nothing and saves a support
+    // message.
+    const badCep = parsed.error.issues.some((issue) => issue.path[0] === "cep");
+    return NextResponse.json(
+      {
+        error: badCep ? "Informe o CEP de entrega." : "Dados inválidos.",
+        source: badCep ? "destination_cep" : "request",
+      },
+      { status: 400 },
+    );
   }
 
   const cep = normalizeCep(parsed.data.cep);
   if (!isValidCep(cep)) {
-    return NextResponse.json({ error: "CEP inválido." }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "CEP de entrega inválido. Use os 8 dígitos, ex.: 01310-100.",
+        source: "destination_cep",
+      },
+      { status: 400 },
+    );
   }
 
   const settings = await getSiteSettings();
-  const originCep = normalizeCep(settings.origin_cep ?? "");
+  const rawOriginCep = (settings.origin_cep ?? "").trim();
+  const originCep = normalizeCep(rawOriginCep);
   if (!isValidCep(originCep)) {
+    // Never the shopper's fault, so it must not read like it is — and
+    // the operator needs to see in the logs whether the field is empty
+    // or holding something unusable.
+    console.error(
+      "[frete] origin_cep inutilizável em site_settings:",
+      JSON.stringify(rawOriginCep),
+    );
     return NextResponse.json(
-      { error: "A loja ainda não configurou o CEP de origem." },
+      {
+        error:
+          rawOriginCep === ""
+            ? "A loja ainda não configurou o CEP de origem."
+            : "O CEP de origem cadastrado pela loja é inválido.",
+        source: "origin_cep",
+      },
       { status: 503 },
     );
   }
@@ -136,9 +170,23 @@ export async function POST(request: NextRequest) {
       );
     }
     if (cause instanceof MelhorEnvioError) {
-      console.error("[frete] Melhor Envio:", cause.message, cause.detail);
+      console.error(
+        "[frete] Melhor Envio:",
+        cause.status ?? "sem status",
+        cause.message,
+        cause.detail,
+      );
+      // The upstream message can carry token and account detail, so it
+      // stays in the logs. What the shopper gets told is whether waiting
+      // helps: a rejected token never fixes itself, a 5xx usually does.
+      const isAuth = cause.status === 401 || cause.status === 403;
       return NextResponse.json(
-        { error: "Não foi possível calcular o frete agora." },
+        {
+          error: isAuth
+            ? "A integração de frete da loja está com um problema de acesso. Fale com a loja."
+            : "O Melhor Envio não respondeu ao cálculo. Tente de novo em instantes.",
+          source: "melhor_envio",
+        },
         { status: 502 },
       );
     }

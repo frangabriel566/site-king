@@ -18,12 +18,19 @@ export const siteSettingsSchema = z.object({
   // documento, que os Correios exigem na declaração). Tudo opcional no
   // schema: a loja funciona sem isso, apenas sem frete.
   origin_document: z.string().trim().max(20).optional().or(z.literal("")),
+  // Guardado só com os oito dígitos: a cotação e a etiqueta normalizam
+  // de novo antes de falar com o Melhor Envio, e um formato canônico no
+  // banco evita que "64000-000" e "64000000" sejam valores diferentes.
   origin_cep: z
     .string()
     .trim()
-    .regex(/^d{5}-?d{3}$/, "CEP inválido")
     .optional()
-    .or(z.literal("")),
+    .transform((value) => (value ?? "").trim())
+    // Validado na forma digitada — com ou sem hífen — para que um valor
+    // sem nenhum dígito vire um erro visível, e não um campo apagado em
+    // silêncio. Só depois vira a forma canônica.
+    .refine((value) => value === "" || /^\d{5}-?\d{3}$/.test(value), "CEP inválido")
+    .transform((value) => value.replace(/\D/g, "")),
   origin_street: z.string().trim().max(160).optional().or(z.literal("")),
   origin_number: z.string().trim().max(20).optional().or(z.literal("")),
   origin_complement: z.string().trim().max(120).optional().or(z.literal("")),

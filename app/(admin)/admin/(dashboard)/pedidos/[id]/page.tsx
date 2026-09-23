@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOrderByIdAdmin } from "@/lib/data/orders";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { OrderStatusForm } from "./order-status-form";
+import { ShippingLabel } from "./shipping-label";
 
 export const metadata: Metadata = { title: "Pedido — Painel" };
 
@@ -118,11 +119,25 @@ export default async function AdminOrderDetailPage({
           </div>
         </div>
 
-        <OrderStatusForm
-          orderId={order.id}
-          currentStatus={order.status}
-          currentTrackingCode={order.tracking_code}
-        />
+        <div className="flex flex-col gap-6">
+          <OrderStatusForm
+            orderId={order.id}
+            currentStatus={order.status}
+            currentTrackingCode={order.tracking_code}
+          />
+          <ShippingLabel
+            orderId={order.id}
+            initial={
+              order.melhorenvio_order_id
+                ? {
+                    melhorenvioOrderId: order.melhorenvio_order_id,
+                    labelUrl: order.label_url,
+                    trackingCode: order.tracking_code,
+                  }
+                : null
+            }
+          />
+        </div>
       </div>
     </div>
   );

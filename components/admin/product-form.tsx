@@ -10,6 +10,10 @@ import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/m
 import { ProductVariantsEditor } from "@/components/admin/product-variants-editor";
 import { ProductDisplaySettings } from "@/components/admin/product-display-settings";
 import { ProductAdvancedSettings } from "@/components/admin/product-advanced-settings";
+import {
+  ProductPackageFields,
+  type PackageDraft,
+} from "@/components/admin/product-package-fields";
 import { ProductFormActionBar } from "@/components/admin/product-form-action-bar";
 import { type AttributeRow } from "@/components/admin/attributes-editor";
 import { slugify } from "@/lib/format";
@@ -158,6 +162,19 @@ export function ProductForm({
   const [status, setStatus] = useState<ProductStatus>(product?.status ?? "draft");
   const [featured, setFeatured] = useState(product?.featured ?? false);
   const [position, setPosition] = useState(String(product?.position ?? 0));
+  const [pkg, setPkg] = useState<PackageDraft>({
+    weightGrams: product?.weight_grams != null ? String(product.weight_grams) : "",
+    lengthCm: product?.length_cm != null ? String(product.length_cm) : "",
+    widthCm: product?.width_cm != null ? String(product.width_cm) : "",
+    heightCm: product?.height_cm != null ? String(product.height_cm) : "",
+  });
+  // "" and "abc" both have to reach the schema as null, not NaN: the
+  // publish gate reports a missing measurement, coercion would report a
+  // type error the operator cannot act on.
+  const pkgNumber = (raw: string): number | null => {
+    const parsed = Number.parseFloat(raw.replace(",", "."));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
 
   const [images, setImages] = useState<ProductImageDraft[]>(
     (product?.product_images ?? [])
@@ -415,6 +432,10 @@ export function ProductForm({
       category_id: categoryId || null,
       brand_id: brandId || null,
       manufacturer_ref: manufacturerRef,
+      weight_grams: pkgNumber(pkg.weightGrams),
+      length_cm: pkgNumber(pkg.lengthCm),
+      width_cm: pkgNumber(pkg.widthCm),
+      height_cm: pkgNumber(pkg.heightCm),
       attributes: rowsToAttributes(attributeRows),
       badge: (badge || null) as ProductBadge | null,
       status,
@@ -534,6 +555,10 @@ export function ProductForm({
         value={JSON.stringify(rowsToAttributes(attributeRows))}
       />
       <input type="hidden" name="tags_json" value={JSON.stringify(tags)} />
+      <input type="hidden" name="weight_grams" value={pkgNumber(pkg.weightGrams) ?? ""} />
+      <input type="hidden" name="length_cm" value={pkgNumber(pkg.lengthCm) ?? ""} />
+      <input type="hidden" name="width_cm" value={pkgNumber(pkg.widthCm) ?? ""} />
+      <input type="hidden" name="height_cm" value={pkgNumber(pkg.heightCm) ?? ""} />
 
       <ProductFormSection step={1} title="Produto">
         <ProductBasicInfo
@@ -605,6 +630,19 @@ export function ProductForm({
 
       <ProductFormSection
         step={4}
+        title="Peso e medidas"
+        description="Do pacote fechado, não da peça. É com isso que o frete é calculado."
+        id="field-package"
+      >
+        <ProductPackageFields
+          value={pkg}
+          onChange={(patch) => setPkg((prev) => ({ ...prev, ...patch }))}
+          invalid={invalidAnchors.has("field-package")}
+        />
+      </ProductFormSection>
+
+      <ProductFormSection
+        step={5}
         title="Exibição"
         description="Defina onde o produto será exibido na loja."
       >

@@ -60,6 +60,13 @@ export const productSchema = z
     brand_id: z.guid().optional().nullable(),
     manufacturer_ref: z.string().trim().max(80).optional().or(z.literal("")),
     attributes: z.record(z.string(), z.string()).optional().nullable(),
+    // Package spec. Optional here so a draft saves incomplete; required
+    // to publish (see publishableProductSchema) — a product with no
+    // weight cannot be quoted, so it cannot be sold.
+    weight_grams: z.coerce.number().positive().optional().nullable(),
+    length_cm: z.coerce.number().positive().optional().nullable(),
+    width_cm: z.coerce.number().positive().optional().nullable(),
+    height_cm: z.coerce.number().positive().optional().nullable(),
     badge: z.enum(["lancamento", "oferta", "mais_vendido"]).optional().nullable(),
     status: z.enum(["draft", "active", "archived"]).default("draft"),
     featured: z.boolean().default(false),
@@ -92,6 +99,10 @@ export const PUBLISH_FIELD_ANCHORS: Record<string, string> = {
   description: "field-description",
   images: "field-images",
   variants: "field-variants",
+  weight_grams: "field-package",
+  length_cm: "field-package",
+  width_cm: "field-package",
+  height_cm: "field-package",
 };
 
 export const publishableProductSchema = productSchema.superRefine((data, ctx) => {
@@ -114,6 +125,13 @@ export const publishableProductSchema = productSchema.superRefine((data, ctx) =>
       code: "custom",
       path: ["description"],
       message: "Descrição completa precisa de pelo menos 30 caracteres",
+    });
+  }
+  if (!data.weight_grams || !data.length_cm || !data.width_cm || !data.height_cm) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["weight_grams"],
+      message: "Informe peso e medidas para o frete ser calculado",
     });
   }
   if (data.images.length === 0) {

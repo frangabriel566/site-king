@@ -1,10 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
+import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +20,16 @@ export function BagView() {
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
   };
+
+  // Uma entrada por produto, não por linha da sacola: a mesma peça em
+  // duas cores são duas linhas, mas uma linha de pacote pesando o dobro.
+  const freightItems = useMemo(() => {
+    const byProduct = new Map<string, number>();
+    for (const item of items) {
+      byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.qty);
+    }
+    return [...byProduct].map(([productId, quantity]) => ({ productId, quantity }));
+  }, [items]);
 
   if (isHydrated && items.length === 0) {
     return (
@@ -167,8 +179,16 @@ export function BagView() {
             <span className="text-sm font-semibold text-fg">Subtotal</span>
             <span className="text-xl font-bold text-price">{formatCurrency(subtotal)}</span>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Frete e cupom calculados no checkout.
+          {/* Cota as transportadoras de verdade para a sacola como está.
+              O cliente não escolhe nada aqui — isso responde "quanto sai
+              o frete pra mim?" antes do checkout pedir o endereço, que é
+              onde a escolha acontece. */}
+          <FreightCalculator
+            items={freightItems}
+            className="mt-5 border-t border-line pt-5"
+          />
+          <p className="mt-3 text-xs text-muted-foreground">
+            Cupom aplicado no checkout.
           </p>
           <Button asChild size="xl" className="mt-6 w-full">
             <Link href="/checkout">Finalizar compra</Link>

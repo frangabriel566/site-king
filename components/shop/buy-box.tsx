@@ -10,7 +10,7 @@ import { useCart } from "@/lib/cart/context";
 import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { formatCurrency, formatInstallments } from "@/lib/format";
 import { SizeGuideModal } from "@/components/shop/size-guide-modal";
-import { ShippingEstimate } from "@/components/shop/shipping-estimate";
+import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { Button } from "@/components/ui/button";
 import type { ProductWithRelations } from "@/lib/data/products";
 
@@ -353,7 +353,12 @@ export function BuyBox({
       </div>
 
       <div className="mt-6 border-t border-line pt-6">
-        <ShippingEstimate />
+        {/* A mesma cotação da sacola, para uma peça. Antes isto era uma
+            faixa de prazo inventada por região ("2 a 4 dias úteis") com
+            preço nenhum — agora que existe motor de frete de verdade,
+            manter o palpite ao lado dele seria mentir na página onde a
+            decisão de compra acontece. */}
+        <FreightCalculator items={[{ productId: product.id, quantity: 1 }]} />
       </div>
 
       <div className="mt-6 flex flex-col gap-2 border-t border-line pt-6 text-xs text-fg sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">

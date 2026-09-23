@@ -17,6 +17,14 @@ const FALLBACK_SETTINGS: SiteSettings = {
   free_shipping_note: null,
   announcement: null,
   announcement_active: false,
+  origin_document: null,
+  origin_cep: null,
+  origin_street: null,
+  origin_number: null,
+  origin_complement: null,
+  origin_district: null,
+  origin_city: null,
+  origin_state: null,
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {

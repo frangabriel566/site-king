@@ -22,6 +22,14 @@ export async function updateSiteSettingsAction(
     free_shipping_note: formData.get("free_shipping_note"),
     announcement: formData.get("announcement"),
     announcement_active: formData.get("announcement_active") === "on",
+    origin_document: formData.get("origin_document"),
+    origin_cep: formData.get("origin_cep"),
+    origin_street: formData.get("origin_street"),
+    origin_number: formData.get("origin_number"),
+    origin_complement: formData.get("origin_complement"),
+    origin_district: formData.get("origin_district"),
+    origin_city: formData.get("origin_city"),
+    origin_state: formData.get("origin_state"),
   });
 
   if (!parsed.success) {
@@ -42,6 +50,14 @@ export async function updateSiteSettingsAction(
       shipping_note: parsed.data.shipping_note || null,
       free_shipping_note: parsed.data.free_shipping_note || null,
       announcement: parsed.data.announcement || null,
+      origin_document: parsed.data.origin_document || null,
+      origin_cep: parsed.data.origin_cep || null,
+      origin_street: parsed.data.origin_street || null,
+      origin_number: parsed.data.origin_number || null,
+      origin_complement: parsed.data.origin_complement || null,
+      origin_district: parsed.data.origin_district || null,
+      origin_city: parsed.data.origin_city || null,
+      origin_state: parsed.data.origin_state || null,
     })
     .eq("id", 1);
 

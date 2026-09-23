@@ -159,6 +159,101 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
       </section>
 
+      {/* Endereço de origem — sem ele o Melhor Envio não cota nem emite
+          etiqueta. O CEP sozinho já basta para a cotação no carrinho; o
+          resto (endereço completo + CPF/CNPJ) só é exigido na hora de
+          comprar a etiqueta, que é quando os Correios pedem o remetente
+          na declaração de conteúdo. */}
+      <section>
+        <p className="text-label mb-1">Endereço de origem (Melhor Envio)</p>
+        <p className="mb-4 text-sm text-ink-muted">
+          De onde as encomendas saem. O CEP alimenta o cálculo de frete no
+          carrinho; os demais campos são exigidos para gerar a etiqueta.
+        </p>
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_cep">CEP de origem</Label>
+              <Input
+                id="origin_cep"
+                name="origin_cep"
+                placeholder="00000-000"
+                inputMode="numeric"
+                maxLength={9}
+                defaultValue={settings.origin_cep ?? ""}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_document">CPF/CNPJ da loja</Label>
+              <Input
+                id="origin_document"
+                name="origin_document"
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                autoComplete="off"
+                defaultValue={settings.origin_document ?? ""}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_140px]">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_street">Rua</Label>
+              <Input
+                id="origin_street"
+                name="origin_street"
+                defaultValue={settings.origin_street ?? ""}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_number">Número</Label>
+              <Input
+                id="origin_number"
+                name="origin_number"
+                defaultValue={settings.origin_number ?? ""}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_complement">Complemento</Label>
+              <Input
+                id="origin_complement"
+                name="origin_complement"
+                defaultValue={settings.origin_complement ?? ""}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_district">Bairro</Label>
+              <Input
+                id="origin_district"
+                name="origin_district"
+                defaultValue={settings.origin_district ?? ""}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_140px]">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_city">Cidade</Label>
+              <Input
+                id="origin_city"
+                name="origin_city"
+                defaultValue={settings.origin_city ?? ""}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="origin_state">UF</Label>
+              <Input
+                id="origin_state"
+                name="origin_state"
+                placeholder="PI"
+                maxLength={2}
+                defaultValue={settings.origin_state ?? ""}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <Button type="submit" size="lg" disabled={pending} className="w-fit">
         {pending ? "Salvando…" : "Salvar configurações"}
       </Button>

@@ -95,6 +95,10 @@ export interface Database {
           brand_id: string | null;
           manufacturer_ref: string | null;
           attributes: Json | null;
+          weight_grams: number | null;
+          length_cm: number | null;
+          width_cm: number | null;
+          height_cm: number | null;
           badge: ProductBadge | null;
           status: ProductStatus;
           featured: boolean;
@@ -120,6 +124,10 @@ export interface Database {
           brand_id?: string | null;
           manufacturer_ref?: string | null;
           attributes?: Json | null;
+          weight_grams?: number | null;
+          length_cm?: number | null;
+          width_cm?: number | null;
+          height_cm?: number | null;
           badge?: ProductBadge | null;
           status?: ProductStatus;
           featured?: boolean;
@@ -145,6 +153,10 @@ export interface Database {
           brand_id?: string | null;
           manufacturer_ref?: string | null;
           attributes?: Json | null;
+          weight_grams?: number | null;
+          length_cm?: number | null;
+          width_cm?: number | null;
+          height_cm?: number | null;
           badge?: ProductBadge | null;
           status?: ProductStatus;
           featured?: boolean;
@@ -351,6 +363,14 @@ export interface Database {
           shipping_note: string | null;
           free_shipping_note: string | null;
           announcement: string | null;
+          origin_document: string | null;
+          origin_cep: string | null;
+          origin_street: string | null;
+          origin_number: string | null;
+          origin_complement: string | null;
+          origin_district: string | null;
+          origin_city: string | null;
+          origin_state: string | null;
           announcement_active: boolean;
         };
         Insert: {
@@ -365,6 +385,14 @@ export interface Database {
           shipping_note?: string | null;
           free_shipping_note?: string | null;
           announcement?: string | null;
+          origin_document?: string | null;
+          origin_cep?: string | null;
+          origin_street?: string | null;
+          origin_number?: string | null;
+          origin_complement?: string | null;
+          origin_district?: string | null;
+          origin_city?: string | null;
+          origin_state?: string | null;
           announcement_active?: boolean;
         };
         Update: {
@@ -379,6 +407,14 @@ export interface Database {
           shipping_note?: string | null;
           free_shipping_note?: string | null;
           announcement?: string | null;
+          origin_document?: string | null;
+          origin_cep?: string | null;
+          origin_street?: string | null;
+          origin_number?: string | null;
+          origin_complement?: string | null;
+          origin_district?: string | null;
+          origin_city?: string | null;
+          origin_state?: string | null;
           announcement_active?: boolean;
         };
         Relationships: [];
@@ -466,6 +502,9 @@ export interface Database {
           payment_method: string | null;
           payment_id: string | null;
           tracking_code: string | null;
+          shipping_service: string | null;
+          melhorenvio_order_id: string | null;
+          label_url: string | null;
           shipping_address: Json | null;
           customer_snapshot: Json | null;
           stock_decremented_at: string | null;
@@ -484,6 +523,9 @@ export interface Database {
           payment_method?: string | null;
           payment_id?: string | null;
           tracking_code?: string | null;
+          shipping_service?: string | null;
+          melhorenvio_order_id?: string | null;
+          label_url?: string | null;
           shipping_address?: Json | null;
           customer_snapshot?: Json | null;
           stock_decremented_at?: string | null;
@@ -502,6 +544,9 @@ export interface Database {
           payment_method?: string | null;
           payment_id?: string | null;
           tracking_code?: string | null;
+          shipping_service?: string | null;
+          melhorenvio_order_id?: string | null;
+          label_url?: string | null;
           shipping_address?: Json | null;
           customer_snapshot?: Json | null;
           stock_decremented_at?: string | null;

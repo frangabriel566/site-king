@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -10,6 +10,14 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
 import type { Category } from "@/lib/data/categories";
 import type { SiteSettings } from "@/lib/data/settings";
+
+declare global {
+  interface Window {
+    /** Installed by EARLY_TAP in app/(shop)/layout.tsx. Returns the
+     *  control pressed before hydration, once, and uninstalls itself. */
+    __khTapTake?: () => string | null;
+  }
+}
 
 export function Header({
   settings,
@@ -31,71 +39,30 @@ export function Header({
   }, [pathname]);
 
   /**
-   * Runs the action on the click when a click arrives, and on a short
-   * timer when one never does.
+   * The first tap, replayed.
    *
-   * Safari decides what a touch *was* — a tap, a scroll, a text
-   * selection, a double-tap zoom, or just "stop the momentum scroll" —
-   * before it synthesises a click, and every one of those outcomes eats
-   * the click rather than dispatching it. A sticky header makes it more
-   * likely still: WebKit keeps a hit-test region for the composited
-   * layer that can lag behind where the header is painted once the
-   * address bar has resized the visual viewport. Either way a visible,
-   * correctly sized button ends up doing nothing at all.
+   * These two controls are the only things in the header that need
+   * JavaScript to do anything, and on a mid-range phone the bundle does
+   * not finish hydrating for two to four seconds after the header is
+   * on screen and looking entirely ready. Every tap in that window used
+   * to land on inert DOM and vanish — the measured cause of "the
+   * buttons do nothing on mobile", and the reason it never reproduces on
+   * a desktop that hydrates in a couple of hundred milliseconds.
    *
-   * Arming a fallback on pointerup and cancelling it the instant a click
-   * shows up leaves the working path exactly as it was — the fallback
-   * only ever runs when the click was genuinely lost. Opening on
-   * pointerdown instead is faster but wrong: it drops a full-screen
-   * drawer under a finger that is still down, and the click that follows
-   * lands on whichever menu item the drawer just put there (it opened
-   * the menu and immediately navigated to the first category).
+   * An inline script in the shop layout (EARLY_TAP) starts recording
+   * before the bundle is even requested. All that is left to do here is
+   * collect what it saw and act on it the moment this component is
+   * live. It only ever holds the most recent press, and forgets it as
+   * soon as the shopper scrolls or taps anything else, so a press that
+   * was abandoned long ago never springs a drawer open by surprise.
    */
-  const fallback = useRef<number | null>(null);
-  const pressStart = useRef<{ x: number; y: number } | null>(null);
-  useEffect(
-    () => () => {
-      if (fallback.current !== null) window.clearTimeout(fallback.current);
-    },
-    [],
-  );
-
-  function pressProps(run: () => void) {
-    const cancel = () => {
-      if (fallback.current === null) return;
-      window.clearTimeout(fallback.current);
-      fallback.current = null;
-    };
-    return {
-      onPointerDown: (event: React.PointerEvent) => {
-        if (event.pointerType === "mouse") return;
-        pressStart.current = { x: event.clientX, y: event.clientY };
-      },
-      onPointerUp: (event: React.PointerEvent) => {
-        if (event.pointerType === "mouse") return;
-        const from = pressStart.current;
-        // A finger that travelled was scrolling, not pressing. (Safari
-        // usually sends pointercancel for that, but not always.)
-        if (
-          !from ||
-          Math.abs(event.clientX - from.x) > 10 ||
-          Math.abs(event.clientY - from.y) > 10
-        ) {
-          return;
-        }
-        cancel();
-        fallback.current = window.setTimeout(() => {
-          fallback.current = null;
-          run();
-        }, 320);
-      },
-      onPointerCancel: cancel,
-      onClick: () => {
-        cancel();
-        run();
-      },
-    };
-  }
+  useEffect(() => {
+    const take = window.__khTapTake;
+    if (!take) return;
+    const intent = take();
+    if (intent === "menu") setMobileOpen(true);
+    else if (intent === "bag") openBag();
+  }, [openBag]);
 
   return (
     <>
@@ -154,18 +121,24 @@ export function Header({
         </div>
 
         <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 md:flex md:gap-8 md:px-8">
-          {/* Icon buttons carry a 44px hit area (`size-11`) even though
-              the glyph is 20–24px: a target the size of the icon alone is
-              under half the width of a fingertip, which is why taps kept
-              missing and the menu/bag felt like it needed several presses.
-              The negative margin cancels the extra padding so the icons
-              still line up with the `px-4` gutter, `touch-manipulation`
-              drops the browser's wait-for-double-tap delay, and
-              `relative z-10` keeps a wide logo from ever covering them. */}
+          {/* Icon buttons carry a 44px hit area (`size-11`, or `min-h-11`
+              plus `px-3`) even though the glyph is 20–24px: a target the
+              size of the icon alone is under half the width of a
+              fingertip. The account link and the bag sit flush against
+              each other with no gap between them, so the 4px `px-2.5`
+              used to shave off each side was not cosmetic — it put the
+              boundary between "go to my account" and "open the bag"
+              inside the pad of one thumb, and a tap meant for one of
+              them landed on the other. The negative margin cancels the
+              extra padding so the icons still line up with the `px-4`
+              gutter, `touch-manipulation` drops the browser's
+              wait-for-double-tap delay, and `relative z-10` keeps a wide
+              logo from ever covering them. */}
           <button
             type="button"
             className="relative z-10 -ml-2.5 flex size-11 touch-manipulation select-none items-center justify-center justify-self-start md:hidden"
-            {...pressProps(() => setMobileOpen(true))}
+            onClick={() => setMobileOpen(true)}
+            data-tap-intent="menu"
             aria-label="Abrir menu"
           >
             <Menu className="size-6" aria-hidden="true" />
@@ -204,15 +177,16 @@ export function Header({
             <a
               href="/conta"
               aria-label="Entrar"
-              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
+              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-3 text-sm hover:text-gold"
             >
               <User className="size-5" aria-hidden="true" />
               <span className="hidden lg:inline">Entrar</span>
             </a>
             <button
               type="button"
-              {...pressProps(openBag)}
-              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-2.5 text-sm hover:text-gold md:px-3"
+              onClick={openBag}
+              data-tap-intent="bag"
+              className="flex min-h-11 touch-manipulation select-none items-center gap-2 px-3 text-sm hover:text-gold"
               aria-label={`Abrir sacola${isHydrated && count > 0 ? `, ${count} ${count === 1 ? "item" : "itens"}` : ""}`}
             >
               {/* The badge anchors to the glyph, not to the padded
@@ -254,10 +228,17 @@ export function Header({
       </nav>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        {/* Deliberately *not* `w-full`, unlike the bag: the menu holds
+            nothing but a column of short links, so it has no use for the
+            last 56px, and giving them up is what makes "tap outside to
+            close" mean anything. At full width there is no outside — the
+            panel covers 360, 375 and 414px alike, the overlay is never
+            reachable, and the X in the corner becomes the only way out.
+            `max-w-sm` stops the strip growing into a gutter on a tablet. */}
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="storefront-theme w-full max-w-full gap-0 border-r border-line bg-white p-0 text-fg sm:max-w-full"
+          className="storefront-theme w-[calc(100%-3.5rem)] max-w-sm gap-0 border-r border-line bg-white p-0 text-fg"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center justify-between bg-black px-6 text-bg">

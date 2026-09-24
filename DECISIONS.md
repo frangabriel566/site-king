@@ -408,9 +408,9 @@ testar contra infraestrutura de verdade em vez de só revisar o SQL:
   as 4 policies existem, e as duas operações que o app realmente usa —
   `upload()` e `getPublicUrl()` — funcionam perfeitamente. Não é usado em
   nenhum lugar do código.)
-- **Login do admin seedado testado** (`admin@kingstore.com.br` /
-  `KingStore#2026`): autentica e a leitura de `profiles.role` retorna
-  `admin` corretamente.
+- **Login do admin seedado testado** (`admin@kingstore.com.br`, com a
+  senha definida no seed): autentica e a leitura de `profiles.role`
+  retorna `admin` corretamente.
 - **Home renderizada localmente contra o banco real**: banner, wordmark
   "KING", produtos e categorias aparecem no HTML — o modo de fallback
   (dados vazios) não é mais o caminho ativo agora que há credenciais
@@ -728,3 +728,55 @@ cliente cola na conversa **é** a vitrine naquele momento.
   ela não foi aplicada, porque este ambiente não tem credencial de banco
   nem CLI do Supabase, só a `service_role` (que não roda DDL). Rodar
   `0014_whatsapp_orders.sql` no SQL Editor é o passo que falta.
+
+## Bloco 17 — Aba "Conta": troca de e-mail e senha do painel
+
+Antes disto, mudar a credencial do admin só era possível pelo painel do
+Supabase. O gatilho foi descobrir que a senha seedada estava **commitada
+em três arquivos** (`README.md`, `DECISIONS.md`, `supabase/seed.sql`):
+quem clonasse o repositório tinha o acesso ao painel de toda instalação.
+
+- **Aba própria, não seção de Configurações.** A primeira versão pendurou
+  isto no fim de Configurações; virou aba separada porque credencial não
+  pode viajar junto de um "Salvar configurações" de rotina — e porque o
+  campo "E-mail" daquele formulário é o de *contato da loja*, que sai no
+  rodapé do site. Os dois já tinham sido confundidos, então Configurações
+  agora diz em uma linha onde fica o outro.
+- **As duas operações pedem a senha atual.** `updateUser()` não pede: sem
+  essa checagem, uma aba esquecida aberta num computador compartilhado
+  bastaria para alguém tomar a conta trocando o e-mail de acesso.
+- **A conferência da senha usa o `createPublicClient`, não o cliente da
+  sessão.** Chave anon, `persistSession: false`, nenhum cookie: o
+  `signInWithPassword` de verificação é feito e descartado. Com o cliente
+  da sessão, esse sign-in reescreveria os cookies do admin no meio da
+  própria troca de senha, e um erro no passo seguinte o deixaria numa
+  sessão nova que ele não pediu.
+- **A troca de e-mail não promete o que não aconteceu.** Com confirmação
+  de e-mail ligada no Supabase, `updateUser({email})` não troca nada na
+  hora: guarda o endereço como pendente e manda um link. Dá para saber em
+  qual dos dois mundos o projeto está comparando o `user.email` que volta
+  com o que foi pedido — e só no caso aplicado é que `profiles.email`
+  (lido pela listagem de Clientes) é sincronizado junto.
+- **Mensagens do GoTrue traduzidas só onde dependem do que o operador
+  digitou** — e-mail recusado, senha fraca, e-mail já usado, limite de
+  tentativas. O resto vira uma frase genérica **com o original no log do
+  servidor**; foi exatamente isso que permitiu descobrir, durante o
+  teste, que o Supabase recusa domínios como `example.com` com
+  `Email address ... is invalid`, causa que sem o log teria ficado
+  invisível.
+- **`seed.sql` deixou de trazer senha literal.** Agora lê
+  `current_setting('kingstore.admin_password')`, definido por um `set` no
+  topo do arquivo, e um bloco `do $$` **recusa rodar** com o valor de
+  exemplo ou com menos de 8 caracteres — um seed que "funciona" com a
+  senha de exemplo é o mesmo problema de volta. Isso não limpa o
+  histórico do git: o que a troca faz é tornar a senha antiga inútil.
+- **Verificação ao vivo** com um admin descartável criado e apagado para
+  isto (as credenciais reais do usuário nunca foram tocadas): senha atual
+  errada, confirmação divergente, nova igual à atual, senha curta e troca
+  válida — cada uma com sua mensagem; a sessão sobrevive à troca; a senha
+  antiga passa a ser recusada no login e a nova entra. Três submissões
+  seguidas com erro não derrubam a página (isso foi investigado a fundo
+  porque um script de teste mal escrito fez parecer que derrubava).
+  A troca de e-mail teve os dois caminhos de recusa confirmados; o caminho
+  de sucesso não foi exercitado ao vivo porque exigiria enviar e-mail de
+  confirmação a um endereço real de terceiro.

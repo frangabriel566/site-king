@@ -70,9 +70,14 @@ supabase/seed.sql       admin + categorias + produtos + banner + settings de dem
    produtos com variações e fotos placeholder, 1 banner ativo,
    configurações da loja, 1 cupom de boas-vindas). Isso sobe um ambiente
    novo do zero em poucos minutos.
-   - Login do admin seedado: `admin@kingstore.com.br` / `KingStore#2026`
-     — **troque essa senha imediatamente** depois do primeiro login em
-     qualquer ambiente acessível por outra pessoa.
+   - **Antes de rodar**, abra `seed.sql` e troque
+     `set kingstore.admin_password = 'troque-esta-senha';` no topo do
+     arquivo. O seed se recusa a rodar com o valor de exemplo. A senha
+     não fica salva em lugar nenhum além do hash da própria conta — não
+     a escreva de volta aqui nem em nenhum arquivo versionado.
+   - O e-mail do admin seedado é `admin@kingstore.com.br`. Depois do
+     primeiro login, e-mail e senha são trocáveis em **Configurações →
+     Conta**, dentro do próprio painel.
 4. Em **Authentication → Settings**, desative a confirmação de e-mail
    obrigatória (ou aceite que o cadastro no checkout pode pedir para o
    cliente confirmar o e-mail antes de conseguir logar — o código já

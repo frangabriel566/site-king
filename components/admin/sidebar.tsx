@@ -16,6 +16,7 @@ import {
   Ticket,
   Star,
   Settings,
+  UserCog,
   LogOut,
   ExternalLink,
   Menu,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/admin/cupons", label: "Cupons", icon: Ticket },
   { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/admin/conta", label: "Conta", icon: UserCog },
 ];
 
 export function AdminSidebar({

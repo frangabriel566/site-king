@@ -4,9 +4,31 @@
 -- one welcome coupon. Product photography is placeholder (picsum,
 -- grayscale) — swap for real assets from the admin panel.
 --
--- IMPORTANT: the seeded admin password below is a placeholder for a
--- fresh dev/staging environment only. Change it immediately after the
--- first login in any environment that is reachable by anyone else.
+-- ------------------------------------------------------------------
+-- >>> DEFINA A SENHA DO ADMIN ANTES DE RODAR ESTE ARQUIVO <<<
+-- ------------------------------------------------------------------
+-- Troque o valor abaixo e só então execute o seed. Ele não é gravado em
+-- lugar nenhum além do hash da própria conta.
+--
+-- Esta senha já foi literal aqui dentro, o que significava que o acesso
+-- ao painel de toda instalação vinha escrito no repositório — quem
+-- clonasse o projeto tinha a senha. Agora ela é uma variável de sessão,
+-- e o bloco seguinte recusa rodar se ela não for trocada, porque um seed
+-- que "funciona" com a senha de exemplo é o mesmo problema de volta.
+set kingstore.admin_password = 'troque-esta-senha';
+
+do $$
+begin
+  if coalesce(current_setting('kingstore.admin_password', true), '') in
+     ('', 'troque-esta-senha') then
+    raise exception
+      'Defina kingstore.admin_password no topo do seed.sql antes de rodar.';
+  end if;
+
+  if length(current_setting('kingstore.admin_password', true)) < 8 then
+    raise exception 'A senha do admin precisa ter ao menos 8 caracteres.';
+  end if;
+end $$;
 
 -- ------------------------------------------------------------------
 -- Admin user (auth.users + auth.identities + profiles.role)
@@ -27,7 +49,7 @@ begin
       'authenticated',
       'authenticated',
       'admin@kingstore.com.br',
-      crypt('KingStore#2026', gen_salt('bf')),
+      crypt(current_setting('kingstore.admin_password'), gen_salt('bf')),
       now(), now(),
       '{"provider":"email","providers":["email"]}',
       '{}',

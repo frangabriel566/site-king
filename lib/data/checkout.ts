@@ -26,6 +26,40 @@ export type ReviseCartResult = {
  * variant ids — the cart in localStorage is never trusted as the
  * source of truth for money or availability.
  */
+/**
+ * Quanto existe hoje de cada variação da sacola — zero inclusive.
+ *
+ * Separada de `reviseCartItems` de propósito: aquela monta o pedido e
+ * por isso **descarta** as linhas sem saldo, o que serve ao checkout e
+ * não serve à sacola, que precisa justamente dizer "esta aqui acabou".
+ * Aqui a resposta é um mapa cru, e o que não voltou (variação apagada,
+ * produto tirado do ar) é tratado como zero por quem chama.
+ *
+ * Existe porque a sacola deixava somar quantidade sem limite: com quase
+ * todo o catálogo em uma unidade por tamanho, o cliente via um total de
+ * três peças e recebia um pedido de uma.
+ */
+export async function getCartStock(
+  variantIds: string[],
+): Promise<Record<string, number>> {
+  if (variantIds.length === 0) return {};
+
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("product_variants")
+    .select("id, stock, products!inner(status)")
+    .in("id", variantIds.slice(0, 50));
+
+  const stock: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const product = Array.isArray(row.products) ? row.products[0] : row.products;
+    // Produto arquivado não se vende, então o saldo dele é zero para
+    // efeito de sacola — mesma regra que reviseCartItems aplica.
+    stock[row.id] = product?.status === "active" ? Math.max(row.stock, 0) : 0;
+  }
+  return stock;
+}
+
 export async function reviseCartItems(
   requested: { variantId: string; qty: number }[],
 ): Promise<ReviseCartResult> {

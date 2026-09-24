@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { reviseCartItems, type ReviseCartResult } from "@/lib/data/checkout";
+import { getCartStock, reviseCartItems, type ReviseCartResult } from "@/lib/data/checkout";
 import { addressSchema } from "@/lib/validations/address";
 import {
   getPaymentProvider,
@@ -20,6 +20,13 @@ export async function reviseCartAction(
   items: { variantId: string; qty: number }[],
 ): Promise<ReviseCartResult> {
   return reviseCartItems(items);
+}
+
+/** O que a sacola usa para travar o botão "+" no que existe de verdade. */
+export async function getCartStockAction(
+  variantIds: string[],
+): Promise<Record<string, number>> {
+  return getCartStock(variantIds);
 }
 
 export type CouponResult =

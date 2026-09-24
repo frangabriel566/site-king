@@ -780,3 +780,54 @@ quem clonasse o repositório tinha o acesso ao painel de toda instalação.
   A troca de e-mail teve os dois caminhos de recusa confirmados; o caminho
   de sucesso não foi exercitado ao vivo porque exigiria enviar e-mail de
   confirmação a um endereço real de terceiro.
+
+## Bloco 18 — A sacola deixava pedir mais do que existe
+
+Defeito encontrado auditando o catálogo real, não relatado: **109 das 119
+variações da loja têm estoque 1**. O botão "+" da sacola não tinha teto
+nenhum, então o caso normal deste catálogo era o cliente subir para 3,
+ver `R$ 224,70` e receber um pedido de `R$ 74,90` — tanto o checkout
+(`reviseCartItems`) quanto a compra por WhatsApp (`create_whatsapp_order`)
+aparam a quantidade no servidor, e ele só descobria depois.
+
+- **`getCartStock` separada de `reviseCartItems`**, embora as duas leiam
+  estoque. Aquela monta um pedido e por isso **descarta** as linhas sem
+  saldo, o que serve ao checkout e não serve à sacola — que precisa
+  justamente dizer "esta aqui acabou". A nova devolve um mapa cru, com
+  zero incluído; o que não volta (variação apagada, produto arquivado) é
+  tratado como zero por quem chama.
+- **A página da sacola corrige a quantidade; a gaveta não.** Clampar por
+  baixo de uma gaveta que o cliente só espiou seria mexer na sacola dele
+  sem que ele visse. Na página, onde a decisão de compra acontece, um
+  total falso é pior do que um carrinho corrigido com aviso — e é o mesmo
+  comportamento que o checkout já aplicava, só que agora visível.
+- **Peça esgotada não é removida sozinha.** Ela sai do total e ganha
+  "Esgotado — não entra no pedido" com o preço riscado, mas continua na
+  lista: apagar silenciosamente a escolha de alguém é pior do que mostrar
+  que ela não dá mais.
+- **`limitOf` devolve `null` enquanto a consulta não voltou**, e nada
+  trava nesse estado. Travar por precaução barraria uma sacola
+  perfeitamente válida no primeiro render; o servidor continua sendo quem
+  decide na hora do pedido.
+- **A gaveta só consulta quando está aberta.** Ela é montada no layout,
+  isto é, em *toda* página da loja — sem esse interruptor, cada navegação
+  dispararia uma ida ao servidor por um painel que ninguém abriu.
+- **Efeito colateral que confirma o acerto**: com a sacola já correta, a
+  compra por WhatsApp parou de emitir o aviso "alguns itens foram
+  ajustados" — não há mais o que ajustar quando a mensagem sai.
+- **Verificação ao vivo**, com uma variação zerada de propósito e
+  devolvida depois: sacola de 3 linhas (uma com quantidade 3 sobre
+  estoque 1, uma válida, uma esgotada) passou a mostrar "2 itens /
+  R$ 169,80" em vez de "5 itens / R$ 404,50"; o `localStorage` foi
+  corrigido para `[1,1,1]`; o "+" ficou desabilitado nas duas com "Última
+  unidade"; e o pedido de WhatsApp gerado a partir dela saiu só com a
+  peça disponível. Cinco rotas varridas depois da mudança sem nenhum erro
+  de console.
+
+### Sobre o `<next-route-announcer>`
+
+Reportado como erro na sacola; **não é erro nem é da sacola**. É o
+elemento que o próprio Next.js insere no `<body>` de toda página do App
+Router, com uma região `aria-live` que anuncia mudanças de rota para
+leitores de tela. Confirmado idêntico em `/`, `/colecao`, `/produto/…`,
+`/sacola` e `/checkout`, com zero erro de console em todas.

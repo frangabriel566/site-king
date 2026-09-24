@@ -9,12 +9,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
+import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 
 export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
-  const { items, subtotal, isOpen, close, setQty, removeItem } = useCart();
+  const { items, isOpen, close, setQty, removeItem } = useCart();
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
+  // A gaveta não corrige quantidade — quem faz isso é a página da sacola,
+  // e clampar por baixo de uma gaveta que o cliente só espiou seria mexer
+  // na sacola dele sem que ele visse. Aqui o estoque serve para travar o
+  // "+" e para o subtotal não contar o que acabou.
+  const { limitOf, isSoldOut } = useCartStock(items, isOpen);
+  const availableItems = items.filter((item) => !isSoldOut(item.variantId));
+  const nothingAvailable = items.length > 0 && availableItems.length === 0;
+  const subtotal = availableItems.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0,
+  );
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
@@ -133,6 +145,15 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                         {formatVariantLabel(item.color, item.size)}
                       </p>
                     )}
+                    {stockNote(limitOf(item.variantId), item.qty) && (
+                      <p
+                        className={`text-xs font-medium ${
+                          isSoldOut(item.variantId) ? "text-alert" : "text-muted-foreground"
+                        }`}
+                      >
+                        {stockNote(limitOf(item.variantId), item.qty)}
+                      </p>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                       <div className="flex shrink-0 items-center divide-x divide-line rounded-md border border-line">
                         <button
@@ -146,14 +167,21 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                         <span className="w-8 text-center text-xs font-medium">{item.qty}</span>
                         <button
                           type="button"
+                          disabled={atStockLimit(limitOf(item.variantId), item.qty)}
                           onClick={() => setQty(item.variantId, item.qty + 1)}
                           aria-label="Aumentar quantidade"
-                          className="relative flex size-7 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-2 before:content-[''] hover:bg-surface"
+                          className="relative flex size-7 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-2 before:content-[''] hover:bg-surface disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
                         >
                           <Plus className="size-3" aria-hidden="true" />
                         </button>
                       </div>
-                      <span className="text-sm font-bold text-price">
+                      <span
+                        className={`text-sm font-bold ${
+                          isSoldOut(item.variantId)
+                            ? "text-muted-foreground line-through"
+                            : "text-price"
+                        }`}
+                      >
                         {formatCurrency(item.price * item.qty)}
                       </span>
                     </div>
@@ -170,14 +198,23 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               <p className="mb-4 text-xs text-muted-foreground">
                 Frete e descontos calculados no checkout.
               </p>
-              <Button asChild size="xl" className="w-full" onClick={close}>
-                <Link href="/checkout">Finalizar compra</Link>
-              </Button>
-              {whatsappEnabled && (
+              {nothingAvailable ? (
+                <p className="rounded-md border border-alert/30 bg-alert/5 p-3 text-center text-sm font-medium text-alert">
+                  Nenhuma peça da sacola está disponível agora.
+                </p>
+              ) : (
+                <Button asChild size="xl" className="w-full" onClick={close}>
+                  <Link href="/checkout">Finalizar compra</Link>
+                </Button>
+              )}
+              {whatsappEnabled && !nothingAvailable && (
                 <div className="mt-3">
                   <WhatsAppBuyButton
                     getItems={() =>
-                      items.map((item) => ({ variantId: item.variantId, qty: item.qty }))
+                      availableItems.map((item) => ({
+                        variantId: item.variantId,
+                        qty: item.qty,
+                      }))
                     }
                   />
                 </div>

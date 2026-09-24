@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
+import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
@@ -14,13 +15,43 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shop/empty-state";
 
 export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
-  const { items, subtotal, setQty, removeItem, isHydrated } = useCart();
+  const { items, setQty, removeItem, isHydrated } = useCart();
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
+  const { limitOf, isSoldOut } = useCartStock(items);
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
   };
+
+  // Quantidade acima do saldo é corrigida assim que o estoque chega.
+  // Deixá-la de pé exibiria um total que o pedido não honra: tanto o
+  // checkout quanto a compra por WhatsApp aparam no servidor, e o
+  // cliente só descobriria depois. Peça esgotada não é removida — some
+  // do total, mas continua visível para ele decidir o que fazer.
+  useEffect(() => {
+    for (const item of items) {
+      const limit = limitOf(item.variantId);
+      if (limit !== null && limit > 0 && item.qty > limit) {
+        setQty(item.variantId, limit);
+      }
+    }
+  }, [items, limitOf, setQty]);
+
+  // O subtotal conta só o que a loja consegue entregar.
+  const subtotal = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) => (isSoldOut(item.variantId) ? sum : sum + item.price * item.qty),
+        0,
+      ),
+    [items, isSoldOut],
+  );
+
+  const soldOutCount = items.filter((item) => isSoldOut(item.variantId)).length;
+  const availableItems = items.filter((item) => !isSoldOut(item.variantId));
+  const availableCount = availableItems.reduce((sum, item) => sum + item.qty, 0);
+  const nothingAvailable = items.length > 0 && availableItems.length === 0;
 
   // Uma entrada por produto, não por linha da sacola: a mesma peça em
   // duas cores são duas linhas, mas uma linha de pacote pesando o dobro.
@@ -138,6 +169,15 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                 {/* Wraps rather than overflows: on the narrowest phones
                     the total drops under the stepper instead of being
                     clipped by the card. */}
+                {stockNote(limitOf(item.variantId), item.qty) && (
+                  <p
+                    className={`mt-1 text-xs font-medium ${
+                      isSoldOut(item.variantId) ? "text-alert" : "text-muted-foreground"
+                    }`}
+                  >
+                    {stockNote(limitOf(item.variantId), item.qty)}
+                  </p>
+                )}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <div className="flex shrink-0 items-center divide-x divide-line rounded-md border border-line">
                     <button
@@ -151,14 +191,25 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                     <span className="w-9 text-center text-sm font-medium">{item.qty}</span>
                     <button
                       type="button"
+                      // Trava no que existe. Enquanto o estoque não voltou
+                      // (`limitOf` = null) o botão segue livre: o servidor
+                      // continua sendo quem decide, e travar por precaução
+                      // impediria somar numa sacola perfeitamente válida.
+                      disabled={atStockLimit(limitOf(item.variantId), item.qty)}
                       onClick={() => setQty(item.variantId, item.qty + 1)}
                       aria-label="Aumentar quantidade"
-                      className="relative flex size-8 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface"
+                      className="relative flex size-8 touch-manipulation items-center justify-center transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
                     >
                       <Plus className="size-3.5" />
                     </button>
                   </div>
-                  <span className="text-base font-bold text-price">
+                  <span
+                    className={`text-base font-bold ${
+                      isSoldOut(item.variantId)
+                        ? "text-muted-foreground line-through"
+                        : "text-price"
+                    }`}
+                  >
                     {formatCurrency(item.price * item.qty)}
                   </span>
                 </div>
@@ -173,9 +224,18 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
             Resumo do pedido
           </p>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{itemCount} {itemCount === 1 ? "item" : "itens"}</span>
+            <span>
+              {availableCount} {availableCount === 1 ? "item" : "itens"}
+            </span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
+          {soldOutCount > 0 && (
+            <p className="mt-2 text-xs font-medium text-alert">
+              {soldOutCount === 1
+                ? "1 peça esgotou e ficou de fora do total."
+                : `${soldOutCount} peças esgotaram e ficaram de fora do total.`}
+            </p>
+          )}
           <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
             <span className="text-sm font-semibold text-fg">Subtotal</span>
             <span className="text-xl font-bold text-price">{formatCurrency(subtotal)}</span>
@@ -191,17 +251,29 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           <p className="mt-3 text-xs text-muted-foreground">
             Cupom aplicado no checkout.
           </p>
-          <Button asChild size="xl" className="mt-6 w-full">
-            <Link href="/checkout">Finalizar compra</Link>
-          </Button>
-          {whatsappEnabled && (
+          {/* Sacola inteiramente esgotada não tem compra a fazer: mandar
+              o cliente ao checkout só para ele ver a sacola ser esvaziada
+              lá seria pior do que dizer isto aqui. */}
+          {nothingAvailable ? (
+            <p className="mt-6 rounded-md border border-alert/30 bg-alert/5 p-3 text-center text-sm font-medium text-alert">
+              Nenhuma peça da sacola está disponível agora.
+            </p>
+          ) : (
+            <Button asChild size="xl" className="mt-6 w-full">
+              <Link href="/checkout">Finalizar compra</Link>
+            </Button>
+          )}
+          {whatsappEnabled && !nothingAvailable && (
             <div className="mt-3">
-              {/* A sacola inteira, não a seleção das caixinhas: aquelas
+              {/* Só o que existe, e não a seleção das caixinhas: aquelas
                   marcações existem para remover itens em lote, e ninguém
                   espera que desmarcar uma peça também a tire do pedido. */}
               <WhatsAppBuyButton
                 getItems={() =>
-                  items.map((item) => ({ variantId: item.variantId, qty: item.qty }))
+                  availableItems.map((item) => ({
+                    variantId: item.variantId,
+                    qty: item.qty,
+                  }))
                 }
               />
               <p className="mt-2 text-center text-xs text-muted-foreground">

@@ -30,9 +30,15 @@ export async function generateMetadata({
   const product = await getProductBySlug(slug);
   if (!product) return {};
 
-  const image = [...product.product_images].sort(
-    (a, b) => a.position - b.position,
-  )[0];
+  // A mesma cadeia de fallback que o corpo da página usa para `mainImage`.
+  // Antes só a galeria contava, então um produto fotografado apenas por
+  // variação (o caso normal de peça única) era compartilhado sem imagem
+  // nenhuma — e este site agora fecha venda por WhatsApp, onde o card do
+  // link *é* a vitrine.
+  const ogImage =
+    [...product.product_images].sort((a, b) => a.position - b.position)[0]?.url ??
+    product.product_variants.find((variant) => variant.image_url)?.image_url ??
+    null;
 
   return {
     title: product.name,
@@ -41,7 +47,10 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: product.description ?? undefined,
-      images: image ? [{ url: image.url }] : undefined,
+      // A chave é omitida, não posta como `undefined`: é a ausência dela
+      // que deixa o opengraph-image.tsx deste segmento gerar o cartão de
+      // reserva para um produto ainda sem foto alguma.
+      ...(ogImage ? { images: [{ url: ogImage, alt: product.name }] } : {}),
     },
   };
 }
@@ -149,7 +158,12 @@ export default async function ProductPage({
           />
         </div>
 
-        <ProductMedia product={product} images={images} mainImage={mainImage} />
+        <ProductMedia
+          product={product}
+          images={images}
+          mainImage={mainImage}
+          whatsappEnabled={Boolean(settings.whatsapp)}
+        />
       </div>
 
       <div className="mt-16 flex flex-col gap-16">

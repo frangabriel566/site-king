@@ -22,6 +22,12 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Enviado" },
   { value: "delivered", label: "Entregue" },
   { value: "canceled", label: "Cancelado" },
+  // Presente só para o Select ter o que mostrar quando o pedido já chegou
+  // aqui expirado — sem uma opção com esse valor, o gatilho aparecia em
+  // branco. Desabilitado porque nada volta a "expirado" por escolha: quem
+  // põe um pedido nesse estado é expire_whatsapp_orders(), e a Server
+  // Action recusa o valor de qualquer jeito (orderStatusSchema).
+  { value: "expirado", label: "Expirado", disabled: true },
 ];
 
 export function OrderStatusForm({
@@ -62,7 +68,11 @@ export function OrderStatusForm({
           </SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
                 {option.label}
               </SelectItem>
             ))}

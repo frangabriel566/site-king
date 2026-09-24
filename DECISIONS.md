@@ -622,3 +622,109 @@ varejo claro e denso (modelo Netshoes). O painel admin não foi tocado.
   `/marca/[slug]` sem rebuild) — e o painel admin, pra confirmar que
   segue idêntico ao de antes.
 
+
+## Bloco 16 — Compra direta pelo WhatsApp
+
+Botão "Comprar pelo WhatsApp" na página de produto e na sacola (gaveta e
+página cheia), aba "Pedidos WhatsApp" no painel, e a garantia de
+`og:image` em todo produto — que é pré-requisito do resto: o link que o
+cliente cola na conversa **é** a vitrine naquele momento.
+
+- **Reaproveita `orders`/`order_items`; não há tabela paralela.** Uma
+  venda de WhatsApp confirmada precisa baixar o mesmo estoque, contar no
+  mesmo Dashboard (`PAID_STATUSES`) e aparecer na mesma lista de Pedidos.
+  Uma segunda tabela significaria duplicar as três coisas e vê-las
+  divergir. O custo é dois status novos no `check` de `orders.status`:
+  `aguardando_whatsapp` e `expirado`.
+- **`expirado` separado de `canceled`**, embora fosse mais barato reusar
+  o segundo. "O cliente sumiu" e "a loja desistiu" levam a conversas
+  diferentes no dia seguinte, e o único jeito de distinguir os dois
+  depois seria comparar `expires_at` com a data — o que erra assim que
+  alguém cancela à mão um pedido já vencido.
+- **`code` (`KS0001`) é coluna própria, não `order_number` formatado.**
+  `order_number` é o número interno de *todo* pedido e já estava na casa
+  dos milhares; a compra por WhatsApp precisa de algo curto o bastante
+  para o cliente ditar por áudio. Sequence própria (`whatsapp_order_code_seq`),
+  `unique`, nulo em pedido que não nasceu por este caminho.
+- **O pedido inteiro é uma função `security definer`
+  (`create_whatsapp_order`), não uma sequência de inserts na Server
+  Action.** Dois motivos, e o segundo é o que decidiu:
+  1. A política de insert de `orders` exige `customer_id = auth.uid()`,
+     que nenhum visitante anônimo satisfaz — e exigir login aqui mataria
+     o ponto do recurso. Afrouxar a política deixaria qualquer um inserir
+     pedidos com qualquer total; a função é uma porta estreita que decide
+     status, código, prazo e valor sozinha.
+  2. Preço, nome, cor e tamanho são lidos do banco **dentro** dela. A
+     sacola vive em `localStorage` e nunca é fonte de verdade para
+     dinheiro — mesma regra que `reviseCartItems()` já aplicava no
+     checkout.
+  A mensagem do WhatsApp é montada a partir do que a função devolveu, não
+  do que o navegador achava que tinha.
+- **Não reserva estoque, e o texto diz isso.** A primeira versão da
+  mensagem falava em "pedido reservado"; seria mentira, já que nada é
+  decrementado antes da confirmação. O que expira é o código, e é isso
+  que a frase diz. Na criação o pedido é *aparado* ao estoque existente
+  (item que sumiu cai fora, quantidade maior que o saldo encolhe) e a
+  resposta traz `adjusted`, que vira um toast — mandar ao cliente uma
+  lista prometendo o que a loja não tem é pior do que o ajuste.
+- **`confirm_whatsapp_order` aborta por falta de estoque; `fulfill_order_stock`
+  não.** Elas parecem a mesma função e fazem o oposto de propósito: no
+  webhook do Mercado Pago o dinheiro já entrou, então ignorar uma
+  variação sem saldo e seguir é o mal menor. Aqui ninguém pagou ainda, e
+  o atendente precisa saber que não pode vender **antes** de responder.
+  A exception nomeia a peça que faltou e desfaz tudo (nenhuma outra
+  variação é decrementada). O loop percorre `order by variant_id` para
+  que dois admins confirmando ao mesmo tempo travem na mesma ordem em vez
+  de deadlockar, e a linha do pedido é travada com `for update`, então
+  dois cliques viram uma confirmação e um `NOT_PENDING`.
+- **Expiração sem cron.** Não existe agendador neste projeto. A varredura
+  (`expire_whatsapp_orders`) roda ao abrir a aba e dentro de cada pedido
+  novo — o estado está correto sempre que alguém olha. A rede de
+  segurança de verdade não é ela: é `confirm_whatsapp_order` recusar um
+  pedido vencido mesmo que a varredura ainda não tenha passado.
+  Consequência aceita: sem visitas ao painel e sem vendas novas, um
+  pedido vencido fica exibindo `aguardando_whatsapp` até a próxima delas.
+- **Bug encontrado relendo o SQL, não em teste**: `orders.customer_id`
+  aponta para `customers`, não para `auth.users`. Gravar `auth.uid()`
+  direto estouraria a FK para quem tem conta de autenticação sem cadastro
+  de cliente completo — estado que existe (o checkout normal o barra com
+  "complete seu cadastro"). Sem cadastro, o pedido segue como visitante.
+- **A ficha do pedido troca o formulário de status por um aviso enquanto
+  o pedido está `aguardando_whatsapp`.** Aquele formulário levaria o
+  pedido a "Pago" por `fulfill_order_stock()` — a versão tolerante — e
+  contornaria silenciosamente a checagem transacional. A única porta
+  enquanto a venda não fechou é a aba de WhatsApp.
+- **Buscar por código ignora o filtro de status.** O atendente digita o
+  código que o cliente mandou para achar *aquele* pedido; devolver "nada
+  encontrado" porque ele já foi confirmado e a aba estava em "Aguardando"
+  seria esconder exatamente a resposta pedida.
+- **`og:image` garantido em três camadas**: foto da galeria → foto da
+  variação (o caso normal de peça única, que antes era compartilhada sem
+  imagem nenhuma) → cartão gerado por `ImageResponse` em
+  `produto/[slug]/opengraph-image.tsx`. A terceira camada só entra porque
+  a metadata **omite a chave** `openGraph.images` em vez de passá-la como
+  `undefined` — é a ausência dela que deixa o convention de arquivo
+  assumir.
+- **A aba abre no gesto do clique, antes do `await`.** `window.open()`
+  depois da resposta da Server Action é o que todo bloqueador de pop-up
+  móvel recusa — era assim que o botão simplesmente não fazia nada no
+  iPhone. A aba é aberta em branco e recebe a URL no fim; se mesmo assim
+  vier bloqueada, a aba atual navega, porque o pedido já existe e o
+  cliente já tem o código.
+- **Correção de borda no menu do painel**: `pathname.startsWith(href)`
+  acendia "Pedidos" e "Pedidos WhatsApp" ao mesmo tempo — o segundo href
+  começa com o primeiro. Passou a exigir a barra.
+- **Três cópias do mapa de rótulos de status viraram uma**
+  (`ORDER_STATUS_LABEL` em `lib/constants`): com dois status novos, a
+  alternativa era lembrar dos três lugares.
+- **Verificação**: `npx tsc --noEmit`, `npx eslint` e `npm run build`
+  limpos; a migration foi passada pelo parser do próprio Postgres
+  (`libpg_query`) — 17 statements e os 4 corpos plpgsql — e o nome
+  `orders_status_check`, que o `drop constraint` pressupõe, foi conferido
+  contra o banco real. `next start` serviu a página de produto com
+  `og:image` e o botão, a sacola, o cartão gerado (PNG 1200x630, com
+  acentos) e o redirect de `/admin/pedidos-whatsapp` para o login.
+  **O que não foi verificado ao vivo**: nada que dependa da migration —
+  ela não foi aplicada, porque este ambiente não tem credencial de banco
+  nem CLI do Supabase, só a `service_role` (que não roda DDL). Rodar
+  `0014_whatsapp_orders.sql` no SQL Editor é o passo que falta.

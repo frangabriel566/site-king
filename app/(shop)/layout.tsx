@@ -80,7 +80,7 @@ export default async function ShopLayout({
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>
         <Footer settings={settings} categories={categories} />
-        <CartDrawer />
+        <CartDrawer whatsappEnabled={Boolean(settings.whatsapp)} />
         <WhatsAppFloat phone={settings.whatsapp} />
         <CookieBanner />
         {/* Renders nothing. Asserts that a closed overlay never leaves the

@@ -11,6 +11,7 @@ import {
   Award,
   Boxes,
   Package,
+  MessageCircle,
   Users,
   Ticket,
   Star,
@@ -31,13 +32,20 @@ const NAV_ITEMS = [
   { href: "/admin/marcas", label: "Marcas", icon: Award },
   { href: "/admin/estoque", label: "Estoque", icon: Boxes },
   { href: "/admin/pedidos", label: "Pedidos", icon: Package },
+  { href: "/admin/pedidos-whatsapp", label: "Pedidos WhatsApp", icon: MessageCircle },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/cupons", label: "Cupons", icon: Ticket },
   { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export function AdminSidebar({ email }: { email: string | null }) {
+export function AdminSidebar({
+  email,
+  pendingWhatsApp,
+}: {
+  email: string | null;
+  pendingWhatsApp: number;
+}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -61,7 +69,7 @@ export function AdminSidebar({ email }: { email: string | null }) {
       </header>
 
       <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-sidebar md:flex print:hidden">
-        <SidebarPanel pathname={pathname} email={email} />
+        <SidebarPanel pathname={pathname} email={email} pendingWhatsApp={pendingWhatsApp} />
       </aside>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -73,6 +81,7 @@ export function AdminSidebar({ email }: { email: string | null }) {
           <SheetTitle className="sr-only">Menu do painel</SheetTitle>
           <SidebarPanel
             pathname={pathname}
+            pendingWhatsApp={pendingWhatsApp}
             email={email}
             onNavigate={() => setMobileOpen(false)}
           />
@@ -87,10 +96,12 @@ export function AdminSidebar({ email }: { email: string | null }) {
 function SidebarPanel({
   pathname,
   email,
+  pendingWhatsApp,
   onNavigate,
 }: {
   pathname: string;
   email: string | null;
+  pendingWhatsApp: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -117,10 +128,15 @@ function SidebarPanel({
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
+            // `startsWith(href)` cru acendia dois itens de uma vez desde
+            // que "/admin/pedidos-whatsapp" entrou na lista — ele começa
+            // com "/admin/pedidos". Exigir a barra mantém a ficha do
+            // pedido ("/admin/pedidos/<id>") acesa sob "Pedidos" sem
+            // pegar a aba vizinha.
             const isActive =
               item.href === "/admin"
                 ? pathname === "/admin"
-                : pathname.startsWith(item.href);
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <li key={item.href}>
@@ -145,6 +161,14 @@ function SidebarPanel({
                     aria-hidden="true"
                   />
                   {item.label}
+                  {item.href === "/admin/pedidos-whatsapp" && pendingWhatsApp > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--warning)] px-1.5 text-[11px] font-semibold text-black">
+                      <span className="sr-only">
+                        {pendingWhatsApp} pedidos aguardando WhatsApp
+                      </span>
+                      <span aria-hidden="true">{pendingWhatsApp}</span>
+                    </span>
+                  )}
                 </Link>
               </li>
             );

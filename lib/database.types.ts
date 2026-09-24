@@ -22,7 +22,11 @@ export type OrderStatus =
   | "processing"
   | "shipped"
   | "delivered"
-  | "canceled";
+  | "canceled"
+  // Compra direta pelo WhatsApp (0014): o pedido existe, a conversa ainda
+  // não fechou. `expirado` é o mesmo pedido depois das 48h.
+  | "aguardando_whatsapp"
+  | "expirado";
 export type CouponType = "percent" | "fixed";
 
 export interface Database {
@@ -502,6 +506,8 @@ export interface Database {
           payment_method: string | null;
           payment_id: string | null;
           tracking_code: string | null;
+          code: string | null;
+          expires_at: string | null;
           shipping_service: string | null;
           melhorenvio_order_id: string | null;
           label_url: string | null;
@@ -523,6 +529,8 @@ export interface Database {
           payment_method?: string | null;
           payment_id?: string | null;
           tracking_code?: string | null;
+          code?: string | null;
+          expires_at?: string | null;
           shipping_service?: string | null;
           melhorenvio_order_id?: string | null;
           label_url?: string | null;
@@ -544,6 +552,8 @@ export interface Database {
           payment_method?: string | null;
           payment_id?: string | null;
           tracking_code?: string | null;
+          code?: string | null;
+          expires_at?: string | null;
           shipping_service?: string | null;
           melhorenvio_order_id?: string | null;
           label_url?: string | null;
@@ -709,6 +719,23 @@ export interface Database {
       fulfill_order_stock: {
         Args: { p_order_id: string };
         Returns: undefined;
+      };
+      // 0014 — compra direta pelo WhatsApp.
+      create_whatsapp_order: {
+        Args: { p_items: Json };
+        Returns: Json;
+      };
+      confirm_whatsapp_order: {
+        Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      cancel_whatsapp_order: {
+        Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      expire_whatsapp_orders: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       validate_coupon: {
         Args: { p_code: string; p_subtotal: number };

@@ -6,11 +6,12 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 
-export function CartDrawer() {
+export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { items, subtotal, isOpen, close, setQty, removeItem } = useCart();
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
@@ -172,6 +173,15 @@ export function CartDrawer() {
               <Button asChild size="xl" className="w-full" onClick={close}>
                 <Link href="/checkout">Finalizar compra</Link>
               </Button>
+              {whatsappEnabled && (
+                <div className="mt-3">
+                  <WhatsAppBuyButton
+                    getItems={() =>
+                      items.map((item) => ({ variantId: item.variantId, qty: item.qty }))
+                    }
+                  />
+                </div>
+              )}
               <Button asChild variant="outline" size="lg" className="mt-3 w-full" onClick={close}>
                 <Link href="/sacola">Ver sacola completa</Link>
               </Button>

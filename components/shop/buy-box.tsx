@@ -11,6 +11,7 @@ import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { formatCurrency, formatInstallments } from "@/lib/format";
 import { SizeGuideModal } from "@/components/shop/size-guide-modal";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
+import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { Button } from "@/components/ui/button";
 import type { ProductWithRelations } from "@/lib/data/products";
 
@@ -32,6 +33,7 @@ export function BuyBox({
   mainImage,
   selectedColor,
   onColorChange,
+  whatsappEnabled,
 }: {
   product: ProductWithRelations;
   /** Built by the parent (ProductMedia) so the gallery's thumbnail column
@@ -42,6 +44,10 @@ export function BuyBox({
    * swap the gallery to that color's photo, when one was uploaded. */
   selectedColor: string;
   onColorChange: (color: string) => void;
+  /** Só há número de WhatsApp salvo nas configurações quando isto é
+   * verdadeiro. Sem ele o botão não aparece — oferecer uma compra que
+   * termina num erro é pior do que não oferecê-la. */
+  whatsappEnabled: boolean;
 }) {
   const { addItem, open } = useCart();
   const router = useRouter();
@@ -350,6 +356,19 @@ export function BuyBox({
         >
           {added ? "Adicionado ✓" : "Adicionar à sacola"}
         </Button>
+        {whatsappEnabled && (
+          // Reaproveita buildCartItem() de propósito: é ele que decide se
+          // há uma variação escolhida e que mostra o "escolha um tamanho"
+          // rolando até o seletor. Sem isso, este botão teria a própria
+          // validação, e as duas iam divergir na primeira mudança.
+          <WhatsAppBuyButton
+            disabled={allOutOfStock}
+            getItems={() => {
+              const item = buildCartItem();
+              return item ? [{ variantId: item.variantId, qty: item.qty }] : null;
+            }}
+          />
+        )}
       </div>
 
       <div className="mt-6 border-t border-line pt-6">

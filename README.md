@@ -40,6 +40,7 @@ lib/data/               leituras tipadas (Server Components)
 lib/actions/            Server Actions (toda escrita)
 lib/validations/        schemas Zod
 lib/payments/           PaymentProvider (Mercado Pago / WhatsApp) + webhook helpers
+lib/whatsapp/           número da loja + mensagem da compra direta pelo WhatsApp
 lib/cart/               Context do carrinho (localStorage)
 supabase/migrations/    schema, RLS, funções, storage — nessa ordem
 supabase/seed.sql       admin + categorias + produtos + banner + settings de demonstração
@@ -61,13 +62,10 @@ supabase/seed.sql       admin + categorias + produtos + banner + settings de dem
 ## Configurando o projeto Supabase
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. Rode as migrations **nessa ordem**, pelo SQL Editor do painel Supabase
-   ou via `supabase db push` com a CLI:
-   1. `supabase/migrations/0001_schema.sql`
-   2. `supabase/migrations/0002_rls.sql`
-   3. `supabase/migrations/0003_functions.sql`
-   4. `supabase/migrations/0004_storage.sql`
-   5. `supabase/migrations/0005_newsletter.sql`
+2. Rode **todos** os arquivos de `supabase/migrations/` em ordem numérica
+   (`0001_schema.sql` → `0014_whatsapp_orders.sql`), pelo SQL Editor do
+   painel Supabase ou via `supabase db push` com a CLI. A ordem importa:
+   cada arquivo a partir do `0006` altera o que os anteriores criaram.
 3. Rode `supabase/seed.sql` para popular o banco (1 admin, 4 categorias, 8
    produtos com variações e fotos placeholder, 1 banner ativo,
    configurações da loja, 1 cupom de boas-vindas). Isso sobe um ambiente
@@ -105,6 +103,24 @@ Escolha via `PAYMENT_PROVIDER` no `.env`:
 - **`whatsapp`**: preencha `NEXT_PUBLIC_WHATSAPP_NUMBER` (ou o WhatsApp em
   Configurações do painel, que tem prioridade). O checkout monta a
   mensagem do pedido e abre o `wa.me` correspondente.
+
+### Compra direta pelo WhatsApp
+
+Independente de `PAYMENT_PROVIDER`: havendo WhatsApp salvo em
+Configurações, a página de produto e a sacola ganham **"Comprar pelo
+WhatsApp"**. O botão grava um pedido com status `aguardando_whatsapp` e
+código sequencial próprio (`#KS0001`) e abre a conversa já com o código,
+os itens (nome, cor, tamanho, quantidade, preço), o link de cada produto
+e o total.
+
+- **Não reserva estoque.** A baixa acontece só em **Pedidos WhatsApp →
+  Confirmar venda**, numa transação que recusa o pedido inteiro se faltar
+  saldo de qualquer variação (`confirm_whatsapp_order`).
+- **Pendentes expiram em 48h** e viram `expirado`. Não há cron: a
+  varredura (`expire_whatsapp_orders`) roda ao abrir a aba do painel e a
+  cada pedido novo, e confirmar um pedido vencido é recusado de qualquer
+  forma.
+- Não exige login — um visitante fecha pedido e se identifica na conversa.
 
 ## Padrões do projeto
 

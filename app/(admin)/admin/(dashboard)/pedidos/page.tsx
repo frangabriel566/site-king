@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllOrdersAdmin } from "@/lib/data/orders";
+import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { StatusBadge, ORDER_STATUS_TONE } from "@/components/admin/status-badge";
 import {
@@ -14,15 +15,6 @@ import {
 import { OrdersFilterBar } from "./orders-filter-bar";
 
 export const metadata: Metadata = { title: "Pedidos — Painel" };
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Aguardando pagamento",
-  paid: "Pago",
-  processing: "Em preparação",
-  shipped: "Enviado",
-  delivered: "Entregue",
-  canceled: "Cancelado",
-};
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -72,7 +64,7 @@ export default async function AdminOrdersPage({
                   </TableCell>
                   <TableCell>
                     <StatusBadge tone={ORDER_STATUS_TONE[order.status]}>
-                      {STATUS_LABEL[order.status] ?? order.status}
+                      {ORDER_STATUS_LABEL[order.status] ?? order.status}
                     </StatusBadge>
                   </TableCell>
                   <TableCell className="text-right">

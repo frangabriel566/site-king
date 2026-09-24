@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getOrderByIdAdmin } from "@/lib/data/orders";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { OrderStatusForm } from "./order-status-form";
@@ -36,7 +37,7 @@ export default async function AdminOrderDetailPage({
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-label mb-2">Pedidos</p>
-          <h1 className="text-heading text-3xl">Pedido #{order.order_number}</h1>
+          <h1 className="text-heading text-3xl">Pedido #{order.code ?? order.order_number}</h1>
           <p className="mt-2 text-sm text-ink-muted">{formatDateTime(order.created_at)}</p>
         </div>
       </div>
@@ -120,11 +121,35 @@ export default async function AdminOrderDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
-          <OrderStatusForm
-            orderId={order.id}
-            currentStatus={order.status}
-            currentTrackingCode={order.tracking_code}
-          />
+          {order.status === "aguardando_whatsapp" ? (
+            // O formulário genérico levaria este pedido a "Pago" por
+            // fulfill_order_stock(), que ignora em silêncio uma variação
+            // sem saldo. Enquanto a venda não está fechada, a única porta
+            // é a aba de WhatsApp, onde a baixa é transacional e recusa o
+            // pedido inteiro se faltar uma peça.
+            <div className="rounded-lg border border-line bg-card p-5 print:hidden">
+              <p className="text-label mb-2">Aguardando WhatsApp</p>
+              <p className="text-sm text-ink-muted">
+                Código <strong className="text-fg">#{order.code}</strong>. Confirme
+                ou cancele esta venda em{" "}
+                <Link
+                  href="/admin/pedidos-whatsapp"
+                  className="text-accent-light hover:underline"
+                >
+                  Pedidos WhatsApp
+                </Link>
+                {order.expires_at
+                  ? ` — ela expira em ${formatDateTime(order.expires_at)}.`
+                  : "."}
+              </p>
+            </div>
+          ) : (
+            <OrderStatusForm
+              orderId={order.id}
+              currentStatus={order.status}
+              currentTrackingCode={order.tracking_code}
+            />
+          )}
           <ShippingLabel
             orderId={order.id}
             initial={

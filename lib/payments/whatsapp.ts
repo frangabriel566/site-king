@@ -1,21 +1,11 @@
 import "server-only";
 import { formatCurrency } from "@/lib/format";
-import { createPublicClient } from "@/lib/supabase/public";
+import { getStoreWhatsAppNumber } from "@/lib/whatsapp/order-link";
 import type { PaymentInitResult, PaymentOrderInput, PaymentProvider } from "./types";
 
 export class WhatsAppProvider implements PaymentProvider {
   async createPayment(input: PaymentOrderInput): Promise<PaymentInitResult> {
-    const supabase = createPublicClient();
-    const { data: settings } = await supabase
-      .from("site_settings")
-      .select("whatsapp")
-      .eq("id", 1)
-      .maybeSingle();
-
-    const phone = (settings?.whatsapp ?? process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
-      /\D/g,
-      "",
-    );
+    const phone = await getStoreWhatsAppNumber();
 
     if (!phone) {
       throw new Error("Nenhum número de WhatsApp configurado.");

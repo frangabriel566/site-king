@@ -2,18 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderForConfirmation } from "@/lib/data/orders";
+import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Pedido" };
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Aguardando pagamento",
-  paid: "Pago",
-  processing: "Em preparação",
-  shipped: "Enviado",
-  delivered: "Entregue",
-  canceled: "Cancelado",
-};
 
 export default async function OrderConfirmationPage({
   params,
@@ -37,16 +29,31 @@ export default async function OrderConfirmationPage({
   return (
     <div className="px-8 py-16 md:px-12">
       <div className="mx-auto max-w-2xl">
-        <p className="text-label mb-3">Pedido confirmado</p>
-        <h1 className="text-2xl font-bold text-fg md:text-3xl">#{order.order_number}</h1>
+        <p className="text-label mb-3">
+          {order.status === "aguardando_whatsapp" ? "Pedido gerado" : "Pedido confirmado"}
+        </p>
+        {/* Um pedido nascido no WhatsApp é conhecido pelo código, não pelo
+            número interno: é o código que está na conversa do cliente. */}
+        <h1 className="text-2xl font-bold text-fg md:text-3xl">
+          #{order.code ?? order.order_number}
+        </h1>
         <p className="mt-3 text-sm text-ink-muted">
-          {formatDateTime(order.created_at)} · {STATUS_LABEL[order.status] ?? order.status}
+          {formatDateTime(order.created_at)} · {ORDER_STATUS_LABEL[order.status] ?? order.status}
         </p>
 
         {order.status === "pending" && (
           <p className="mt-6 rounded-md border border-line bg-surface p-4 text-sm text-muted-foreground">
             Assim que o pagamento for confirmado, você recebe um e-mail e o
             status deste pedido é atualizado automaticamente.
+          </p>
+        )}
+
+        {order.status === "aguardando_whatsapp" && (
+          <p className="mt-6 rounded-md border border-line bg-surface p-4 text-sm text-muted-foreground">
+            Este pedido está guardado com a loja até{" "}
+            {order.expires_at ? formatDateTime(order.expires_at) : "ser confirmado"}.
+            Mande o código no WhatsApp para combinar frete e pagamento — o
+            estoque só sai quando a loja confirmar a venda.
           </p>
         )}
 

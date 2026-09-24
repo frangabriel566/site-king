@@ -29,6 +29,11 @@ export const ORDER_STATUS_TONE: Record<string, StatusTone> = {
   shipped: "info",
   delivered: "success",
   canceled: "danger",
+  // "warning" como `pending`: os dois querem dizer a mesma coisa para
+  // quem varre a lista — tem alguém esperando a loja agir.
+  aguardando_whatsapp: "warning",
+  // Neutro, não "danger": expirar é o cliente sumir, não um erro da loja.
+  expirado: "neutral",
 };
 
 /** Product status (products.status). */

@@ -15,10 +15,12 @@ export function ProductMedia({
   product,
   images,
   mainImage,
+  whatsappEnabled,
 }: {
   product: ProductWithRelations;
   images: ProductImage[];
   mainImage: string | null;
+  whatsappEnabled: boolean;
 }) {
   const variants = product.product_variants;
 
@@ -124,6 +126,7 @@ export function ProductMedia({
           mainImage={mainImage}
           selectedColor={selectedColor}
           onColorChange={setSelectedColor}
+          whatsappEnabled={whatsappEnabled}
         />
       </div>
     </>

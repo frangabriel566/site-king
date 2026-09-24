@@ -18,6 +18,11 @@ const STATUS_OPTIONS = [
   { value: "shipped", label: "Enviado" },
   { value: "delivered", label: "Entregue" },
   { value: "canceled", label: "Cancelado" },
+  // A compra pelo WhatsApp cria pedidos de verdade, então eles aparecem
+  // nesta lista como qualquer outro. Quem trabalha neles é a aba
+  // "Pedidos WhatsApp"; aqui é só para não sumirem de uma busca geral.
+  { value: "aguardando_whatsapp", label: "Aguardando WhatsApp" },
+  { value: "expirado", label: "Expirado" },
 ];
 
 export function OrdersFilterBar({

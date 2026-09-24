@@ -7,12 +7,13 @@ import { ArrowLeft, Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
+import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shop/empty-state";
 
-export function BagView() {
+export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { items, subtotal, setQty, removeItem, isHydrated } = useCart();
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
@@ -193,6 +194,21 @@ export function BagView() {
           <Button asChild size="xl" className="mt-6 w-full">
             <Link href="/checkout">Finalizar compra</Link>
           </Button>
+          {whatsappEnabled && (
+            <div className="mt-3">
+              {/* A sacola inteira, não a seleção das caixinhas: aquelas
+                  marcações existem para remover itens em lote, e ninguém
+                  espera que desmarcar uma peça também a tire do pedido. */}
+              <WhatsAppBuyButton
+                getItems={() =>
+                  items.map((item) => ({ variantId: item.variantId, qty: item.qty }))
+                }
+              />
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                Geramos um código e você combina frete e pagamento com a loja.
+              </p>
+            </div>
+          )}
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5" aria-hidden="true" />
             Compra 100% segura

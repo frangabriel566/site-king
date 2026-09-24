@@ -1,3 +1,5 @@
+import type { OrderStatus } from "@/lib/database.types";
+
 export const CART_STORAGE_KEY = "king-store:cart";
 export const COOKIE_CONSENT_KEY = "king-store:cookie-consent";
 /** Fired on `window` the moment cookie consent is accepted, so other
@@ -67,6 +69,57 @@ export const CHECKOUT_METHOD_PARAM = "via";
 
 export function isCheckoutMethod(value: unknown): value is CheckoutMethod {
   return value === "site" || value === "whatsapp";
+}
+
+/**
+ * O nome em português de cada `orders.status`.
+ *
+ * Uma cópia só: a listagem do painel, a ficha do pedido e a página de
+ * confirmação da vitrine mostravam o mesmo mapa escrito três vezes, e
+ * cada status novo tinha de ser lembrado nos três lugares.
+ */
+export const ORDER_STATUS_LABEL: Record<string, string> = {
+  pending: "Aguardando pagamento",
+  paid: "Pago",
+  processing: "Em preparação",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  canceled: "Cancelado",
+  aguardando_whatsapp: "Aguardando WhatsApp",
+  expirado: "Expirado",
+};
+
+/** Quanto tempo um pedido de WhatsApp fica de pé antes de expirar.
+ *  A regra mora no banco (create_whatsapp_order / expire_whatsapp_orders);
+ *  isto é só o número que a interface mostra ao cliente e ao atendente. */
+export const WHATSAPP_ORDER_TTL_HOURS = 48;
+
+/**
+ * Os recortes da aba "Pedidos WhatsApp". "pendentes" é o estado em que há
+ * trabalho a fazer, por isso é o padrão; os outros três são histórico.
+ *
+ * Mora aqui, e não em lib/data/whatsapp-orders, porque a barra de filtros
+ * é um Client Component e aquele módulo é `server-only`.
+ *
+ * `satisfies` e não `as const`: dá tipagem contextual às listas (cada
+ * `statuses` vira `OrderStatus[]`, então um status inventado quebra o
+ * build) sem perder as chaves literais de que WhatsAppOrderFilter vive.
+ */
+export const WHATSAPP_ORDER_FILTERS = {
+  pendentes: { label: "Aguardando", statuses: ["aguardando_whatsapp"] },
+  confirmados: {
+    label: "Confirmados",
+    statuses: ["paid", "processing", "shipped", "delivered"],
+  },
+  cancelados: { label: "Cancelados", statuses: ["canceled"] },
+  expirados: { label: "Expirados", statuses: ["expirado"] },
+  todos: { label: "Todos", statuses: [] },
+} satisfies Record<string, { label: string; statuses: OrderStatus[] }>;
+
+export type WhatsAppOrderFilter = keyof typeof WHATSAPP_ORDER_FILTERS;
+
+export function isWhatsAppOrderFilter(value: unknown): value is WhatsAppOrderFilter {
+  return typeof value === "string" && value in WHATSAPP_ORDER_FILTERS;
 }
 
 export const SIZE_ORDER = ["PP", "P", "M", "G", "GG", "XG", "U"] as const;

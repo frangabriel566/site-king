@@ -14,6 +14,8 @@ const ORDER_STATUSES: OrderStatus[] = [
   "shipped",
   "delivered",
   "canceled",
+  "aguardando_whatsapp",
+  "expirado",
 ];
 
 function isOrderStatus(value: string): value is OrderStatus {

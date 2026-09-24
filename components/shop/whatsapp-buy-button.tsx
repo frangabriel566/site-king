@@ -57,8 +57,10 @@ export function WhatsAppBuyButton({
 
       if (result.adjusted) {
         toast.warning("Alguns itens foram ajustados", {
-          description:
-            "A quantidade de alguma peça mudou por causa do estoque. Confira a lista na mensagem.",
+          // Duas causas caem aqui — estoque menor do que o pedido, e
+          // linha da sacola que o site não conseguiu ler — e a saída é a
+          // mesma nas duas: conferir a lista que foi de fato registrada.
+          description: "Confira a lista na mensagem antes de enviar.",
         });
       }
 
@@ -74,9 +76,17 @@ export function WhatsAppBuyButton({
         // do que deixá-lo com um código e nenhuma conversa.
         window.location.href = result.url;
       }
-    } catch {
+    } catch (error) {
       tab?.close();
-      toast.error("Não foi possível gerar seu pedido. Tente de novo.");
+      // Sem isto a causa sumia: uma falha de rede, ou um id de Server
+      // Action que envelheceu depois de um deploy/hot-reload (o navegador
+      // segue com o bundle antigo), chegava aqui como a *mesma* frase que
+      // uma recusa do banco — impossível saber qual dos dois aconteceu.
+      console.error("[WhatsAppBuyButton] createWhatsAppOrderAction falhou", error);
+      toast.error("Não consegui falar com a loja", {
+        description:
+          "Confira sua conexão e recarregue a página antes de tentar de novo.",
+      });
     } finally {
       setPending(false);
     }

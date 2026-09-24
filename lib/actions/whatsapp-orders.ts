@@ -11,8 +11,8 @@ import {
   type WhatsAppOrderItem,
 } from "@/lib/whatsapp/order-link";
 import {
+  parseWhatsAppItems,
   whatsappOrderIdSchema,
-  whatsappOrderSchema,
 } from "@/lib/validations/whatsapp-order";
 import { requireAdmin } from "./require-admin";
 
@@ -67,9 +67,13 @@ const CREATE_ERRORS: Record<string, string> = {
 export async function createWhatsAppOrderAction(
   input: unknown,
 ): Promise<CreateWhatsAppOrderResult> {
-  const parsed = whatsappOrderSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Sacola inválida." };
+  const { items: requested, dropped } = parseWhatsAppItems(input);
+  if (requested.length === 0) {
+    return {
+      ok: false,
+      message:
+        "Não consegui ler os itens da sua sacola. Remova as peças, adicione de novo e tente outra vez.",
+    };
   }
 
   const phone = await getStoreWhatsAppNumber();
@@ -85,7 +89,7 @@ export async function createWhatsAppOrderAction(
   // identificação acontece na própria conversa.
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_whatsapp_order", {
-    p_items: parsed.data.items.map((item) => ({
+    p_items: requested.map((item) => ({
       variant_id: item.variantId,
       qty: item.qty,
     })),
@@ -134,7 +138,9 @@ export async function createWhatsAppOrderAction(
     url: buildWhatsAppOrderLink(phone, message),
     code: order.code,
     orderId: order.order_id,
-    adjusted: Boolean(order.adjusted),
+    // Os dois lados do ajuste: linha que o banco aparou por estoque, e
+    // linha que nem chegou lá porque veio ilegível do localStorage.
+    adjusted: Boolean(order.adjusted) || dropped,
   };
 }
 

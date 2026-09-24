@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ export function OrderSummary({
           <li key={item.variantId} className="flex items-center gap-3 text-sm">
             <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-surface">
               {item.image && (
-                <Image src={item.image} alt="" fill sizes="56px" className="object-cover" />
+                <SafeImage src={item.image} alt="" fill sizes="56px" className="object-cover" />
               )}
             </div>
             <div className="min-w-0 flex-1">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import type { CategoryShowcase } from "@/lib/data/categories";
 
 export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }) {
@@ -43,12 +43,13 @@ export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }
                     // the category — their backdrops are not ours to match.
                     // Filling costs a crop; it buys a row that stays uniform
                     // whatever gets uploaded next.
-                    <Image
+                    <SafeImage
                       src={category.image.url}
                       alt={category.image.alt ?? category.name}
                       fill
                       sizes="(min-width: 768px) 112px, 96px"
                       className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                      fallbackLabel={category.name.charAt(0).toUpperCase()}
                     />
                   ) : (
                     category.name.charAt(0).toUpperCase()

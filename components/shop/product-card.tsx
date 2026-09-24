@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { formatCurrency, formatInstallments } from "@/lib/format";
@@ -36,7 +36,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
       <div className="relative aspect-[3/4] overflow-hidden bg-surface">
         {product.image ? (
           <>
-            <Image
+            <SafeImage
               src={product.image.url}
               alt={product.image.alt ?? product.name}
               fill
@@ -46,7 +46,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               }`}
             />
             {product.secondImage && (
-              <Image
+              <SafeImage
                 src={product.secondImage.url}
                 alt={product.secondImage.alt ?? product.name}
                 fill

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { Search, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { searchProductsAction } from "@/lib/actions/search";
@@ -97,7 +97,7 @@ export function HeaderSearch({ className = "" }: { className?: string }) {
                   >
                     <div className="relative size-12 shrink-0 overflow-hidden rounded-sm bg-surface">
                       {product.image && (
-                        <Image
+                        <SafeImage
                           src={product.image.url}
                           alt={product.image.alt ?? product.name}
                           fill

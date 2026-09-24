@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { Menu, User, ShoppingBag, X, Truck, MessageCircle } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
@@ -143,13 +143,14 @@ export function Header({
 
           <Link href="/" className="col-start-2 shrink-0 select-none justify-self-center">
             {settings.logo_url ? (
-              <Image
+              <SafeImage
                 src={settings.logo_url}
                 alt={settings.store_name}
                 width={174}
                 height={58}
                 className="h-14 w-auto object-contain"
                 priority
+                fallbackLabel={settings.store_name}
               />
             ) : (
               <span className="text-lg font-extrabold uppercase tracking-[0.08em] text-gold">

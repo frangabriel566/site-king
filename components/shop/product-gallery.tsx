@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import useEmblaCarousel from "embla-carousel-react";
 
 const AUTOPLAY_MS = 5000;
@@ -143,7 +143,7 @@ export function ProductGallery({
               }
               aria-current={selected === index}
             >
-              <Image
+              <SafeImage
                 src={slide.url}
                 alt=""
                 fill
@@ -190,7 +190,7 @@ export function ProductGallery({
                       the box's own width goes soft the moment it does.
                       next/image never upscales past the uploaded file, so a
                       smaller original simply serves its own full size. */}
-                  <Image
+                  <SafeImage
                     src={slide.url}
                     alt={slide.alt ?? productName}
                     fill

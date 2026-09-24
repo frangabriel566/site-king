@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
@@ -259,7 +259,14 @@ export function BuyBox({
                   // The color's own photo — same picture the gallery
                   // switches to — doubles as its swatch, like a real photo
                   // thumbnail instead of an abstract color dot.
-                  <Image src={image_url} alt={color} fill sizes="56px" className="object-cover" />
+                  <SafeImage
+                    src={image_url}
+                    alt={color}
+                    fill
+                    sizes="56px"
+                    className="object-cover"
+                    fallbackLabel={color.trim().charAt(0).toUpperCase()}
+                  />
                 ) : color_hex ? (
                   <span
                     className="size-6 rounded-full border border-line"

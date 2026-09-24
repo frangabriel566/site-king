@@ -831,3 +831,63 @@ elemento que o próprio Next.js insere no `<body>` de toda página do App
 Router, com uma região `aria-live` que anuncia mudanças de rota para
 leitores de tela. Confirmado idêntico em `/`, `/colecao`, `/produto/…`,
 `/sacola` e `/checkout`, com zero erro de console em todas.
+
+## Bloco 19 — Fotos que quebravam sozinhas na página de produto
+
+Sintoma relatado com print: na página de produto, a foto grande e uma das
+miniaturas apareciam como o ícone de imagem quebrada com o texto do `alt`
+("Frente") ao lado, enquanto as outras duas miniaturas carregavam normal.
+Recarregar mudava *quais* fotos quebravam, não *se* quebravam.
+
+- **Não era URL ruim, e isso foi verificado antes de escrever qualquer
+  linha.** As 153 imagens cadastradas (`product_images`, `product_variants`
+  e `banners`) foram baixadas uma a uma direto do Storage e depois pedidas
+  de novo através do otimizador do Next: 200 em todas, nas duas pontas.
+  Duzentos pedidos simultâneos ao `/_next/image` com cache frio também
+  voltaram 200 — só que o mais lento levou 5,3s.
+- **A causa é esse 5,3s.** O otimizador baixa o arquivo do Supabase a cada
+  cache frio e **desiste aos 7s** (o timeout é do próprio Next,
+  `next/dist/server/image-optimizer.js`). Uma página de produto dispara
+  ~20 desses pedidos de uma vez; basta uma oscilação de rede para um deles
+  estourar e voltar 504. E aí vem a parte que transforma um soluço em
+  defeito visível: **o `next/image` não tenta de novo**. O `<img>` guarda o
+  erro e só sai dele num reload da página inteira — daí "algumas carregam,
+  outras não, e a cada reload são outras".
+- **`SafeImage` em vez de `Image` em toda a vitrine**
+  (`components/shop/safe-image.tsx`). Cada falha escala um degrau:
+  1. pedido normal, otimizado;
+  2. o mesmo pedido com `?retry=1` grudado na URL de origem — a URL final
+     muda, então nem o erro que o navegador guardou nem a entrada em disco
+     do otimizador conseguem devolver o mesmo 504. Funciona porque
+     `remotePatterns` só compara query string quando a chave `search` é
+     declarada, e a nossa não declara;
+  3. `unoptimized` — o arquivo vem direto do CDN do Supabase, pulando o
+     otimizador de vez.
+- **O terceiro degrau é o que de fato salva a foto, não um enfeite.** Se o
+  problema é o pulo pelo otimizador, ir direto na origem entrega a imagem
+  real em vez de esconder o defeito. Sai caro em bytes — mas os uploads já
+  são WebP de no máximo 2560px (`lib/client-upload.ts`), então o arquivo
+  cru é da ordem de 120KB, não de 5MB.
+- **O quadro "Sem imagem" é o último recurso, não o primeiro.** Ele já
+  existia para produto sem foto cadastrada; agora cobre também a foto que
+  não carregou de jeito nenhum. Um quadro cinza deliberado é melhor que o
+  ícone quebrado do navegador, mas é pior que a foto — por isso vem depois
+  das três tentativas, nunca no lugar delas.
+- **A espera de 600ms entre tentativas é proposital.** A falha vem de
+  congestionamento; repetir no mesmo instante cai no mesmo congestionamento.
+- **Trocar a foto no mesmo slot zera a escalada** (outra cor no seletor, outro
+  produto num card reaproveitado). Sem isso a foto nova herdaria o estágio da
+  anterior e iria direto para o quadro cinza sem nunca ter sido pedida.
+- **Rótulo do quadro por contexto.** "Sem imagem" serve para foto de produto;
+  num swatch de 56px ou num logo ele não cabe nem faz sentido, então ali o
+  `fallbackLabel` é a inicial da cor, a inicial da categoria ou o nome da
+  marca/loja — o mesmo texto que esses pontos já mostravam quando não havia
+  imagem cadastrada. Nos banners o rótulo é vazio: legenda sobre a arte de um
+  hero seria pior que o vazio.
+- **Verificação ao vivo com Playwright**, interceptando as respostas do
+  otimizador na própria página de produto. Quatro cenários: sem falha, a foto
+  carrega; **um 504 isolado**, a foto se recupera sozinha na segunda tentativa
+  (era exatamente esse caso que ficava quebrado para sempre); **otimizador
+  fora do ar**, a foto aparece servida direto do CDN, com a galeria e as três
+  miniaturas intactas; **tudo fora do ar**, o painel "SEM IMAGEM" no lugar do
+  ícone quebrado. `tsc`, `eslint` e `next build` limpos.

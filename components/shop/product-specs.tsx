@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { Share2, ChevronDown, Star, Mail } from "lucide-react";
 import { WhatsAppIcon } from "./whatsapp-icon";
@@ -111,12 +111,13 @@ export function ProductSpecs({
 
       {product.brand?.logo_url && (
         <Link href={`/marca/${product.brand.slug}`} className="block w-fit">
-          <Image
+          <SafeImage
             src={product.brand.logo_url}
             alt={product.brand.name}
             width={120}
             height={40}
             className="h-8 w-auto object-contain"
+            fallbackLabel={product.brand.name}
           />
         </Link>
       )}

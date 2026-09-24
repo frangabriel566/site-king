@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -106,7 +106,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                   />
                   <div className="relative size-20 shrink-0 overflow-hidden rounded-md border border-line bg-surface">
                     {item.image && (
-                      <Image
+                      <SafeImage
                         src={item.image}
                         alt={item.name}
                         fill

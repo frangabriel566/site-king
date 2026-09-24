@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import {
   Carousel,
   CarouselContent,
@@ -49,7 +49,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                 className="relative block aspect-[12/5] w-full overflow-hidden bg-surface"
               >
                 {banner.image_url && (
-                  <Image
+                  <SafeImage
                     src={banner.image_url}
                     alt={banner.headline_line1 ?? banner.wordmark ?? ""}
                     fill
@@ -57,6 +57,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                     quality={90}
                     sizes="100vw"
                     className="object-cover"
+                    fallbackLabel=""
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />

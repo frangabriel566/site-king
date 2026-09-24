@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { ArrowLeft, Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
@@ -127,7 +127,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                     needs and pushed it past the card. */}
                 <div className="relative size-20 shrink-0 overflow-hidden rounded-md border border-line bg-surface sm:size-24 md:size-28">
                 {item.image && (
-                  <Image
+                  <SafeImage
                     src={item.image}
                     alt={item.name}
                     fill

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { CreditCard, ShieldCheck, Lock, Camera, Music2, Mail } from "lucide-react";
 import { FooterNewsletter } from "./footer-newsletter";
 import { FooterAccordionSection } from "./footer-accordion-section";
@@ -20,12 +20,13 @@ export function Footer({
         <div className="divide-y divide-white/10 pb-2 lg:grid lg:grid-cols-5 lg:gap-10 lg:divide-y-0 lg:pb-12">
           <div className="pb-5 lg:col-span-2 lg:pb-0">
             {settings.logo_url ? (
-              <Image
+              <SafeImage
                 src={settings.logo_url}
                 alt={settings.store_name}
                 width={140}
                 height={40}
                 className="h-9 w-auto object-contain"
+                fallbackLabel={settings.store_name}
               />
             ) : (
               <p className="text-sm font-extrabold uppercase tracking-[0.08em] text-gold">

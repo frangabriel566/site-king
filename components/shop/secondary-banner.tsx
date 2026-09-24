@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import type { Banner } from "@/lib/data/banners";
 
 /**
@@ -19,13 +19,14 @@ export function SecondaryBanner({ banner }: { banner: Banner | null }) {
         href={banner.cta_href || "/colecao"}
         className="group relative block aspect-[16/9] w-full overflow-hidden rounded-lg bg-surface sm:aspect-[21/9]"
       >
-        <Image
+        <SafeImage
           src={banner.image_url}
           alt={banner.headline_line1 ?? banner.wordmark ?? ""}
           fill
           sizes="(min-width: 1400px) 1400px, 100vw"
           quality={90}
           className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+          fallbackLabel=""
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
         {hasCopy && (

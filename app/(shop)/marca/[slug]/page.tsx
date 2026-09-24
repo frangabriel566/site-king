@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { getBrandBySlug } from "@/lib/data/brands";
 import { getProductsByBrand } from "@/lib/data/products";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
@@ -45,12 +45,13 @@ export default async function BrandPage({
 
       <div className="my-6 flex items-center gap-4">
         {brand.logo_url && (
-          <Image
+          <SafeImage
             src={brand.logo_url}
             alt={brand.name}
             width={64}
             height={64}
             className="size-16 rounded-lg border border-line object-contain p-2"
+            fallbackLabel={brand.name}
           />
         )}
         <div>

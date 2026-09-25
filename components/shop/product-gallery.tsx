@@ -3,19 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import useEmblaCarousel from "embla-carousel-react";
+import {
+  GALLERY_IMAGE_QUALITY,
+  GALLERY_IMAGE_SIZES,
+  type GallerySlide,
+} from "@/lib/product-gallery";
+
+export type { GallerySlide };
 
 const AUTOPLAY_MS = 5000;
-
-export type GallerySlide = {
-  id: string;
-  url: string;
-  alt: string | null;
-  /** Set when the slide is a color's own photo (product_variants.image_url).
-   * Those slides double as the color picker: their thumbnail selects the
-   * color, and landing on one — by click, swipe or autoplay — keeps the buy
-   * box's selected color in sync with the photo on screen. */
-  color?: string;
-};
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -39,9 +35,13 @@ export function ProductGallery({
   autoplay = false,
   onInteract,
   discountPercent = 0,
+  heroPlaceholder,
 }: {
   slides: GallerySlide[];
   productName: string;
+  /** The listing card's already-downloaded copy of the first slide's photo,
+   * painted under it until the full-size file arrives. */
+  heroPlaceholder?: string;
   /** Drawn as a ribbon across the foot of the photo, the way a marked-down
    * item is flagged on a marketplace listing. 0 hides it. */
   discountPercent?: number;
@@ -61,6 +61,14 @@ export function ProductGallery({
   // tap can fire a stray mousemove, which would leave the photo stuck at
   // 1.8x with no pointer left to move away.
   const canZoom = useMediaQuery("(hover: hover) and (pointer: fine)");
+  // The other slides hold their download until the first photo is in. They
+  // are `lazy`, but the looping carousel keeps its neighbours right next to
+  // the viewport, so the browser fetched them all at once and the photo on
+  // screen shared a phone's bandwidth with two or three it wasn't showing.
+  // Any touch on the gallery lets them go immediately, and the slide being
+  // shown always loads.
+  const [restReleased, setRestReleased] = useState(false);
+  const releaseRest = useCallback(() => setRestReleased(true), []);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -107,6 +115,7 @@ export function ProductGallery({
 
   function goTo(index: number) {
     onInteract?.();
+    releaseRest();
     emblaApi?.scrollTo(index);
   }
 
@@ -160,7 +169,14 @@ export function ProductGallery({
               -{discountPercent}% OFF
             </div>
           )}
-          <div className="overflow-hidden" ref={emblaRef} onPointerDown={onInteract}>
+          <div
+            className="overflow-hidden"
+            ref={emblaRef}
+            onPointerDown={() => {
+              onInteract?.();
+              releaseRest();
+            }}
+          >
           <div className="flex">
             {slides.map((slide, index) => (
               <div key={slide.id} className="min-w-0 flex-[0_0_100%]">
@@ -184,29 +200,37 @@ export function ProductGallery({
                   {/* One photo per slide, not a desktop one plus a hidden
                       mobile one: a display:none image is downloaded all the
                       same, so that pair spent half of the page's image
-                      budget on bytes nobody ever saw. The width asked for
-                      below is deliberately wider than the box, because the
-                      hover zoom blows the photo up to 1.8x and a file cut to
-                      the box's own width goes soft the moment it does.
-                      next/image never upscales past the uploaded file, so a
-                      smaller original simply serves its own full size. */}
-                  <SafeImage
-                    src={slide.url}
-                    alt={slide.alt ?? productName}
-                    fill
-                    priority={index === 0}
-                    quality={95}
-                    sizes="(min-width: 1024px) 1200px, (min-width: 768px) 80vw, 100vw"
-                    className="object-cover transition-transform duration-200 ease-out"
-                    style={
-                      zoom && selected === index
-                        ? {
-                            transform: "scale(1.8)",
-                            transformOrigin: `${zoom.x}% ${zoom.y}%`,
-                          }
-                        : undefined
-                    }
-                  />
+                      budget on bytes nobody ever saw. Why the width asked
+                      for is wider than the box on desktop is next to
+                      GALLERY_IMAGE_SIZES. next/image never upscales past the
+                      uploaded file, so a smaller original simply serves its
+                      own full size. */}
+                  {(index === 0 || restReleased || index === selected) && (
+                    <SafeImage
+                      src={slide.url}
+                      alt={slide.alt ?? productName}
+                      fill
+                      reveal
+                      placeholderSrc={index === 0 ? heroPlaceholder : undefined}
+                      priority={index === 0}
+                      // `priority` only makes it eager and preloads it; the
+                      // request itself still starts at the low priority every
+                      // image gets until layout proves it is on screen.
+                      fetchPriority={index === 0 ? "high" : "low"}
+                      onLoad={index === 0 ? releaseRest : undefined}
+                      quality={GALLERY_IMAGE_QUALITY}
+                      sizes={GALLERY_IMAGE_SIZES}
+                      className="object-cover transition-transform duration-200 ease-out"
+                      style={
+                        zoom && selected === index
+                          ? {
+                              transform: "scale(1.8)",
+                              transformOrigin: `${zoom.x}% ${zoom.y}%`,
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
                 </div>
               </div>
             ))}

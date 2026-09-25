@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { formatCurrency, formatInstallments } from "@/lib/format";
 import { useFavorite } from "@/lib/hooks/use-favorite";
+import { preloadGalleryImage, rememberCardImage } from "@/lib/image-handoff";
 import type { ProductListItem } from "@/lib/data/products";
 
 const BADGE_LABEL: Record<string, string> = {
@@ -15,8 +17,33 @@ const BADGE_LABEL: Record<string, string> = {
 
 const LOW_STOCK_THRESHOLD = 3;
 
+// How long the pointer has to rest on a card before its big photo is
+// fetched: sweeping the mouse across the grid would otherwise start a
+// download of several hundred KB for every card it crossed.
+const HOVER_INTENT_MS = 100;
+
 export function ProductCard({ product }: { product: ProductListItem }) {
   const { isFavorite, toggle } = useFavorite(product.id);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    };
+  }, []);
+
+  // Gives the product page a head start on its photo. The route itself is
+  // <Link>'s job — it prefetches in the viewport and again on hover/touch.
+  function primeProductPage(link: HTMLAnchorElement, fetchPriority: "high" | "auto") {
+    if (product.image) {
+      rememberCardImage(
+        product.slug,
+        product.image.url,
+        link.querySelector<HTMLImageElement>("img[data-card-photo]"),
+      );
+    }
+    if (product.heroImage) preloadGalleryImage(product.heroImage, fetchPriority);
+  }
 
   const badge = !product.inStock
     ? { label: "Esgotado", className: "bg-fg/80 text-white" }
@@ -32,11 +59,25 @@ export function ProductCard({ product }: { product: ProductListItem }) {
     <Link
       href={`/produto/${product.slug}`}
       className="group block overflow-hidden rounded-lg border border-line bg-white transition-[box-shadow,transform] duration-200 ease-out hover:shadow-lg active:scale-[0.98]"
+      onMouseEnter={(event) => {
+        const link = event.currentTarget;
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        hoverTimer.current = setTimeout(() => primeProductPage(link, "auto"), HOVER_INTENT_MS);
+      }}
+      onMouseLeave={() => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      }}
+      // A tap is ~100ms from touchstart to click, and the page is on its way
+      // right after: no intent to wait for, and the photo should jump the
+      // queue. onClick covers the keyboard and a click faster than the delay.
+      onTouchStart={(event) => primeProductPage(event.currentTarget, "high")}
+      onClick={(event) => primeProductPage(event.currentTarget, "high")}
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-surface">
         {product.image ? (
           <>
             <SafeImage
+              data-card-photo=""
               src={product.image.url}
               alt={product.image.alt ?? product.name}
               fill

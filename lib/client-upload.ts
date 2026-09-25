@@ -172,6 +172,11 @@ export async function uploadImageToStorage(
   const { error } = await uploadClient.storage.from("media").upload(path, compressed.blob, {
     contentType: compressed.blob.type || "image/webp",
     upsert: false,
+    // A UUID path is never written twice (upsert is off), so the file behind
+    // it can be cached for a year. Supabase's default is one hour, and that
+    // hour is also what the browser keeps a photo served straight from
+    // Storage (SafeImage's last-resort step, the og:image).
+    cacheControl: "31536000",
   });
 
   if (error) {

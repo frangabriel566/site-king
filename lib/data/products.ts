@@ -7,6 +7,7 @@ import {
   isColorlessVariant,
   isSimpleVariant,
 } from "@/lib/constants";
+import { buildGallerySlides, getProductColors } from "@/lib/product-gallery";
 import { safeQuery } from "./safe";
 
 export type ProductImage = Tables<"product_images">;
@@ -38,6 +39,10 @@ export type ProductListItem = {
   compare_at_price: number | null;
   image: ListImage | null;
   secondImage: ListImage | null;
+  /** The photo the product page's gallery opens on, which is not always
+   * `image`: with color photos the gallery leads with the first color. The
+   * card preloads it on hover/touch. */
+  heroImage: string | null;
   colors: { color: string; color_hex: string | null }[];
   inStock: boolean;
   totalStock: number;
@@ -92,6 +97,15 @@ function toListItem(row: {
     compare_at_price: row.compare_at_price,
     image: sortedImages[0] ?? fallbackImage,
     secondImage: sortedImages[1] ?? null,
+    // Same inputs the product page hands its gallery, down to the page's
+    // own `mainImage` fallback.
+    heroImage:
+      buildGallerySlides(
+        row.name,
+        getProductColors(row.product_variants),
+        sortedImages,
+        sortedImages[0]?.url ?? row.product_variants[0]?.image_url ?? null,
+      )[0]?.url ?? null,
     colors: Array.from(colorMap, ([color, color_hex]) => ({ color, color_hex })),
     inStock,
     totalStock,

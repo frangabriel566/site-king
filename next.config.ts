@@ -17,6 +17,18 @@ const nextConfig: NextConfig = {
     // default); 90 is the banners; 95 is the product gallery, whose photo
     // gets magnified 1.8x by the hover zoom and shows every artifact.
     qualities: [75, 90, 95],
+    // How long an optimized copy is served before the optimizer redoes it.
+    // Next's default (60s) defers to the origin's max-age, and Supabase
+    // Storage sends one hour — so every photo went back to a cold cache
+    // hourly, and a cold cache is exactly when the optimizer is slow enough
+    // to time out (see components/shop/safe-image.tsx). Every upload gets a
+    // fresh UUID file name (lib/client-upload.ts), so a URL's bytes never
+    // change and a copy can't go stale: 31 days, also the browser's max-age.
+    minimumCacheTTL: 2678400,
+    // WebP only, on purpose: the uploads already are WebP, and AVIF costs
+    // several times longer to encode on a cold cache — the step that was
+    // timing out — for a few KB less on a photo that is then cached anyway.
+    formats: ["image/webp"],
     remotePatterns: [
       // Supabase Storage — public "media" bucket.
       {

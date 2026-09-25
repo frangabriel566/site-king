@@ -891,3 +891,79 @@ Recarregar mudava *quais* fotos quebravam, não *se* quebravam.
   fora do ar**, a foto aparece servida direto do CDN, com a galeria e as três
   miniaturas intactas; **tudo fora do ar**, o painel "SEM IMAGEM" no lugar do
   ícone quebrado. `tsc`, `eslint` e `next build` limpos.
+
+## Bloco 20 — Foto principal que demorava ~1,5s (e mostrava "Frente") ao abrir o produto
+
+Sintoma relatado: ao tocar num produto na listagem, a foto grande levava
+~1,5s para aparecer, e nesse meio-tempo o quadro cinza mostrava o ícone de
+imagem quebrada com o texto do `alt` ("Frente").
+
+- **Não era busca no client nem lazy loading.** A página já é SSG/ISR
+  (`generateStaticParams` + `revalidate`), a URL da foto vem no HTML, e o
+  `<Link>` já tinha pré-carregado o payload da rota antes do toque (medido:
+  nenhum pedido RSC depois do toque). A primeira foto já tinha `priority`.
+- **O ícone + "Frente" era a janela de retentativa do Bloco 19 à mostra.**
+  Quando o primeiro pedido ao otimizador falha, o `SafeImage` esperava 600ms
+  e tentava de novo — mas deixava o `<img>` que falhou na tela o tempo todo,
+  e o `next/image` liga o texto do `alt` no primeiro erro e nunca desliga
+  naquele elemento. Reproduzido com Playwright (celular, rede "Fast 4G" do
+  DevTools, 504 injetado no primeiro pedido): 1,2s a 1,6s de ícone quebrado
+  com o alt visível. Agora o `<img>` que falhou fica escondido, cada
+  tentativa ganha um elemento novo, e se o próprio elemento que falhou
+  acabar carregando (o `next/image` repete o `src` ao reanexar), a
+  retentativa é cancelada e a foto aparece.
+- **Mesmo sem falha, a página começava do zero.** O card baixa a foto em
+  640px/q75 (~21KB) e a galeria pede outro arquivo, 1200px/q95 (~217KB),
+  a frio. Três mudanças: (1) o card, no `touchstart` (e após 100ms de
+  hover no desktop — sem essa espera, passar o mouse pela grade baixaria
+  centenas de KB por card), já pede a foto grande com o mesmo
+  `srcset`/`sizes` da galeria (`getImageProps` + as constantes de
+  `lib/product-gallery.ts`), e a página reaproveita esse download; (2) a
+  foto que o card exibiu fica embaixo da galeria como placeholder
+  instantâneo, trocada por fade quando a grande chega; (3) quando não há
+  foto do card servível, um skeleton no tom do fundo — nunca ícone nem alt.
+- **Placeholder do card só quando é a mesma foto.** Nos produtos com foto por
+  cor, a galeria abre na primeira cor (ordem alfabética) e o card mostra a
+  primeira foto da galeria: 21 dos 39 produtos ativos. Usar a foto do card
+  ali mostraria uma peça e trocaria por outra. Nesses casos, skeleton.
+- **A regra do "primeiro slide" saiu dos componentes** para
+  `lib/product-gallery.ts`, porque o servidor precisa dela para preencher
+  `ProductListItem.heroImage` (a foto que o card pré-carrega). Duas cópias
+  da regra acabariam pré-carregando a foto errada quando uma mudasse.
+- **Foto que veio no HTML não espera a hidratação.** O "esconde até o
+  onLoad + fade" vale só para imagens montadas no client (navegação,
+  slides montados depois). Numa visita direta a foto do HTML pinta por cima
+  do skeleton assim que chega — escondê-la até o React rodar atrasaria a
+  maior imagem da página pelo tamanho do bundle. Medido: foto visível em
+  784ms numa visita direta, contra 783ms antes.
+- **Os outros slides esperam a primeira foto.** Eram `lazy`, mas o carrossel
+  em loop mantém os vizinhos colados na viewport e o navegador baixava todos
+  juntos: a foto na tela dividia a banda do celular com duas ou três que
+  ninguém estava vendo. Qualquer toque na galeria ou numa miniatura libera
+  todos na hora, e o slide selecionado (pela cor, pelo autoplay) sempre
+  carrega.
+- **`fetchPriority="high"` explícito na primeira foto.** No Next 15 o
+  `priority` só a torna eager e gera o preload — sem a dica, o pedido nasce
+  com a prioridade baixa de toda imagem até o layout provar que ela está na
+  tela.
+- **`sizes` do celular corrigido** para `calc(100vw - 32px)` (e
+  `calc(100vw - 160px)` no tablet): com `100vw` o navegador subia um degrau
+  no `srcset` (1200px em vez de 1080px) por pixels que nunca estavam na tela.
+- **Cache longo.** `minimumCacheTTL` de 31 dias: o padrão cedia ao `max-age`
+  de 1h do Supabase, e o otimizador voltava ao cache frio de hora em hora — e
+  cache frio é justamente quando ele é lento a ponto de estourar. Seguro
+  porque todo upload ganha um nome UUID novo. Uploads novos também saem com
+  `cacheControl` de um ano no Storage.
+- **WebP só, sem AVIF, de propósito.** Os uploads já são WebP, e AVIF leva
+  várias vezes mais para codificar com o cache frio, que é o passo que
+  estourava.
+- **O que não mudou:** q95 (é para o zoom 1.8x do desktop). No celular não há
+  zoom, e q75 cortaria a foto principal de ~217KB para ~52KB — fica como
+  decisão de produto, porque muda a nitidez da foto.
+- **Verificação (A/B com o mesmo script, celular, Fast 4G, cache frio):**
+  primeira foto na tela 625→204ms (produto em que a foto do card serve),
+  1491→593ms, 1208→442ms e 1191→408ms (skeleton + preload); com 504
+  injetado, 1233ms e 1649ms de ícone quebrado viraram 0ms. Zoom, miniaturas,
+  seletor de cor e autoplay testados; faixa de desconto e botão do WhatsApp
+  presentes (o código deles não mudou); zero erro de console ou de
+  hidratação. `tsc`, `eslint` e `next build` limpos.

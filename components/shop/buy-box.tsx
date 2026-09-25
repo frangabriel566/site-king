@@ -14,17 +14,14 @@ import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { Button } from "@/components/ui/button";
 import type { ProductWithRelations } from "@/lib/data/products";
+import type { ProductColor } from "@/lib/product-gallery";
+
+export type { ProductColor };
 
 const BADGE_LABEL: Record<string, string> = {
   lancamento: "Lançamento",
   oferta: "Oferta",
   mais_vendido: "Mais vendido",
-};
-
-export type ProductColor = {
-  color: string;
-  color_hex: string | null;
-  image_url: string | null;
 };
 
 export function BuyBox({

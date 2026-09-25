@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type SyntheticEvent } from "react";
 import Image, { type ImageProps } from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,13 @@ import { cn } from "@/lib/utils";
  *      resort rather than a 5MB original.
  * Only after all three does the gray "Sem imagem" box take over, which is
  * at least a deliberate empty state instead of a broken icon.
+ *
+ * The failed `<img>` is hidden while the next step waits, and every step
+ * gets a fresh element. Leaving it up is what showed the broken icon and
+ * the alt text ("Frente") for the whole retry window — the delay below plus
+ * the second request, ~1.5s on the product page — and on the same element
+ * the alt text would have stayed visible even after the retry: `next/image`
+ * turns it on at the first error and never turns it back off.
  */
 
 // Long enough for a congested connection to clear: retrying in the same
@@ -44,24 +51,67 @@ const NEXT_STAGE: Record<Stage, Stage> = {
   failed: "failed",
 };
 
+type State = {
+  src: string;
+  stage: Stage;
+  /** This step failed and the next one is waiting out RETRY_DELAY_MS. */
+  errored: boolean;
+  /** `revealing` is the fade-in running, with the placeholder still under
+   * the photo so the fade never passes through an empty box. */
+  phase: "loading" | "revealing" | "shown";
+};
+
+function initialState(src: string, stage: Stage = "optimized"): State {
+  return { src, stage, errored: false, phase: "loading" };
+}
+
 export type SafeImageProps = Omit<ImageProps, "src" | "onError"> & {
   src: string;
   /** Label for the box that replaces the photo when even the CDN fails. */
   fallbackLabel?: string;
+  /**
+   * Never show a half-loaded photo: a placeholder holds the box while it
+   * loads, and the photo fades in once it has fully arrived. The
+   * placeholder covers the parent box, so this is for `fill` images.
+   */
+  reveal?: boolean;
+  /** With `reveal`: a file the browser already has — the listing card's
+   * copy of this same photo — shown in place of the skeleton. */
+  placeholderSrc?: string;
 };
 
 function withRetryParam(url: string) {
   return `${url}${url.includes("?") ? "&" : "?"}retry=1`;
 }
 
-export function SafeImage({ src, alt, fallbackLabel = "Sem imagem", ...props }: SafeImageProps) {
-  const [state, setState] = useState<{ src: string; stage: Stage }>({ src, stage: "optimized" });
+const subscribeNothing = () => () => {};
+
+export function SafeImage({
+  src,
+  alt,
+  fallbackLabel = "Sem imagem",
+  reveal = false,
+  placeholderSrc,
+  onLoad,
+  ...props
+}: SafeImageProps) {
+  const [state, setState] = useState<State>(() => initialState(src));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Whether this instance arrived in the server's HTML: hydration reads the
+  // server snapshot (false), anything mounted afterwards — a client-side
+  // navigation, a slide rendered later — reads true. A server-rendered photo
+  // is being downloaded, and possibly painted, before React even runs;
+  // hiding it until hydration would hold the page's main image hostage to
+  // the JavaScript bundle. It paints over its placeholder as it arrives
+  // instead, and only photos mounted on the client wait and fade in.
+  const clientRender = useSyncExternalStore(subscribeNothing, () => true, () => false);
+  const [fadeIn] = useState(() => reveal && clientRender);
 
   // A new photo in the same slot — another color, another product in a
   // recycled card — starts its own escalation instead of inheriting the
   // previous one's, which would send it straight to the fallback.
-  if (state.src !== src) setState({ src, stage: "optimized" });
+  if (state.src !== src) setState(initialState(src));
 
   useEffect(() => {
     return () => {
@@ -69,17 +119,39 @@ export function SafeImage({ src, alt, fallbackLabel = "Sem imagem", ...props }: 
     };
   }, []);
 
+  function handleLoad(event: SyntheticEvent<HTMLImageElement>) {
+    // next/image replays `load` for a photo that settled before hydration,
+    // and a failed one is `complete` too — only a decoded bitmap counts.
+    if (event.currentTarget.naturalWidth === 0) return;
+    // A failed element can still come through before its retry is due —
+    // next/image re-requests its src whenever it re-attaches — and then it
+    // has the photo: show it instead of throwing it away for the next step.
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    setState((prev) =>
+      prev.src === src && prev.phase === "loading"
+        ? { ...prev, errored: false, phase: fadeIn ? "revealing" : "shown" }
+        : prev,
+    );
+    onLoad?.(event);
+  }
+
   function handleError() {
     const next = NEXT_STAGE[state.stage];
     if (next === state.stage) return;
     if (next === "failed") {
-      setState({ src, stage: "failed" });
+      setState(initialState(src, "failed"));
       return;
     }
+    setState((prev) => (prev.src === src ? { ...prev, errored: true } : prev));
+    if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      timer.current = null;
       // The photo may have been swapped out while we waited; that new one
       // is running its own escalation and must not be knocked back.
-      setState((prev) => (prev.src === src ? { src, stage: next } : prev));
+      setState((prev) => (prev.src === src ? initialState(src, next) : prev));
     }, RETRY_DELAY_MS);
   }
 
@@ -108,13 +180,46 @@ export function SafeImage({ src, alt, fallbackLabel = "Sem imagem", ...props }: 
     );
   }
 
+  const hidden = state.errored || (fadeIn && state.phase === "loading");
+
   return (
-    <Image
-      {...props}
-      alt={alt}
-      src={state.stage === "retry" ? withRetryParam(src) : src}
-      unoptimized={state.stage === "direct" ? true : props.unoptimized}
-      onError={handleError}
-    />
+    <>
+      {reveal && props.fill && state.phase !== "shown" &&
+        (placeholderSrc ? (
+          // Already in the browser cache, so it is on screen in the first
+          // frame; `unoptimized` because it is an optimizer URL already.
+          <Image
+            src={placeholderSrc}
+            alt=""
+            fill
+            unoptimized
+            loading="eager"
+            decoding="sync"
+            className="object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 animate-pulse bg-surface-2 motion-reduce:animate-none"
+          />
+        ))}
+      <Image
+        {...props}
+        key={state.stage}
+        alt={alt}
+        src={state.stage === "retry" ? withRetryParam(src) : src}
+        unoptimized={state.stage === "direct" ? true : props.unoptimized}
+        className={cn(props.className, fadeIn && state.phase !== "loading" && "safe-image-reveal")}
+        style={hidden ? { ...props.style, opacity: 0 } : props.style}
+        onLoad={handleLoad}
+        onError={handleError}
+        onAnimationEnd={(event) => {
+          props.onAnimationEnd?.(event);
+          if (event.animationName === "safe-image-reveal") {
+            setState((prev) => (prev.src === src ? { ...prev, phase: "shown" } : prev));
+          }
+        }}
+      />
+    </>
   );
 }

@@ -435,4 +435,18 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* SafeImage `reveal`: the photo fades in once it has fully loaded. An
+     animation rather than a transition, so it never competes with the
+     element's own `transition-*` (the gallery's zoom), and only a `from`,
+     so it lands on whatever opacity the element's classes give it. */
+  .safe-image-reveal {
+    animation: safe-image-reveal 200ms ease-out;
+  }
+}
+
+@keyframes safe-image-reveal {
+  from {
+    opacity: 0;
+  }
 }

@@ -1023,3 +1023,16 @@ funcionava.
   miniaturas, seletor de cor, autoplay) e celular sem regressão, zero
   imagem com `opacity: 0` inline, zero erro de console. `tsc`, `eslint` e
   `next build` limpos.
+- **O admin também quebrava, e pela mesma cota.** Foto recém-enviada tem URL
+  nova, que nunca está no cache da Vercel: as três enviadas às 18:04 de
+  26/09 estavam no Storage (200, WebP de 105–158KB) e o otimizador devolvia
+  402 para todas — e o admin usava `next/image` puro, sem fallback, daí o
+  ícone quebrado em cada prévia. As prévias do formulário (uploader de fotos,
+  uploader de imagem única, prévia do banner, capa na barra de ações) passam
+  a ser `unoptimized`: o arquivo acabou de ser comprimido no navegador, o
+  otimizador não acrescenta nada ali além de gastar cota. As miniaturas das
+  listas (produtos, estoque, banners, marcas) passam a usar `SafeImage`:
+  otimizadas quando há cópia em cache, direto do Storage quando não há — com
+  `unoptimized` elas baixariam o arquivo inteiro de cada linha (~6MB na lista
+  de produtos). Não testado no navegador (o admin exige login); `tsc`,
+  `eslint` e `next build` limpos.

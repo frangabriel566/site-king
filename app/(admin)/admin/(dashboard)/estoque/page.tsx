@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { AlertTriangle } from "lucide-react";
 import { getInventoryRows } from "@/lib/data/inventory";
 import { LOW_STOCK_THRESHOLD, isColorlessVariant } from "@/lib/constants";
@@ -52,11 +52,12 @@ export default async function AdminInventoryPage() {
                   <div className="flex items-center gap-3">
                     <div className="relative size-10 shrink-0 overflow-hidden bg-field">
                       {row.product.image && (
-                        <Image
+                        <SafeImage
                           src={row.product.image}
                           alt=""
                           fill
                           sizes="40px"
+                          fallbackLabel=""
                           className="object-cover"
                         />
                       )}

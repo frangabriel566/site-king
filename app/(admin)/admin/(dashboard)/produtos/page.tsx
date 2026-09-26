@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { Plus, Pencil } from "lucide-react";
 import { getAllProductsAdmin } from "@/lib/data/products";
 import { formatCurrency } from "@/lib/format";
@@ -56,11 +56,12 @@ export default async function AdminProductsPage() {
               >
                 <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-field">
                   {thumbnail && (
-                    <Image
+                    <SafeImage
                       src={thumbnail}
                       alt=""
                       fill
                       sizes="56px"
+                      fallbackLabel=""
                       className="object-cover"
                     />
                   )}

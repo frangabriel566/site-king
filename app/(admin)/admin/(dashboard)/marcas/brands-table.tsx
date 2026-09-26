@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import {
@@ -44,7 +44,7 @@ export function BrandsTable({ brands }: { brands: AdminBrandListItem[] }) {
             <TableCell>
               {brand.logo_url ? (
                 <div className="relative size-9 overflow-hidden bg-field">
-                  <Image src={brand.logo_url} alt="" fill sizes="36px" className="object-contain" />
+                  <SafeImage src={brand.logo_url} alt="" fill sizes="36px" fallbackLabel="" className="object-contain" />
                 </div>
               ) : (
                 <div className="size-9 bg-field" />

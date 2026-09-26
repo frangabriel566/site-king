@@ -87,7 +87,8 @@ export function ProductFormActionBar({
         <div className="flex min-w-0 items-center gap-3">
           {coverUrl && (
             <div className="relative size-11 shrink-0 overflow-hidden rounded-lg border border-line bg-field">
-              <Image src={coverUrl} alt="" fill sizes="44px" className="object-cover" />
+              {/* Straight from Storage, like the uploader's previews. */}
+              <Image src={coverUrl} alt="" fill unoptimized className="object-cover" />
             </div>
           )}
           <div className="min-w-0">

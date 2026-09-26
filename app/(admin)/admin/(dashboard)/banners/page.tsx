@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "@/components/shop/safe-image";
 import { Plus, Pencil } from "lucide-react";
 import { getAllBannersAdmin } from "@/lib/data/banners";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export default async function AdminBannersPage() {
             >
               <div className="relative h-20 w-32 shrink-0 overflow-hidden bg-field">
                 {banner.image_url && (
-                  <Image
+                  <SafeImage
                     src={banner.image_url}
                     alt=""
                     fill

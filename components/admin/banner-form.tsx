@@ -189,7 +189,7 @@ export function BannerForm({
         <p className="text-label mb-3">Preview ao vivo (como aparece no carrossel da home)</p>
         <div className="storefront-theme relative h-[300px] w-full overflow-hidden rounded-lg bg-surface">
           {imageUrl && (
-            <Image src={imageUrl} alt="" fill sizes="600px" className="object-cover" />
+            <Image src={imageUrl} alt="" fill unoptimized className="object-cover" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-6 text-white">

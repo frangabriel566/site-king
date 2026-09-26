@@ -198,7 +198,11 @@ export function MultiImageUploader({
                       index === 0 ? "border-accent-solid/60" : "border-line"
                     }`}
                   >
-                    <Image src={image.url} alt="" fill sizes="200px" className="object-cover" />
+                    {/* Straight from Storage: the file was just compressed
+                        to WebP in the browser, so the optimizer adds nothing
+                        here but a dependency on the Vercel image quota — when
+                        it ran out, every new upload showed as a broken image. */}
+                    <Image src={image.url} alt="" fill unoptimized className="object-cover" />
                     <div className="absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-md bg-black/60 text-white">
                       <GripVertical className="size-3.5" />
                     </div>

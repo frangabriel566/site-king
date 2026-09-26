@@ -42,6 +42,12 @@ import { cn } from "@/lib/utils";
 // instant usually lands in the same congestion that caused the failure.
 const RETRY_DELAY_MS = 600;
 
+// Backstop for `reveal`: a photo that is still hidden this long after it was
+// asked for is shown as it is, loaded or not. The fade waits for `load`, and
+// nothing that depends on an event arriving may keep a photo off the screen
+// for good.
+const REVEAL_TIMEOUT_MS = 3000;
+
 type Stage = "optimized" | "retry" | "direct" | "failed";
 
 const NEXT_STAGE: Record<Stage, Stage> = {
@@ -59,10 +65,12 @@ type State = {
   /** `revealing` is the fade-in running, with the placeholder still under
    * the photo so the fade never passes through an empty box. */
   phase: "loading" | "revealing" | "shown";
+  /** REVEAL_TIMEOUT_MS ran out before `load`: shown without the fade. */
+  timedOut: boolean;
 };
 
 function initialState(src: string, stage: Stage = "optimized"): State {
-  return { src, stage, errored: false, phase: "loading" };
+  return { src, stage, errored: false, phase: "loading", timedOut: false };
 }
 
 export type SafeImageProps = Omit<ImageProps, "src" | "onError"> & {
@@ -96,7 +104,8 @@ export function SafeImage({
   ...props
 }: SafeImageProps) {
   const [state, setState] = useState<State>(() => initialState(src));
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The next step, while it waits out RETRY_DELAY_MS — and whose photo it is.
+  const retry = useRef<{ src: string; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   // Whether this instance arrived in the server's HTML: hydration reads the
   // server snapshot (false), anything mounted afterwards — a client-side
@@ -115,24 +124,44 @@ export function SafeImage({
 
   useEffect(() => {
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (retry.current) clearTimeout(retry.current.timer);
     };
   }, []);
 
+  const waitingToReveal = fadeIn && state.phase === "loading" && !state.timedOut;
+  useEffect(() => {
+    if (!waitingToReveal) return;
+    const timer = setTimeout(() => {
+      setState((prev) =>
+        prev.src === src && prev.stage === state.stage && prev.phase === "loading"
+          ? { ...prev, timedOut: true }
+          : prev,
+      );
+    }, REVEAL_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [waitingToReveal, src, state.stage]);
+
   function handleLoad(event: SyntheticEvent<HTMLImageElement>) {
-    // next/image replays `load` for a photo that settled before hydration,
-    // and a failed one is `complete` too — only a decoded bitmap counts.
+    // next/image replays `load` for a photo that settled before hydration
+    // (it checks `img.complete` when it mounts), and a failed one is
+    // `complete` too — only a decoded bitmap counts.
     if (event.currentTarget.naturalWidth === 0) return;
     // A failed element can still come through before its retry is due —
     // next/image re-requests its src whenever it re-attaches — and then it
     // has the photo: show it instead of throwing it away for the next step.
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
+    if (retry.current) {
+      clearTimeout(retry.current.timer);
+      retry.current = null;
     }
     setState((prev) =>
       prev.src === src && prev.phase === "loading"
-        ? { ...prev, errored: false, phase: fadeIn ? "revealing" : "shown" }
+        ? {
+            ...prev,
+            errored: false,
+            // Already on screen after the backstop: fading it now would
+            // blink it out and back in.
+            phase: fadeIn && !prev.timedOut ? "revealing" : "shown",
+          }
         : prev,
     );
     onLoad?.(event);
@@ -141,18 +170,28 @@ export function SafeImage({
   function handleError() {
     const next = NEXT_STAGE[state.stage];
     if (next === state.stage) return;
+    // This step already failed and its retry is on the clock. More errors
+    // do arrive meanwhile — next/image re-requests its src each time the
+    // component re-renders — and they must not push the retry back: against
+    // a failure that answers faster than RETRY_DELAY_MS (Vercel's 402 once
+    // the image quota is spent comes back in ~0.3s) that restarted the wait
+    // forever, the photo never left this step, stayed hidden, and the page
+    // hammered the optimizer with ~70 requests a second (Bloco 21).
+    if (retry.current?.src === src) return;
     if (next === "failed") {
       setState(initialState(src, "failed"));
       return;
     }
-    setState((prev) => (prev.src === src ? { ...prev, errored: true } : prev));
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      timer.current = null;
+    // Same object when already set, so React skips the re-render that would
+    // fire next/image's re-request once more.
+    setState((prev) => (prev.src === src && !prev.errored ? { ...prev, errored: true } : prev));
+    const timer = setTimeout(() => {
+      retry.current = null;
       // The photo may have been swapped out while we waited; that new one
       // is running its own escalation and must not be knocked back.
       setState((prev) => (prev.src === src ? initialState(src, next) : prev));
     }, RETRY_DELAY_MS);
+    retry.current = { src, timer };
   }
 
   if (state.stage === "failed") {
@@ -180,7 +219,7 @@ export function SafeImage({
     );
   }
 
-  const hidden = state.errored || (fadeIn && state.phase === "loading");
+  const hidden = state.errored || waitingToReveal;
 
   return (
     <>

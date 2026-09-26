@@ -967,3 +967,59 @@ imagem quebrada com o texto do `alt` ("Frente").
   seletor de cor e autoplay testados; faixa de desconto e botão do WhatsApp
   presentes (o código deles não mudou); zero erro de console ou de
   hidratação. `tsc`, `eslint` e `next build` limpos.
+
+## Bloco 21 — Nenhuma imagem aparecia em produção depois do Bloco 20
+
+Sintoma relatado: depois do deploy do Bloco 20 na Vercel, nenhuma imagem do
+site aparecia (cards, galeria, tudo). Localmente (`next build` + `next start`)
+funcionava.
+
+- **Gatilho externo: a cota de otimização de imagens da Vercel acabou.**
+  Medido direto no domínio de produção: toda variação que ainda não estava no
+  cache da Vercel volta `402` com `X-Vercel-Error:
+  OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED` em ~0,34s. Só as variações já
+  cacheadas saem com 200 (por isso o problema dependia do aparelho: cada
+  largura/densidade de tela pede uma variação diferente). Localmente o
+  otimizador é o do próprio Next, sem cota — daí o "aqui funciona".
+- **Causa no código: um loop no `SafeImage` do Bloco 20.** Na falha, o
+  componente marcava `errored`, re-renderizava, e a re-renderização fazia o
+  `next/image` repetir o pedido (`img.src = img.src` no ref, que roda de novo
+  a cada render porque o `onError` muda de identidade). O novo erro chegava e
+  o `handleError` fazia `clearTimeout` e reagendava a espera de 600ms. Com o
+  402 respondendo em 0,34s, a espera nunca terminava: a foto nunca passava
+  para `?retry=1` nem para o Supabase direto e ficava com `opacity: 0` para
+  sempre. Reproduzido na produção (tela 5x, que pede larguras sem cache):
+  703 respostas 402 em 10s de uma página aberta, 0 pedidos `?retry=1`, 0
+  pedidos ao Supabase, `style="…; opacity: 0;"` nos cards. O `SafeImage`
+  anterior ao Bloco 20 não re-renderizava no erro nem cancelava o timer, então
+  (pela leitura do código, não medido) o mesmo 402 seguia a escalada até a
+  foto servida direto do Supabase.
+- **Correção:** uma falha que chega enquanto a nova tentativa já está
+  agendada é ignorada (não empurra o timer), e marcar `errored` de novo não
+  re-renderiza (o updater devolve o mesmo objeto), o que corta o ciclo de
+  re-pedidos. A escalada voltou a andar: com 402 em tudo, cada imagem faz
+  2 pedidos ao otimizador (normal e `?retry=1`) e aparece direto do Supabase;
+  os pedidos param de crescer (60 em 2s, 60 em 6s).
+- **Salvaguarda:** nenhuma imagem fica invisível por depender de um evento.
+  O `onLoad` que chega antes da hidratação já é coberto pelo próprio
+  `next/image`, que confere `img.complete` ao montar e repassa o `load`; e se
+  o `load` de uma foto com fade (`reveal`) não chegar em 3s, ela é mostrada
+  assim mesmo, sem fade, com o placeholder ainda por baixo. O estado de erro
+  dura no máximo os 600ms de cada degrau, e o último degrau é o quadro "Sem
+  imagem", que é visível.
+- **Nada do Bloco 20 foi desativado.** Placeholder do card, preload no toque,
+  fade, `fetchPriority`, slides adiados, `sizes` e cache longo continuam; o
+  defeito estava só no agendamento da retentativa.
+- **O que continua fora do código:** enquanto a cota estiver esgotada, cada
+  variação sem cache custa dois 402 e ~1,2s de espera antes de vir do
+  Supabase em tamanho cheio (até 2560px). Resolver isso é decisão de conta:
+  plano da Vercel, esperar o ciclo da cota renovar, ou `images.unoptimized`
+  temporário. As entradas que a Vercel ainda serve vieram com `max-age=3600`
+  (config antiga); o `minimumCacheTTL` de 31 dias só vale para variações
+  geradas depois que a cota voltar.
+- **Verificação:** local com o 402 da Vercel emulado (mesmo corpo e ~0,3s):
+  listagem, página do produto por visita direta e pelo toque no card, tudo
+  visível; e sem falha, os 4 produtos, home, grade, desktop (zoom,
+  miniaturas, seletor de cor, autoplay) e celular sem regressão, zero
+  imagem com `opacity: 0` inline, zero erro de console. `tsc`, `eslint` e
+  `next build` limpos.

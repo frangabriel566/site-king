@@ -50,7 +50,11 @@ export function ShippingLabel({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orderId, ...body }),
     });
-    const data = await response.json().catch(() => ({}));
+    const data = (await response.json().catch(() => ({}))) as Partial<Issued> & {
+      quotes?: Quote[];
+      alreadyIssued?: boolean;
+      error?: string;
+    };
     if (!response.ok) throw new Error(data?.error ?? "Falha na comunicação.");
     return data;
   }

@@ -61,7 +61,10 @@ export function FreightCalculator({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cep: digits, items }),
       });
-      const data = await response.json().catch(() => ({}));
+      const data = (await response.json().catch(() => ({}))) as {
+        quotes?: FreightQuote[];
+        error?: string;
+      };
       if (!response.ok) {
         setError(data?.error ?? "Não foi possível calcular o frete.");
         return;

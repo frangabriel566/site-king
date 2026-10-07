@@ -82,6 +82,14 @@ export type SafeImageProps = Omit<ImageProps, "src" | "onError"> & {
   /** With `reveal`: a file the browser already has — the listing card's
    * copy of this same photo — shown in place of the skeleton. */
   placeholderSrc?: string;
+  /**
+   * A pulsing box under the photo until it has loaded, then gone — the
+   * product cards' loading state. Unlike `reveal` the photo is not held
+   * back: it paints over the box as it arrives (server-rendered cards are
+   * on screen before React runs). Removed on load, so no animation keeps
+   * running under every photo of a long grid. For `fill` images.
+   */
+  skeleton?: boolean;
 };
 
 function withRetryParam(url: string) {
@@ -96,6 +104,7 @@ export function SafeImage({
   fallbackLabel = "Sem imagem",
   reveal = false,
   placeholderSrc,
+  skeleton = false,
   onLoad,
   ...props
 }: SafeImageProps) {
@@ -219,8 +228,8 @@ export function SafeImage({
 
   return (
     <>
-      {reveal && props.fill && state.phase !== "shown" &&
-        (placeholderSrc ? (
+      {(reveal || skeleton) && props.fill && state.phase !== "shown" &&
+        (reveal && placeholderSrc ? (
           // Already in the browser cache, so it is on screen in the first
           // frame; `unoptimized` because it is an optimizer URL already.
           <Image

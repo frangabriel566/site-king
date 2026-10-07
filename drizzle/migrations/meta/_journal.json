@@ -15,6 +15,13 @@
       "when": 1791341008858,
       "tag": "0001_storefront_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791369844824,
+      "tag": "0002_category_media_footer_texts",
+      "breakpoints": true
     }
   ]
 }

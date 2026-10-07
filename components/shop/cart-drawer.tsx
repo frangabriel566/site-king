@@ -11,7 +11,8 @@ import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
-import { formatCurrency, formatVariantLabel } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
+import { BagVariantLine } from "@/components/shop/bag-variant-line";
 
 export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { items, isOpen, close, setQty, removeItem } = useCart();
@@ -21,7 +22,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   // e clampar por baixo de uma gaveta que o cliente só espiou seria mexer
   // na sacola dele sem que ele visse. Aqui o estoque serve para travar o
   // "+" e para o subtotal não contar o que acabou.
-  const { limitOf, isSoldOut } = useCartStock(items, isOpen);
+  const { limitOf, isSoldOut, sizesFor } = useCartStock(items, isOpen);
   const availableItems = items.filter((item) => !isSoldOut(item.variantId));
   const nothingAvailable = items.length > 0 && availableItems.length === 0;
   const subtotal = availableItems.reduce(
@@ -141,11 +142,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                         <Trash2 className="size-3.5" aria-hidden="true" />
                       </button>
                     </div>
-                    {formatVariantLabel(item.color, item.size) && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatVariantLabel(item.color, item.size)}
-                      </p>
-                    )}
+                    <BagVariantLine item={item} sizes={sizesFor(item)} />
                     {stockNote(limitOf(item.variantId), item.qty) && (
                       <p
                         className={`text-xs font-medium ${

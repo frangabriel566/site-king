@@ -5,7 +5,7 @@ import { FooterNewsletter } from "./footer-newsletter";
 import { FooterAccordionSection } from "./footer-accordion-section";
 import { WhatsAppIcon } from "./whatsapp-icon";
 import type { SiteSettings } from "@/lib/data/settings";
-import type { Category } from "@/lib/data/categories";
+import type { CategoryLink } from "@/lib/data/categories";
 import { freeShippingText } from "@/lib/shop-config";
 
 export function Footer({
@@ -13,12 +13,17 @@ export function Footer({
   categories,
 }: {
   settings: SiteSettings;
-  categories: Category[];
+  categories: CategoryLink[];
 }) {
   const shippingLine = freeShippingText({
     freeShippingThreshold: settings.free_shipping_threshold,
     freeShippingNote: settings.free_shipping_note,
   });
+  const seals = [
+    { key: "payment", text: settings.footer_payment_text, Icon: CreditCard },
+    { key: "security", text: settings.footer_security_text, Icon: Lock },
+    { key: "privacy", text: settings.footer_privacy_text, Icon: ShieldCheck },
+  ].filter((seal): seal is typeof seal & { text: string } => Boolean(seal.text));
 
   return (
     <footer className="bg-black text-bg">
@@ -172,17 +177,17 @@ export function Footer({
             <p className="hidden text-xs text-bg/60 sm:block">{shippingLine}</p>
           )}
 
-          <div className="hidden items-center gap-5 text-bg/60 sm:flex">
-            <span className="flex items-center gap-1.5 text-xs">
-              <CreditCard className="size-4" aria-hidden="true" /> Cartão, Pix e boleto
-            </span>
-            <span className="flex items-center gap-1.5 text-xs">
-              <Lock className="size-4" aria-hidden="true" /> Compra segura
-            </span>
-            <span className="flex items-center gap-1.5 text-xs">
-              <ShieldCheck className="size-4" aria-hidden="true" /> Dados protegidos
-            </span>
-          </div>
+          {/* Configurações → Rodapé; each badge only when filled in. On a
+              phone too now — they wrap under the copyright line. */}
+          {seals.length > 0 && (
+            <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-bg/70">
+              {seals.map(({ key, text, Icon }) => (
+                <li key={key} className="flex items-center gap-1.5 text-xs">
+                  <Icon className="size-4" aria-hidden="true" /> {text}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </footer>

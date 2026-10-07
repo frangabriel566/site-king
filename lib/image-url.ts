@@ -11,10 +11,10 @@
 
 export const IMAGE_ROUTE_PREFIX = "/img/";
 
-export const UPLOAD_FOLDERS = ["products", "banners", "brand"] as const;
+export const UPLOAD_FOLDERS = ["products", "banners", "brand", "categories"] as const;
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
-const KEY_PATTERN = /^(products|banners|brand)\/[0-9a-f-]{36}(\.sm)?\.(webp|jpg|png)$/;
+const KEY_PATTERN = /^(products|banners|brand|categories)\/[0-9a-f-]{36}(\.sm)?\.(webp|jpg|png)$/;
 
 export function isImageKey(key: string): boolean {
   return KEY_PATTERN.test(key);

@@ -26,37 +26,51 @@ export type ReviseCartResult = {
 
 const { product_variants } = schema;
 
+/** Uma variação que a sacola pode oferecer no lugar da que está lá. */
+export type CartVariantOption = {
+  id: string;
+  color: string;
+  size: string;
+  stock: number;
+};
+
 /**
- * Quanto existe hoje de cada variação da sacola — zero inclusive.
+ * Todas as variações dos produtos que estão na sacola, com o saldo de
+ * hoje — zero inclusive.
  *
- * Separada de `reviseCartItems` de propósito: aquela monta o pedido e
- * por isso **descarta** as linhas sem saldo, o que serve ao checkout e
- * não serve à sacola, que precisa justamente dizer "esta aqui acabou".
- * Aqui a resposta é um mapa cru, e o que não voltou (variação apagada,
- * produto tirado do ar) é tratado como zero por quem chama.
+ * Serve a duas coisas na sacola: o saldo de cada linha (a trava do "+" e
+ * o aviso de esgotado) e os outros tamanhos da mesma cor, para trocar sem
+ * sair dela. Uma consulta só, por produto e não por variação: trocar de
+ * tamanho não precisa de outra ida ao servidor.
  *
- * Existe porque a sacola deixava somar quantidade sem limite: com quase
- * todo o catálogo em uma unidade por tamanho, o cliente via um total de
- * três peças e recebia um pedido de uma.
+ * Produto fora do ar não volta (mesma regra que reviseCartItems aplica),
+ * e quem chama trata a variação ausente como saldo zero. Também existe
+ * porque a sacola deixava somar quantidade sem limite: com quase todo o
+ * catálogo em uma unidade por tamanho, o cliente via um total de três
+ * peças e recebia um pedido de uma.
  */
-export async function getCartStock(
-  variantIds: string[],
-): Promise<Record<string, number>> {
-  if (variantIds.length === 0) return {};
+export async function getCartVariants(
+  productIds: string[],
+): Promise<Record<string, CartVariantOption[]>> {
+  if (productIds.length === 0) return {};
 
   const rows = await getDb().query.product_variants.findMany({
-    columns: { id: true, stock: true },
-    where: inArray(product_variants.id, variantIds.slice(0, 50)),
+    columns: { id: true, product_id: true, color: true, size: true, stock: true },
+    where: inArray(product_variants.product_id, productIds.slice(0, 50)),
     with: { product: { columns: { status: true } } },
   });
 
-  const stock: Record<string, number> = {};
+  const byProduct: Record<string, CartVariantOption[]> = {};
   for (const row of rows) {
-    // Produto arquivado não se vende, então o saldo dele é zero para
-    // efeito de sacola — mesma regra que reviseCartItems aplica.
-    stock[row.id] = row.product.status === "active" ? Math.max(row.stock, 0) : 0;
+    if (row.product.status !== "active") continue;
+    (byProduct[row.product_id] ??= []).push({
+      id: row.id,
+      color: row.color,
+      size: row.size,
+      stock: Math.max(row.stock, 0),
+    });
   }
-  return stock;
+  return byProduct;
 }
 
 /**

@@ -149,3 +149,26 @@ O **selo no produto** (cadastro do produto → Exibição) só põe a etiqueta
 "Lançamento", "Mais vendido" ou "Oferta" no card e na página do produto; ele
 não escolhe mais a vitrine. O interruptor **Aparecer primeiro no catálogo**
 põe o produto na frente na ordem "Relevância" de /colecao.
+
+### Rodapé
+
+Os três selos da última linha do rodapé (formas de pagamento, segurança e
+privacidade) vêm de Configurações → **Rodapé**. Cada um só aparece se
+estiver preenchido. Depois da migration `0002`, eles vêm com os textos que
+o site já mostrava ("Cartão, Pix e boleto", "Compra segura", "Dados
+protegidos"). Confira se continuam valendo para a loja.
+
+## Categorias: foto e guia de medidas
+
+Em `/admin/categorias`, cada categoria pode ter:
+
+- **Foto** — aparece no círculo da home e no menu do celular, recortada em
+  círculo. Sem foto, a loja usa a do primeiro produto da categoria.
+- **Guia de medidas** — a tabela que abre em "Guia de medidas" na página de
+  cada produto da categoria. Crie a tabela e preencha linha por linha, ou
+  use **Colar de uma planilha** (copie as células no Excel/Google Planilhas;
+  a primeira linha é o título das colunas). Linhas e colunas vazias são
+  descartadas ao salvar. **Sem tabela, o link não aparece** — a loja não
+  mostra medidas genéricas. Quando o cliente já escolheu um tamanho, a
+  linha dele aparece destacada (a primeira coluna precisa ser o tamanho,
+  escrito como na grade do produto: P, M, G…).

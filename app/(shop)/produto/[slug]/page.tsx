@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
@@ -13,6 +14,22 @@ import { ProductInfoTabs } from "@/components/shop/product-info-tabs";
 import { ProductReviews } from "@/components/shop/product-reviews";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
 import { ProductRail } from "@/components/shop/product-rail";
+import { ProductRailSkeleton } from "@/components/shop/skeletons";
+
+const RELATED_TITLE = "Você também pode gostar";
+
+/** Streams in after the rest of the page: it is below the fold, and the
+ * product itself should not wait for it. */
+async function RelatedProducts({
+  categoryId,
+  productId,
+}: {
+  categoryId: string | null;
+  productId: string;
+}) {
+  const products = await getRelatedProducts(categoryId, productId, 8);
+  return <ProductRail title={RELATED_TITLE} products={products} />;
+}
 
 export async function generateMetadata({
   params,
@@ -58,13 +75,10 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [relatedPool, settings, reviews] = await Promise.all([
-    getRelatedProducts(product.category_id, product.id, 8),
+  const [settings, reviews] = await Promise.all([
     getSiteSettings(),
     getProductReviews(product.id),
   ]);
-  const related = relatedPool.slice(0, 4);
-  const alsoViewed = relatedPool.slice(4, 8);
   const ratingSummary = summarizeRatings(reviews);
 
   const images = [...product.product_images].sort(
@@ -180,9 +194,15 @@ export default async function ProductPage({
         />
       </div>
 
+      {/* One rail, same category, in stock. "Quem viu, também viu" is gone:
+          nothing records what shoppers view, so the name described data
+          that doesn't exist — it was just the next four of this list. */}
       <div className="mt-4">
-        <ProductRail title="Você também vai gostar" products={related} />
-        <ProductRail title="Quem viu, também viu" products={alsoViewed} />
+        {product.category_id && (
+          <Suspense fallback={<ProductRailSkeleton title={RELATED_TITLE} />}>
+            <RelatedProducts categoryId={product.category_id} productId={product.id} />
+          </Suspense>
+        )}
       </div>
     </div>
   );

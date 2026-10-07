@@ -10,7 +10,9 @@ import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stoc
 import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
-import { formatCurrency, formatVariantLabel } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
+import { BagVariantLine } from "@/components/shop/bag-variant-line";
+import { useShopConfig } from "@/components/shop/shop-config-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shop/empty-state";
@@ -19,7 +21,8 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { items, setQty, removeItem, isHydrated } = useCart();
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
-  const { limitOf, isSoldOut } = useCartStock(items);
+  const { limitOf, isSoldOut, sizesFor } = useCartStock(items);
+  const { securePurchaseNote } = useShopConfig();
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
@@ -152,11 +155,9 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                     >
                       {item.name}
                     </Link>
-                    {formatVariantLabel(item.color, item.size) && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatVariantLabel(item.color, item.size)}
-                      </p>
-                    )}
+                    <div className="mt-1">
+                      <BagVariantLine item={item} sizes={sizesFor(item)} />
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -283,10 +284,14 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               </p>
             </div>
           )}
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
-            Compra 100% segura
-          </p>
+          {/* The store's own line (Configurações → Vitrine), not a promise
+              written here; nothing when it isn't set. */}
+          {securePurchaseNote && (
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+              {securePurchaseNote}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,12 @@
 
 import { count, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/guards";
-import { getCartStock, reviseCartItems, type ReviseCartResult } from "@/lib/data/checkout";
+import {
+  getCartVariants,
+  reviseCartItems,
+  type CartVariantOption,
+  type ReviseCartResult,
+} from "@/lib/data/checkout";
 import { validateCoupon } from "@/lib/data/coupons";
 import { getCustomerForUser } from "@/lib/data/customers";
 import { getDb, schema } from "@/lib/db";
@@ -31,10 +36,10 @@ export async function reviseCartAction(
 }
 
 /** O que a sacola usa para travar o botão "+" no que existe de verdade. */
-export async function getCartStockAction(
-  variantIds: string[],
-): Promise<Record<string, number>> {
-  return getCartStock(variantIds);
+export async function getCartVariantsAction(
+  productIds: string[],
+): Promise<Record<string, CartVariantOption[]>> {
+  return getCartVariants(productIds);
 }
 
 export type CouponResult =

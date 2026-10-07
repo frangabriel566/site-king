@@ -94,6 +94,11 @@ export const siteSettingsSchema = z.object({
   exchange_note: z.string().trim().max(80).optional().or(z.literal("")),
   secure_purchase_note: z.string().trim().max(80).optional().or(z.literal("")),
 
+  // Rodapé — a linha de baixo. Vazio = o item não aparece.
+  footer_payment_text: z.string().trim().max(40).optional().or(z.literal("")),
+  footer_security_text: z.string().trim().max(40).optional().or(z.literal("")),
+  footer_privacy_text: z.string().trim().max(40).optional().or(z.literal("")),
+
   // Endereço de origem — de onde as encomendas saem. Alimenta a cotação
   // do Melhor Envio (só o CEP) e a etiqueta (o endereço inteiro + o
   // documento, que os Correios exigem na declaração). Tudo opcional no

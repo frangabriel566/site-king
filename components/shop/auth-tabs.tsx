@@ -30,10 +30,10 @@ export function AuthTabs({
   return (
     <Tabs defaultValue="entrar">
       <TabsList className="w-full">
-        <TabsTrigger value="entrar">
+        <TabsTrigger value="entrar" className="text-muted-foreground">
           Entrar
         </TabsTrigger>
-        <TabsTrigger value="cadastrar">
+        <TabsTrigger value="cadastrar" className="text-muted-foreground">
           Criar conta
         </TabsTrigger>
       </TabsList>

@@ -8,7 +8,7 @@ import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { formatCurrency } from "@/lib/format";
-import type { Category } from "@/lib/data/categories";
+import type { CategoryLink } from "@/lib/data/categories";
 import type { Brand } from "@/lib/data/brands";
 import type { FilterOptions } from "@/lib/data/products";
 
@@ -24,7 +24,7 @@ export function CollectionFilters({
   options,
   priceBounds,
 }: {
-  categories: Category[];
+  categories: CategoryLink[];
   brands: Brand[];
   options: FilterOptions;
   priceBounds: { min: number; max: number };

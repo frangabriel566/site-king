@@ -295,6 +295,46 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
       </section>
 
+      <section>
+        <p className="text-label mb-1">Rodapé</p>
+        <p className="mb-4 text-sm text-ink-muted">
+          Os selos da última linha do rodapé, em todas as páginas da loja. Campo vazio =
+          o selo não aparece.
+        </p>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="footer_payment_text">Formas de pagamento</Label>
+            <Input
+              id="footer_payment_text"
+              name="footer_payment_text"
+              maxLength={40}
+              placeholder="ex.: Cartão, Pix e boleto"
+              defaultValue={settings.footer_payment_text ?? ""}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="footer_security_text">Segurança</Label>
+            <Input
+              id="footer_security_text"
+              name="footer_security_text"
+              maxLength={40}
+              placeholder="ex.: Compra segura"
+              defaultValue={settings.footer_security_text ?? ""}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="footer_privacy_text">Privacidade</Label>
+            <Input
+              id="footer_privacy_text"
+              name="footer_privacy_text"
+              maxLength={40}
+              placeholder="ex.: Dados protegidos"
+              defaultValue={settings.footer_privacy_text ?? ""}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Endereço de origem — sem ele o Melhor Envio não cota nem emite
           etiqueta. O CEP sozinho já basta para a cotação no carrinho; o
           resto (endereço completo + CPF/CNPJ) só é exigido na hora de

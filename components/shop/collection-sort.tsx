@@ -25,7 +25,7 @@ export function CollectionSort() {
 
   return (
     <Select value={current} onValueChange={onChange}>
-      <SelectTrigger className="w-44 border-line text-sm">
+      <SelectTrigger aria-label="Ordenar produtos" className="w-44 border-line text-sm">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

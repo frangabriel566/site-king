@@ -99,7 +99,7 @@ export function WhatsAppBuyButton({
       variant="outline"
       onClick={handleClick}
       disabled={disabled || pending}
-      className={`w-full border-[#25D366] text-[#128C4A] hover:bg-[#25D366]/10 hover:text-[#128C4A] ${className}`}
+      className={`w-full border-[#25D366] text-[#0E7A3E] hover:bg-[#25D366]/10 hover:text-[#0E7A3E] ${className}`}
     >
       <WhatsAppIcon className="size-5" />
       {pending ? "Gerando pedido…" : label}

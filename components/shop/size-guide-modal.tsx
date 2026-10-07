@@ -1,109 +1,88 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Ruler } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import type { SizeGuide } from "@/lib/size-guide";
 
-const CLOTHING_CHART = [
-  { size: "P", chest: "88–96", waist: "72–80", length: "68" },
-  { size: "M", chest: "96–104", waist: "80–88", length: "70" },
-  { size: "G", chest: "104–112", waist: "88–96", length: "72" },
-  { size: "GG", chest: "112–120", waist: "96–104", length: "74" },
-];
-
-// Approximate reference (BR size -> foot length in cm), same shape as the
-// usual retail size-guide table — not a clinical measurement.
-const SHOE_CHART = [
-  { size: "34", length: "22,75" },
-  { size: "35", length: "23,5" },
-  { size: "36", length: "24" },
-  { size: "37", length: "24,5" },
-  { size: "38", length: "25,5" },
-  { size: "39", length: "25,75" },
-  { size: "40", length: "26,5" },
-  { size: "41", length: "27" },
-  { size: "42", length: "27,5" },
-  { size: "43", length: "28" },
-  { size: "44", length: "28,5" },
-];
-
-/** Numeric variant sizes (e.g. "40", "41") mean shoe sizing — show the
- * BR-size/foot-length chart instead of the clothing chest/waist chart. */
-function isShoeSizing(sizes: string[]): boolean {
-  return sizes.length > 0 && sizes.every((s) => /^\d{2,3}$/.test(s));
-}
-
-export function SizeGuideModal({ sizes = [] }: { sizes?: string[] }) {
+/**
+ * "Guia de medidas" — the product's category chart, exactly as the store
+ * typed it in Admin → Categorias. There is no built-in chart: a table of
+ * measurements the store never confirmed would be invented data, so a
+ * category without one simply shows no link (see BuyBox).
+ *
+ * The row whose first cell is the size already picked is highlighted,
+ * which answers "is my size the right one?" without reading the whole
+ * table.
+ */
+export function SizeGuideModal({
+  guide,
+  selectedSize,
+}: {
+  guide: SizeGuide;
+  selectedSize?: string | null;
+}) {
   const [open, setOpen] = useState(false);
-  const isShoe = isShoeSizing(sizes);
+  const selected = selectedSize?.trim().toLowerCase();
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm font-medium text-fg underline underline-offset-4 hover:text-gold-text"
+        // 44px tall hit area around a text link — it sits right next to the
+        // size keys and gets reached for with the same thumb.
+        className="-my-2 flex min-h-11 items-center gap-1.5 text-sm font-medium text-fg underline underline-offset-4 hover:text-gold-text"
       >
-        Tabela de medidas
+        <Ruler className="size-4" aria-hidden="true" />
+        Guia de medidas
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md border-line bg-white text-fg">
-          <DialogTitle className="text-lg font-bold">Tabela de medidas</DialogTitle>
-          {isShoe ? (
-            <>
-              <p className="text-xs text-muted-foreground">
-                Medida do comprimento do pé, em centímetros. Em caso de dúvida
-                entre dois números, prefira o maior.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <th className="py-2 pr-4">Internacional</th>
-                      <th className="py-2">Comprimento do pé</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SHOE_CHART.map((row) => (
-                      <tr key={row.size} className="border-b border-line/50">
-                        <td className="py-2 pr-4 font-medium">{row.size}</td>
-                        <td className="py-2 text-muted-foreground">{row.length} cm</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+        <DialogContent className="max-h-[85dvh] max-w-lg overflow-y-auto border-line bg-white text-fg">
+          <DialogTitle className="text-lg font-bold">Guia de medidas</DialogTitle>
+          {guide.note ? (
+            <DialogDescription className="text-sm text-muted-foreground">{guide.note}</DialogDescription>
           ) : (
-            <>
-              <p className="text-xs text-muted-foreground">
-                Medidas em centímetros. Corpo, não peça — em caso de dúvida entre
-                dois tamanhos, prefira o maior.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <th className="py-2 pr-4">Tamanho</th>
-                      <th className="py-2 pr-4">Peito</th>
-                      <th className="py-2 pr-4">Cintura</th>
-                      <th className="py-2">Comprimento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {CLOTHING_CHART.map((row) => (
-                      <tr key={row.size} className="border-b border-line/50">
-                        <td className="py-2 pr-4 font-medium">{row.size}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{row.chest}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{row.waist}</td>
-                        <td className="py-2 text-muted-foreground">{row.length}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+            <DialogDescription className="sr-only">Tabela de medidas por tamanho</DialogDescription>
           )}
+          <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {guide.columns.map((column, i) => (
+                    <th key={i} scope="col" className="whitespace-nowrap py-2 pr-4 last:pr-0">
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {guide.rows.map((row, r) => {
+                  const isSelected = Boolean(selected) && row[0]?.trim().toLowerCase() === selected;
+                  return (
+                    <tr
+                      key={r}
+                      aria-current={isSelected || undefined}
+                      className={`border-b border-line/60 ${isSelected ? "bg-surface font-semibold" : ""}`}
+                    >
+                      {row.map((cell, c) =>
+                        c === 0 ? (
+                          <th key={c} scope="row" className="py-2.5 pr-4 font-semibold">
+                            {cell}
+                          </th>
+                        ) : (
+                          <td key={c} className="py-2.5 pr-4 last:pr-0">
+                            {cell}
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </DialogContent>
       </Dialog>
     </>

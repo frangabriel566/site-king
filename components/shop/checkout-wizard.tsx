@@ -142,9 +142,13 @@ export function CheckoutWizard({
   return (
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_380px]">
       <div>
-        <ol className="mb-10 flex items-center gap-4">
+        {/* On a phone only the current step keeps its name on screen (the
+            others stay readable to screen readers): the four names side by
+            side are wider than a 375px screen and pushed the whole page
+            sideways. */}
+        <ol className="mb-10 flex items-center gap-3 sm:gap-4">
           {([1, 2, 3, 4] as Step[]).map((s) => (
-            <li key={s} className="flex items-center gap-2">
+            <li key={s} aria-current={s === step ? "step" : undefined} className="flex items-center gap-2">
               <span
                 className={`flex size-7 items-center justify-center rounded-full border text-xs ${
                   s === step
@@ -158,7 +162,7 @@ export function CheckoutWizard({
               </span>
               <span
                 className={`text-xs font-semibold uppercase tracking-wide ${
-                  s === step ? "text-fg" : "text-muted-foreground"
+                  s === step ? "text-fg" : "sr-only text-muted-foreground sm:not-sr-only"
                 }`}
               >
                 {STEP_LABELS[s]}

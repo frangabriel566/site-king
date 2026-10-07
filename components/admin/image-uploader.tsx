@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { uploadImageToStorage } from "@/lib/client-upload";
 import { deleteMediaAction } from "@/lib/actions/media";
+import type { UploadFolder } from "@/lib/image-url";
 
 export function ImageUploader({
   label,
@@ -20,7 +21,7 @@ export function ImageUploader({
   label: string;
   value: string | null;
   onChange: (url: string | null) => void;
-  folder: "banners" | "products" | "brand";
+  folder: UploadFolder;
   aspect?: string;
   /** Set to true by the parent form right before a real submit — skips
    * the unmount cleanup so a just-saved image isn't deleted out from

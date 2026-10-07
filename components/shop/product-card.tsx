@@ -94,6 +94,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           <>
             <SafeImage
               data-card-photo=""
+              skeleton
               src={product.image.url}
               alt={product.image.alt ?? product.name}
               fill
@@ -122,7 +123,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
 
         {status && (
           <span
-            className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${status.className}`}
+            className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${status.className}`}
           >
             {status.label}
           </span>
@@ -151,7 +152,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
 
       <div className="flex flex-col gap-1 p-3">
         {product.brand && (
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {product.brand.name}
           </p>
         )}
@@ -194,7 +195,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               />
             ))}
             {product.colors.length > MAX_SWATCHES && (
-              <span className="text-[11px] font-medium text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 +{product.colors.length - MAX_SWATCHES}
               </span>
             )}

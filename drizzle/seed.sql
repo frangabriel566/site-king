@@ -14,8 +14,8 @@
 
 -- Selling promises (parcelas, Pix, selo "Novo", frases de troca/segurança)
 -- are left empty on purpose: the store fills them in Configurações → Vitrine.
-INSERT OR IGNORE INTO site_settings (id, store_name, shipping_note, free_shipping_note, free_shipping_threshold, low_stock_units)
-VALUES (1, 'King Store', 'Envio em até 2 dias úteis após a confirmação do pagamento.', 'Frete grátis acima de R$ 399', 399, 3);
+INSERT OR IGNORE INTO site_settings (id, store_name, shipping_note, free_shipping_note, free_shipping_threshold, low_stock_units, footer_payment_text, footer_security_text, footer_privacy_text)
+VALUES (1, 'King Store', 'Envio em até 2 dias úteis após a confirmação do pagamento.', 'Frete grátis acima de R$ 399', 399, 3, 'Cartão, Pix e boleto', 'Compra segura', 'Dados protegidos');
 
 INSERT OR IGNORE INTO categories (id, name, slug, position, active) VALUES
   ('11111111-1111-1111-1111-111111111101', 'Moletons', 'moletons', 1, 1),

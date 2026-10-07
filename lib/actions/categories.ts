@@ -26,6 +26,8 @@ function parseCategoryForm(formData: FormData) {
     slug: formData.get("slug"),
     position: formData.get("position"),
     active: formData.get("active") === "on",
+    image_url: formData.get("image_url") || null,
+    size_guide: formData.get("size_guide"),
   });
 }
 

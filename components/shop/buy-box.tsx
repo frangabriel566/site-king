@@ -74,11 +74,6 @@ export function BuyBox({
     variants.length === 1 && isSimpleVariant(variants[0].color, variants[0].size);
   const simpleVariant = isSimpleProduct ? variants[0] : null;
 
-  const allSizes = useMemo(() => {
-    if (isSimpleProduct) return [];
-    return Array.from(new Set(variants.map((v) => v.size)));
-  }, [variants, isSimpleProduct]);
-
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sizeSectionRef = useRef<HTMLDivElement>(null);
@@ -311,7 +306,10 @@ export function BuyBox({
               <span className="font-semibold text-fg">Tamanho:</span>{" "}
               {selectedSize ?? "selecione"}
             </p>
-            <SizeGuideModal sizes={allSizes} />
+            {/* Only when the category has a chart (Admin → Categorias). */}
+            {product.category?.size_guide && (
+              <SizeGuideModal guide={product.category.size_guide} selectedSize={selectedSize} />
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {sizesForColor.map((variant) => {

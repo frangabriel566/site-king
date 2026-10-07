@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
   getFilterOptions,
@@ -18,6 +19,9 @@ import { ActiveFilterChips } from "@/components/shop/active-filter-chips";
 import { PaginationBar } from "@/components/shop/pagination-bar";
 import { EmptyState } from "@/components/shop/empty-state";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
+import { ProductGridSkeleton, SkeletonBlock } from "@/components/shop/skeletons";
+import type { CategoryLink } from "@/lib/data/categories";
+import type { Brand } from "@/lib/data/brands";
 
 export const metadata: Metadata = {
   title: "Coleção",
@@ -32,8 +36,7 @@ export default async function CollectionPage({
   const params = await searchParams;
   const filters = parseCollectionParams(params);
 
-  const [result, categories, brands, filterOptions, priceBounds] = await Promise.all([
-    listProducts(filters),
+  const [categories, brands, filterOptions, priceBounds] = await Promise.all([
     // The shop layout already loaded these for the menu; cached per request.
     getCategoriesWithImages(),
     getActiveBrands(),
@@ -67,37 +70,83 @@ export default async function CollectionPage({
         />
 
         <div className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <p className="text-sm text-muted-foreground">
-              {result.total} {result.total === 1 ? "produto" : "produtos"}
-            </p>
-            <div className="flex items-center gap-3">
-              <DensityToggle />
-              <CollectionSort />
-            </div>
-          </div>
-
-          <ActiveFilterChips categories={categories} brands={brands} />
-
-          {result.items.length === 0 ? (
-            <EmptyState
-              title="Nenhum produto encontrado"
-              description="Tente ajustar os filtros ou buscar por outra categoria."
-              actionLabel="Limpar filtros"
-              actionHref="/colecao"
+          {/* Keyed by the query: every filter, sort or page change suspends
+              just this column and shows the skeleton grid, while the
+              filters next to it stay mounted (the phone's filter drawer
+              stays open between taps). A route-level loading.tsx would
+              remount the whole page and close it on every tap. */}
+          <Suspense key={JSON.stringify(params)} fallback={<ResultsSkeleton />}>
+            <CollectionResults
+              filters={filters}
+              params={params}
+              density={density}
+              categories={categories}
+              brands={brands}
             />
-          ) : (
-            <>
-              <ProductGrid products={result.items} density={density} />
-              <PaginationBar
-                page={result.page}
-                totalPages={result.totalPages}
-                searchParams={params}
-              />
-            </>
-          )}
+          </Suspense>
         </div>
       </div>
     </div>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <SkeletonBlock className="h-4 w-24" />
+        <SkeletonBlock className="h-10 w-40" />
+      </div>
+      <ProductGridSkeleton />
+    </>
+  );
+}
+
+async function CollectionResults({
+  filters,
+  params,
+  density,
+  categories,
+  brands,
+}: {
+  filters: ReturnType<typeof parseCollectionParams>;
+  params: CollectionSearchParams;
+  density: "compact" | "comfortable";
+  categories: CategoryLink[];
+  brands: Brand[];
+}) {
+  const result = await listProducts(filters);
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {result.total} {result.total === 1 ? "produto" : "produtos"}
+        </p>
+        <div className="flex items-center gap-3">
+          <DensityToggle />
+          <CollectionSort />
+        </div>
+      </div>
+
+      <ActiveFilterChips categories={categories} brands={brands} />
+
+      {result.items.length === 0 ? (
+        <EmptyState
+          title="Nenhum produto encontrado"
+          description="Tente ajustar os filtros ou buscar por outra categoria."
+          actionLabel="Limpar filtros"
+          actionHref="/colecao"
+        />
+      ) : (
+        <>
+          <ProductGrid products={result.items} density={density} />
+          <PaginationBar
+            page={result.page}
+            totalPages={result.totalPages}
+            searchParams={params}
+          />
+        </>
+      )}
+    </>
   );
 }

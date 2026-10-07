@@ -42,7 +42,7 @@ type ProductBrandRef = Pick<Brand, "id" | "name" | "slug" | "logo_url">;
 export type ProductWithRelations = Tables<"products"> & {
   product_images: ProductImage[];
   product_variants: ProductVariant[];
-  category: Pick<Category, "id" | "name" | "slug"> | null;
+  category: Pick<Category, "id" | "name" | "slug" | "size_guide"> | null;
   brand: ProductBrandRef | null;
 };
 
@@ -106,7 +106,8 @@ const LIST_WITH = {
 const DETAIL_WITH = {
   product_images: true,
   product_variants: true,
-  category: { columns: { id: true, name: true, slug: true } },
+  // size_guide: the product page's "Guia de medidas" (Admin → Categorias).
+  category: { columns: { id: true, name: true, slug: true, size_guide: true } },
   brand: { columns: { id: true, name: true, slug: true, logo_url: true } },
 } as const;
 
@@ -411,6 +412,9 @@ export const getProductBySlug = cache(
   },
 );
 
+/** "Você também pode gostar": same category, never the product being
+ * viewed and never a sold-out one (a suggestion the shopper can't buy is
+ * a dead end), in the catalog's own order. */
 export async function getRelatedProducts(
   categoryId: string | null,
   excludeProductId: string,
@@ -421,7 +425,13 @@ export async function getRelatedProducts(
     const rows = await getDb().query.products.findMany({
       columns: LIST_COLUMNS,
       with: LIST_WITH,
-      where: and(isActive, eq(products.category_id, categoryId), ne(products.id, excludeProductId)),
+      where: and(
+        isActive,
+        hasStock,
+        eq(products.category_id, categoryId),
+        ne(products.id, excludeProductId),
+      ),
+      orderBy: [desc(products.featured), asc(products.position), desc(products.created_at)],
       limit,
     });
     return rows.map(toListItem);

@@ -2,14 +2,14 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
-import type { Category } from "@/lib/data/categories";
+import type { CategoryLink } from "@/lib/data/categories";
 import type { Brand } from "@/lib/data/brands";
 
 export function ActiveFilterChips({
   categories,
   brands,
 }: {
-  categories: Category[];
+  categories: CategoryLink[];
   brands: Brand[];
 }) {
   const router = useRouter();

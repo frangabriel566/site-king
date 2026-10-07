@@ -76,6 +76,16 @@ export type CustomerSnapshot = {
   phone?: string;
 };
 
+/** A category's size chart (Admin → Categorias), shown in the product
+ * page's "Guia de medidas". Free columns, one row per size; every cell is
+ * text, so "88–96" or "70 cm" stay as the store typed them. */
+export type SizeGuide = {
+  columns: string[];
+  rows: string[][];
+  /** A line under the table, e.g. "Medidas do corpo, em centímetros". */
+  note?: string | null;
+};
+
 /** `strftime` with `%f` gives milliseconds, so rows written by plain SQL
  * (the seed, a console fix) match `new Date().toISOString()` exactly. */
 const isoNow = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
@@ -192,6 +202,11 @@ export const categories = sqliteTable(
     position: integer("position").notNull().default(0),
     active: bool("active").notNull().default(true),
     created_at: createdAt(),
+    /** Photo for the home's category circles and the mobile menu. Null:
+     * the first product's photo stands in (getCategoriesWithImages). */
+    image_url: text("image_url"),
+    /** Null: the product page shows no size guide for this category. */
+    size_guide: text("size_guide", { mode: "json" }).$type<SizeGuide>(),
   },
   (t) => [index("categories_active_position_idx").on(t.active, t.position)],
 );
@@ -372,6 +387,11 @@ export const site_settings = sqliteTable(
     /** Trust strip under the buy button. */
     exchange_note: text("exchange_note"),
     secure_purchase_note: text("secure_purchase_note"),
+    // The footer's bottom line (Configurações → Rodapé). Each one shows
+    // only when filled in.
+    footer_payment_text: text("footer_payment_text"),
+    footer_security_text: text("footer_security_text"),
+    footer_privacy_text: text("footer_privacy_text"),
   },
   (t) => [check("site_settings_single_row", sql`${t.id} = 1`)],
 );

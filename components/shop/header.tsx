@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/shop/safe-image";
 import { Menu, User, ShoppingBag, X, MessageCircle, ChevronRight, Info } from "lucide-react";
@@ -30,7 +30,21 @@ export function Header({
   categories: CategoryShowcase[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { count, open: openBag, isHydrated } = useCart();
+  const { count, open: openBag, isHydrated, addedCount } = useCart();
+  const headerRef = useRef<HTMLElement>(null);
+  const searchRowRef = useRef<HTMLDivElement>(null);
+  const { collapsed, hideBy, expand } = useCollapsingHeader(headerRef, searchRowRef);
+
+  // Every add bumps the bag icon and its counter — and brings the header
+  // back if it was tucked away, or the bump would happen off screen.
+  const [bump, setBump] = useState(0);
+  const seenAdds = useRef(addedCount);
+  useEffect(() => {
+    if (addedCount === seenAdds.current) return;
+    seenAdds.current = addedCount;
+    expand();
+    setBump((n) => n + 1);
+  }, [addedCount, expand]);
   const messages = announcementMessages(settings);
   const whatsappHref = settings.whatsapp
     ? `https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`
@@ -95,7 +109,16 @@ export function Header({
           hit-test region it keeps for that layer can lag a frame or more
           behind where the header is painted — which is what makes every
           control in it stop responding while still looking normal. */}
-      <header className="sticky top-0 z-40 w-full transform-gpu bg-black text-bg">
+      {/* On a phone, scrolling down slides the bar and the logo row up out
+          of view — a transform on this whole block, as above, so nothing
+          around it moves — and leaves the search row pinned. Scrolling
+          back up, or focusing anything in it, brings them back. */}
+      <header
+        ref={headerRef}
+        onFocusCapture={expand}
+        className="sticky top-0 z-40 w-full transform-gpu bg-black text-bg transition-transform duration-200 ease-out motion-reduce:transition-none"
+        style={{ transform: `translate3d(0, ${collapsed ? -hideBy : 0}px, 0)` }}
+      >
         {/* `select-none` here is load-bearing on iOS, not cosmetic: with
             the text selectable, a tap that drifts even slightly — which
             is most real thumb taps — makes Safari start a selection on
@@ -208,10 +231,16 @@ export function Header({
             >
               {/* The badge anchors to the glyph, not to the padded
                   button, so widening the hit area leaves it in place. */}
-              <span className="relative flex items-center">
+              {/* Keyed by the bump: a new key remounts it, which is what
+                  restarts the CSS animation on every add. */}
+              <span key={bump} className={`relative flex items-center ${bump ? "bag-bump" : ""}`}>
                 <ShoppingBag className="size-5" aria-hidden="true" />
                 {isHydrated && count > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[10px] font-bold text-white">
+                  <span
+                    className={`absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-alert px-1 text-[10px] font-bold text-white ${
+                      bump ? "badge-pop" : ""
+                    }`}
+                  >
                     {count > 99 ? "99+" : count}
                   </span>
                 )}
@@ -222,7 +251,7 @@ export function Header({
         </div>
 
         {/* mobile search — its own row, always visible */}
-        <div className="border-t border-white/10 px-4 py-2 md:hidden">
+        <div ref={searchRowRef} className="border-t border-white/10 px-4 py-2 md:hidden">
           <HeaderSearch />
         </div>
       </header>
@@ -355,4 +384,84 @@ export function Header({
       </Sheet>
     </>
   );
+}
+
+/** How far the header must travel one way before it hides or comes back:
+ * enough to ignore a thumb resting on the screen. */
+const SCROLL_INTENT_PX = 24;
+
+/**
+ * Phone-only header that tucks away on the way down and returns on the way
+ * up. Moves the header by the height of everything above the search row
+ * (measured, since the bar comes and goes with the store's messages), so
+ * only the search stays pinned.
+ *
+ * Ignores what isn't the shopper scrolling: the rubber band at the top
+ * (anything within the header's own height is "at the top" and always
+ * shows it) and at the bottom, and the page standing still under an open
+ * drawer.
+ */
+function useCollapsingHeader(
+  headerRef: React.RefObject<HTMLElement | null>,
+  searchRowRef: React.RefObject<HTMLDivElement | null>,
+) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [hideBy, setHideBy] = useState(0);
+  const expand = useCallback(() => setCollapsed(false), []);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    const row = searchRowRef.current;
+    if (!header || !row) return;
+    const media = window.matchMedia("(max-width: 767.98px)");
+    let lastY = window.scrollY;
+    let down = 0;
+    let up = 0;
+    let frame = 0;
+
+    const measure = () => setHideBy(row.offsetTop);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const y = window.scrollY;
+        const delta = y - lastY;
+        lastY = y;
+        if (!media.matches || document.body.hasAttribute("data-scroll-locked")) return;
+        if (y <= header.offsetHeight) {
+          down = up = 0;
+          setCollapsed(false);
+          return;
+        }
+        if (y >= document.documentElement.scrollHeight - window.innerHeight - 2) return;
+        if (delta > 0) {
+          down += delta;
+          up = 0;
+          if (down > SCROLL_INTENT_PX) setCollapsed(true);
+        } else if (delta < 0) {
+          up -= delta;
+          down = 0;
+          if (up > SCROLL_INTENT_PX) setCollapsed(false);
+        }
+      });
+    };
+    const onMedia = () => {
+      if (!media.matches) setCollapsed(false);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    media.addEventListener("change", onMedia);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      media.removeEventListener("change", onMedia);
+      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [headerRef, searchRowRef]);
+
+  return { collapsed, hideBy, expand };
 }

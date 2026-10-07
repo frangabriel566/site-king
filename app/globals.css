@@ -476,3 +476,42 @@
     opacity: 0;
   }
 }
+
+/* Bag icon in the header, on every add to bag (components/shop/header.tsx):
+ a hop with a little tilt, and the counter popping in. Off for anyone who
+ asked for reduced motion — the number still changes. */
+@media (prefers-reduced-motion: no-preference) {
+  .bag-bump {
+    animation: bag-bump 600ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  .badge-pop {
+    animation: badge-pop 450ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+}
+
+@keyframes bag-bump {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-5px) scale(1.18) rotate(-8deg);
+  }
+  60% {
+    transform: translateY(0) scale(0.96) rotate(4deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.3);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

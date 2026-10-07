@@ -1243,3 +1243,71 @@ cliente vem do banco ou de Configurações → Vitrine, e some quando vazio.
   todo o workerd, D1 local incluído) varia de 15 a 30 ms entre rodadas da
   mesma versão; antes e depois as medianas se sobrepõem. O número que vale
   é o do painel da Cloudflare depois do deploy.
+
+## Bloco 27 — Produto, sacola, header e acessibilidade (Etapa 3)
+
+- **Migration `0002_category_media_footer_texts`:** `categories.image_url`,
+  `categories.size_guide` (JSON: colunas, linhas, observação) e
+  `site_settings.footer_payment_text` / `footer_security_text` /
+  `footer_privacy_text`. Os três textos do rodapé chegam preenchidos com o
+  que o código já mostrava, para o site não mudar no deploy; apagar um em
+  Configurações → Rodapé tira o selo. Os selos agora também aparecem no
+  celular (antes só a partir de 640 px).
+- **Guia de medidas por categoria**, editado no admin como uma planilha
+  pequena (com "Colar de uma planilha"). Saíram as duas tabelas escritas no
+  código (roupa e calçado): eram medidas genéricas que a loja nunca
+  confirmou. Sem tabela na categoria, o link não aparece. A linha do tamanho
+  já escolhido vem destacada. O guia vai junto do produto (`DETAIL_WITH`) e
+  fica fora da lista de categorias do layout, que vai no HTML de toda página.
+- **Foto da categoria:** a dela quando existe, senão a do primeiro produto
+  (como antes), escolhida na mesma consulta do D1. Uploads em
+  `/img/categories/`.
+- **Galeria:** a foto inteira é um botão que abre a tela cheia (embla, que
+  já estava no bundle, e pointer events): swipe ou setas entre fotos, toque
+  ou clique para ampliar 2,5x no ponto tocado, pinça até 4x, arrastar com
+  zoom. O swipe é desligado enquanto há zoom (`watchDrag`). Só monta quando
+  aberta e só baixa a foto da tela e as vizinhas. Fechar não mexe na
+  galeria: voltar numa foto de outra cor trocaria a cor e apagaria o tamanho
+  escolhido. Os pontinhos do celular ganharam área de toque de 24 px.
+- **"Você também pode gostar"** substitui as duas vitrines antigas: mesma
+  categoria, sem o produto atual e sem esgotados. "Quem viu, também viu"
+  saiu porque nada registra o que os clientes veem, então o nome descrevia
+  um dado inexistente. A vitrine chega por streaming (Suspense, com
+  skeleton): a página do produto não espera por ela.
+- **Sacola:** tamanho trocado na própria linha (select nativo, com os
+  esgotados listados mas desabilitados), tanto na página quanto na sacola
+  lateral. A consulta de estoque passou a ser por produto e a trazer todas
+  as variações (`getCartVariants`), então serve à trava do "+" e à troca, e
+  trocar não faz nova ida ao servidor. Trocar para um tamanho que já está
+  na sacola soma as linhas; a quantidade nunca passa do saldo. O "Compra
+  100% segura" fixo da sacola virou a frase de compra segura das
+  configurações.
+- **Skeletons:** foto do card pulsando até carregar (o bloco sai no load,
+  para não deixar animação rodando sob cada foto); `loading.tsx` só na
+  home, que foi para o grupo `(home)` para o skeleton dela não aparecer ao
+  abrir a sacola ou o checkout. Em /colecao o Suspense envolve só a coluna
+  dos resultados, com chave pela query: um `loading.tsx` remontaria a página
+  e fecharia a gaveta de filtros do celular a cada toque. A página de
+  produto não ganhou skeleton de rota porque já abre com a foto do card
+  (`image-handoff`), e um bloco cinza na frente seria um passo atrás.
+- **Sacola no header:** cada adição faz o ícone pular e o contador "estourar"
+  (CSS, desligado com `prefers-reduced-motion`) e traz o header de volta se
+  ele estiver recolhido.
+- **Header no celular:** ao rolar para baixo, a faixa de avisos e a linha do
+  logo sobem e fica só a busca (que precisa estar sempre visível, Etapa 2);
+  ao rolar para cima, voltam. É só `transform` no bloco fixo, como o
+  comentário do header já previa, então nada abaixo se mexe. São 24 px de
+  intenção numa direção antes de reagir, e o header ignora o rubber band
+  do topo e do fim e a página parada sob uma gaveta. Foco no header o traz
+  de volta. No computador, nada muda.
+- **Acessibilidade (axe-core, WCAG 2.2 AA, 375 px):** 0 ocorrências em
+  home, coleção, produto, sacola, checkout, conta e sobre, e também com o
+  menu, a sacola lateral, o guia e a tela cheia abertos. Corrigido: o select
+  de ordenação sem nome, o verde do "Comprar pelo WhatsApp" (4,3:1 → 5,4:1),
+  as abas de /conta (4,34:1) e o "Close" dos diálogos (agora "Fechar"). No
+  checkout em 375 px, os quatro passos lado a lado empurravam a página
+  inteira para os lados (460 px de largura); agora só o passo atual mostra
+  o nome, e os outros continuam legíveis para leitor de tela. Marca e selo
+  dos cards subiram de 11/10 px para 12/11 px. Sem rolagem horizontal em
+  320 e 375 px em nenhuma página da loja.
+- Worker: 2.353 KiB comprimidos (+9 KiB).

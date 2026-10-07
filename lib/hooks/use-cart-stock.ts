@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCartStockAction } from "@/lib/actions/checkout";
+import { getCartVariantsAction } from "@/lib/actions/checkout";
 import type { CartItem } from "@/lib/cart/types";
+import type { CartVariantOption } from "@/lib/data/checkout";
+import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
+
+export type { CartVariantOption };
 
 export type CartStock = {
   /** Saldo de cada variação. `null` enquanto a consulta não voltou — é o
@@ -13,6 +17,10 @@ export type CartStock = {
   limitOf: (variantId: string) => number | null;
   /** Já é possível afirmar que não há saldo nenhum. */
   isSoldOut: (variantId: string) => boolean;
+  /** Os tamanhos que esta linha pode trocar: mesma peça, mesma cor, na
+   *  ordem da grade (PP…GG, depois números). Vazio enquanto não se sabe e
+   *  para peça sem variações ou de tamanho único — aí não há o que trocar. */
+  sizesFor: (item: CartItem) => CartVariantOption[];
 };
 
 /**
@@ -24,8 +32,10 @@ export type CartStock = {
  * cumpria, porque tanto o checkout quanto a compra por WhatsApp aparam
  * a quantidade ao estoque no servidor.
  *
- * A consulta é refeita só quando o conjunto de variações muda — mexer na
- * quantidade não dispara ida ao servidor.
+ * A consulta é por produto e traz todas as variações dele, o que também
+ * alimenta a troca de tamanho na própria sacola. Ela é refeita só quando
+ * o conjunto de produtos muda — mexer na quantidade ou trocar o tamanho
+ * não dispara ida ao servidor.
  */
 /** `true` quando somar mais um passaria do que existe. Com o saldo ainda
  *  desconhecido (`limit` nulo) não trava nada — o servidor continua sendo
@@ -42,6 +52,13 @@ export function stockNote(limit: number | null, qty: number): string | null {
   return null;
 }
 
+function sizeRank(size: string): number {
+  const index = (SIZE_ORDER as readonly string[]).indexOf(size);
+  if (index >= 0) return index;
+  const number = Number(size);
+  return Number.isFinite(number) ? 100 + number : 1000;
+}
+
 /**
  * @param enabled A gaveta da sacola é montada no layout, ou seja, em
  * *toda* página da loja. Sem este interruptor, cada navegação dispararia
@@ -49,31 +66,31 @@ export function stockNote(limit: number | null, qty: number): string | null {
  * ela só consulta quando está aberta, e a página da sacola sempre.
  */
 export function useCartStock(items: CartItem[], enabled = true): CartStock {
-  const [stock, setStock] = useState<Record<string, number> | null>(null);
+  const [variants, setVariants] = useState<Record<string, CartVariantOption[]> | null>(null);
 
   // Chave estável: ordenada, para que reordenar a sacola não conte como
   // mudança, e em string para não recriar o efeito a cada render.
   const key = useMemo(
-    () => [...new Set(items.map((item) => item.variantId))].sort().join(","),
+    () => [...new Set(items.map((item) => item.productId))].sort().join(","),
     [items],
   );
 
   useEffect(() => {
     if (!enabled) return;
     if (!key) {
-      setStock({});
+      setVariants({});
       return;
     }
 
     let alive = true;
-    getCartStockAction(key.split(","))
+    getCartVariantsAction(key.split(","))
       .then((result) => {
-        if (alive) setStock(result);
+        if (alive) setVariants(result);
       })
       .catch(() => {
         // Falhou a consulta: melhor não saber do que travar a sacola. O
         // servidor continua sendo quem decide na hora do pedido.
-        if (alive) setStock(null);
+        if (alive) setVariants(null);
       });
 
     return () => {
@@ -81,12 +98,25 @@ export function useCartStock(items: CartItem[], enabled = true): CartStock {
     };
   }, [key, enabled]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const stock: Record<string, number> | null = variants
+      ? Object.fromEntries(
+          Object.values(variants)
+            .flat()
+            .map((variant) => [variant.id, variant.stock]),
+        )
+      : null;
+    return {
       stock,
       limitOf: (variantId: string) => (stock ? (stock[variantId] ?? 0) : null),
       isSoldOut: (variantId: string) => Boolean(stock) && (stock?.[variantId] ?? 0) <= 0,
-    }),
-    [stock],
-  );
+      sizesFor: (item: CartItem) => {
+        if (!variants || isSimpleVariant(item.color, item.size)) return [];
+        const sizes = (variants[item.productId] ?? [])
+          .filter((variant) => variant.color === item.color)
+          .sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
+        return sizes.length > 1 ? sizes : [];
+      },
+    };
+  }, [variants]);
 }

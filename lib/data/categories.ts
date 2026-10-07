@@ -22,16 +22,21 @@ export async function getActiveCategories(): Promise<Category[]> {
   );
 }
 
-export type CategoryShowcase = Category & {
+/** Enough of a category to link to it. */
+export type CategoryLink = Pick<Category, "id" | "name" | "slug">;
+
+/** What the storefront's menus and circles need — never the size guide,
+ * which only the product page reads and which would otherwise ride along
+ * in the HTML of every page (the header gets this list). */
+export type CategoryShowcase = CategoryLink & {
   image: { url: string; alt: string | null } | null;
 };
 
 /**
- * Categories don't have their own photo field in the schema — instead of
- * inventing one, each tile borrows the first image of its category's
- * first active product (lowest `position`, newest on a tie) that has a
- * photo. A category with none gets `image: null`, and the caller falls
- * back to a plain monogram tile.
+ * Each category's photo: its own (Admin → Categorias) when it has one,
+ * else the first image of its first active product (lowest `position`,
+ * newest on a tie) that has a photo. A category with neither gets
+ * `image: null`, and the caller falls back to a plain monogram tile.
  *
  * The pick happens in D1 (one row per category comes back), not in the
  * Worker: the shop layout asks for this on every page for the mobile
@@ -58,15 +63,24 @@ export const getCategoriesWithImages = cache(async (): Promise<CategoryShowcase[
       .as("ranked");
 
     const rows = await db
-      .select({ category: categories, url: ranked.url, alt: ranked.alt })
+      .select({
+        id: categories.id,
+        name: categories.name,
+        slug: categories.slug,
+        own: categories.image_url,
+        url: ranked.url,
+        alt: ranked.alt,
+      })
       .from(categories)
       .leftJoin(ranked, and(eq(ranked.category_id, categories.id), eq(ranked.rank, 1)))
       .where(eq(categories.active, true))
       .orderBy(asc(categories.position));
 
-    return rows.map(({ category, url, alt }) => ({
+    return rows.map(({ own, url, alt, ...category }) => ({
       ...category,
-      image: url ? { url, alt } : null,
+      // The category's own photo has no alt of its own: the name next to
+      // the circle already says what it is.
+      image: own ? { url: own, alt: null } : url ? { url, alt } : null,
     }));
   }, []);
 });

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import useEmblaCarousel from "embla-carousel-react";
+import { Expand } from "lucide-react";
+import { ProductLightbox } from "@/components/shop/product-lightbox";
 import {
   GALLERY_IMAGE_QUALITY,
   GALLERY_IMAGE_SIZES,
@@ -56,6 +58,8 @@ export function ProductGallery({
   const [selected, setSelected] = useState(0);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
   const [hovered, setHovered] = useState(false);
+  // The full-screen viewer, open on this slide; null while closed.
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   // Mouse-driven zoom only where there is a real cursor: on a touch screen a
   // tap can fire a stray mousemove, which would leave the photo stuck at
@@ -113,6 +117,12 @@ export function ProductGallery({
     return () => clearInterval(timer);
   }, [emblaApi, autoplay, hovered, reducedMotion, slides.length]);
 
+  function openLightbox(index: number) {
+    onInteract?.();
+    setZoom(null);
+    setLightbox(index);
+  }
+
   function goTo(index: number) {
     onInteract?.();
     releaseRest();
@@ -169,6 +179,14 @@ export function ProductGallery({
               -{discountPercent}% OFF
             </div>
           )}
+          {/* Says the photo opens bigger; the tap itself lands on the
+              photo's own button underneath. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/90 text-fg shadow-sm"
+          >
+            <Expand className="size-4" />
+          </span>
           <div
             className="overflow-hidden"
             ref={emblaRef}
@@ -197,6 +215,16 @@ export function ProductGallery({
                   }
                   onMouseLeave={canZoom ? () => setZoom(null) : undefined}
                 >
+                  {/* The whole photo opens the full-screen viewer. A button,
+                      so it is reachable by keyboard too; a swipe does not
+                      click it (embla swallows the click after a drag). */}
+                  <button
+                    type="button"
+                    onClick={() => openLightbox(index)}
+                    aria-label={`Ampliar foto ${index + 1} de ${slides.length}`}
+                    className="absolute inset-0 z-[1] cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-fg"
+                    tabIndex={index === selected ? 0 : -1}
+                  />
                   {/* One photo per slide, not a desktop one plus a hidden
                       mobile one: a display:none image is downloaded all the
                       same, so that pair spent half of the page's image
@@ -239,7 +267,9 @@ export function ProductGallery({
         </div>
       </div>
 
-      <div className="mt-4 flex justify-center gap-2 md:hidden">
+      {/* The dots stay 6px, but each sits in a 24px button: a dot-sized
+          target can't be hit with a thumb. */}
+      <div className="mt-2 flex justify-center md:hidden">
         {slides.map((slide, index) => (
           <button
             key={slide.id}
@@ -251,12 +281,25 @@ export function ProductGallery({
                 : `Ver imagem ${index + 1} de ${slides.length}`
             }
             aria-current={selected === index}
-            className={`size-1.5 rounded-full transition-colors duration-200 ease-out ${
-              selected === index ? "bg-fg" : "bg-line"
-            }`}
-          />
+            className="flex size-6 touch-manipulation items-center justify-center"
+          >
+            <span
+              className={`size-1.5 rounded-full transition-colors duration-200 ease-out ${
+                selected === index ? "bg-fg" : "bg-ink-muted/40"
+              }`}
+            />
+          </button>
         ))}
       </div>
+
+      {lightbox !== null && (
+        <ProductLightbox
+          slides={slides}
+          productName={productName}
+          startIndex={lightbox}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </div>
   );
 }

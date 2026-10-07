@@ -35,6 +35,9 @@ const FALLBACK_SETTINGS: SiteSettings = {
   low_stock_units: null,
   exchange_note: null,
   secure_purchase_note: null,
+  footer_payment_text: null,
+  footer_security_text: null,
+  footer_privacy_text: null,
 };
 
 /** Public. Read once per request — the layout, the page and the WhatsApp

@@ -1036,3 +1036,92 @@ funcionava.
   `unoptimized` elas baixariam o arquivo inteiro de cada linha (~6MB na lista
   de produtos). Não testado no navegador (o admin exige login); `tsc`,
   `eslint` e `next build` limpos.
+
+## Bloco 22 — Saída do Supabase: Cloudflare D1, Better Auth e Workers KV
+
+O projeto Supabase foi excluído; banco, auth, storage e middleware passam a
+viver na Cloudflare, ao lado do Worker (OpenNext) que já servia o site.
+
+- **Banco: D1 + Drizzle.** `lib/db/schema.ts` reproduz as 14 migrations do
+  Supabase tabela por tabela. Conversões de SQLite: uuid vira `text`
+  gerado no app; dinheiro vira `real` arredondado a centavos na escrita
+  (`lib/money.ts`) — o app já tratava preço como `number`; datas do app
+  são ISO em UTC (o código já fazia `created_at.slice(0, 10)`); `jsonb` e
+  `text[]` viram JSON em `text`; enums viram `CHECK`. As colunas de peso
+  em `product_variants` (mortas desde a 0013) não vieram.
+- **Funções do Postgres viraram código** (`lib/orders/*`,
+  `lib/data/coupons.ts`). O D1 não tem transação interativa, então toda
+  escrita de vários passos é um `batch` (tudo ou nada). A baixa de estoque
+  continua idempotente pela trava `stock_decremented_at`, agora como
+  condição `EXISTS` em cada UPDATE do batch; "Confirmar venda" aborta por
+  falta de saldo via o `CHECK (stock >= 0)` da tabela. `order_number` e o
+  código `KS0001` são calculados dentro do próprio INSERT (o D1 executa
+  escritas uma por vez). O D1 limita 100 parâmetros por statement —
+  `insertChunks` divide INSERTs grandes dentro do mesmo batch.
+- **RLS virou código explícito**, num lugar só: `lib/auth/guards.ts`
+  (`requireAdmin`, `requireAdminPage`, `requireUser`). Toda leitura de
+  admin chama o guard dentro do próprio loader, não só o layout — o layout
+  não roda de novo em navegação entre páginas do painel.
+- **Auth: Better Auth** (e-mail e senha) com adaptador Drizzle no mesmo
+  D1; `user.role` substitui `profiles`. Senha com **PBKDF2-SHA256 nativo
+  (100 mil iterações, o máximo que o Workers aceita)** em vez do scrypt em
+  JS do Better Auth, que estoura o CPU do plano Free. Sem confirmação de
+  e-mail por enquanto (decisão de produto); "esqueci minha senha" via
+  Resend, pronto para quando a chave existir. O login do painel não abre
+  sessão para conta de cliente: confere a senha e responde "sem acesso".
+- **Middleware só checa o cookie** e só roda em `/admin`. Validar sessão
+  e papel exigiria Better Auth + Drizzle no bundle do middleware; a
+  checagem real fica no layout do painel e em cada Action/rota.
+- **Fotos no Workers KV** (temporário, até o R2), atrás de
+  `lib/storage.ts`. O navegador comprime cada upload em dois arquivos —
+  ≤1600px/≤500 KB e uma miniatura de 640px de largura — e um loader do
+  `next/image` (`lib/image-loader.ts`) escolhe entre os dois pela largura.
+  Não há otimizador: era ele que estourava a cota na Vercel (Bloco 21).
+  `/img/...` responde com `immutable` de um ano e alimenta o cache de borda.
+- **Nada é prerenderizado.** O build não enxerga o D1 de produção, e sem
+  cache incremental configurado o ISR não guardava nada; `dynamic =
+  "force-dynamic"` no layout raiz deixa isso explícito.
+- **Busca sem acento.** `LIKE` do SQLite só ignora caixa em ASCII; a busca
+  usa `products.search_text` (nome + marca + categoria, minúsculo e sem
+  acento), regravado a cada save e quando marca/categoria são renomeadas.
+- **Verificação:** 18 cenários E2E no `npm run preview` (Edge headless):
+  vitrine, busca com/sem acento, cadastro, login, checkout com preço
+  relido do banco, pedido e confirmação por WhatsApp (inclusive sem
+  estoque), admin barrando cliente, produto com upload, `/img` com
+  miniatura, baixa de estoque idempotente, conciliação do webhook e
+  redefinição de senha. `tsc`, `eslint` e `next build` limpos.
+
+## Bloco 23 — Plano Free: OG image fora, CPU a medir em produção, #418
+
+- **OG image gerada removida.** `produto/[slug]/opengraph-image.tsx`
+  (next/og: resvg.wasm + yoga.wasm + fonte) custava ~750 KiB e deixava o
+  Worker em 3.079 KiB comprimidos, acima do limite de 3 MiB do Free. Sem
+  ela: **2.327 KiB**. Produtos com foto continuam com `og:image` e
+  `twitter:image` (conferido no preview, inclusive para foto do KV, que
+  sai absoluta pelo `metadataBase`); só produto sem foto nenhuma fica sem
+  imagem ao ser compartilhado.
+- **Começa no Free; Paid só depois de ver a CPU real.** Medição local
+  (CPU do processo `workerd`, teto) deu 23–51 ms por página, ~59 ms no
+  login e ~82 ms no cadastro — tudo acima dos 10 ms do Free. A decisão
+  sai dos Workers Logs (`observability` ligado no `wrangler.jsonc`).
+  **As 100 mil iterações do PBKDF2 ficam** — reduzir para caber nos 10 ms
+  enfraqueceria demais o hash.
+- **`keep_vars: true` no `wrangler.jsonc`.** As variáveis de texto vivem
+  no painel; sem isso, todo `wrangler deploy` (inclusive o do CI) as
+  apagaria.
+- **Erro de hidratação React #418 — anterior ao D1.** Intermitente, no
+  layout da loja (aparecia até em `/sobre`). Medido com Chrome headless
+  na mesma aba, `networkidle`:
+  - commit `60584c0` (antes do D1): **8/64** carregamentos com #418;
+  - o mesmo commit sem a OG image: **1/64**;
+  - esta branch, sem a OG image: **0/128** (e 0/210 com aba nova a
+    cada carregamento).
+  Então o erro não veio da migração, e a rota de OG image o tornava bem
+  mais frequente. As causas comuns foram procuradas no layout da loja e
+  não estão lá: nenhuma data/hora renderizada em Client Component (o ano
+  do rodapé é Server Component), nenhum `Math.random`, e toda leitura de
+  `window`/`localStorage` (carrinho, cookies, botão do WhatsApp, toque
+  precoce do header) acontece em `useEffect`. Como sobrou 1/64 no código
+  antigo sem OG, não dá para garantir que sumiu de vez — vale olhar o
+  console em produção. O React se recupera sozinho (re-renderiza a
+  árvore no cliente); nenhum fluxo quebrava.

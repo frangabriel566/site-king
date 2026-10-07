@@ -1,8 +1,9 @@
 # King Store
 
 E-commerce completo (loja pública + painel administrativo) para uma loja
-de roupa masculina. Next.js 15 (App Router) + Tailwind CSS v4 + shadcn/ui
-+ Supabase (Postgres, Auth, Storage, RLS) + Vercel.
+de roupa masculina. Next.js 15 (App Router) + Tailwind CSS v4 + shadcn/ui,
+rodando na **Cloudflare Workers** via OpenNext, com **D1** (banco),
+**Better Auth** (login) e **Workers KV** (fotos).
 
 Identidade visual: editorial dark, brutalista — preto e branco secos,
 tipografia enorme, dourado só em três lugares (hover de link, badge de
@@ -17,87 +18,93 @@ Veja também:
 ## Stack
 
 - **Next.js 15** (App Router, TypeScript estrito, Server Components por
-  padrão, Server Actions para toda mutação)
+  padrão, Server Actions para toda mutação), empacotado para Workers pelo
+  **@opennextjs/cloudflare**
 - **Tailwind CSS v4** + **shadcn/ui** (Radix + Lucide)
-- **Supabase**: Postgres com RLS em toda tabela, Auth, Storage
+- **Cloudflare D1** (SQLite) com **Drizzle ORM**: schema em
+  `lib/db/schema.ts`, migrations geradas pelo drizzle-kit
+- **Better Auth** (e-mail e senha) sobre o mesmo D1; senha com PBKDF2
+  nativo do Workers (`lib/auth/password.ts`)
+- **Workers KV** para as fotos enviadas pelo painel, atrás de
+  `lib/storage.ts` (trocar por R2 é mexer só nesse arquivo)
 - **Pagamento**: Mercado Pago Checkout Pro (padrão) ou WhatsApp (fallback),
   atrás de uma interface `PaymentProvider` — troca por env var
-- **E-mail**: Resend (opcional — sem `RESEND_API_KEY`, o e-mail de
-  confirmação simplesmente não é enviado, o resto do fluxo continua)
-- **Vercel** para deploy
+- **E-mail**: Resend (opcional — sem `RESEND_API_KEY`, confirmação de
+  pedido e "esqueci minha senha" simplesmente não enviam, o resto continua)
 
 ## Estrutura
 
 ```
-app/(shop)/...        rotas públicas da loja
+app/(shop)/...         rotas públicas da loja
 app/(admin)/admin/...  painel administrativo (login fora da shell autenticada)
+app/api/auth/          endpoints do Better Auth (link de redefinir senha)
+app/api/upload/        upload de fotos do painel → KV
+app/img/[...key]/      serve as fotos do KV (cache longo, immutable)
 app/api/webhooks/...   webhook do Mercado Pago
-components/ui/         shadcn/ui
-components/shop/       componentes da loja pública
-components/admin/      componentes do painel
-lib/supabase/          clientes Supabase (browser, server, admin/service-role, público sem cookies)
-lib/data/               leituras tipadas (Server Components)
-lib/actions/            Server Actions (toda escrita)
-lib/validations/        schemas Zod
-lib/payments/           PaymentProvider (Mercado Pago / WhatsApp) + webhook helpers
-lib/whatsapp/           número da loja + mensagem da compra direta pelo WhatsApp
-lib/cart/               Context do carrinho (localStorage)
-supabase/migrations/    schema, RLS, funções, storage — nessa ordem
-supabase/seed.sql       admin + categorias + produtos + banner + settings de demonstração
+components/            ui (shadcn), shop, admin
+lib/db/                schema Drizzle, cliente D1, helpers de batch/sequência
+lib/auth/              Better Auth, hash de senha e as regras de acesso (guards)
+lib/data/              leituras tipadas (Server Components)
+lib/actions/           Server Actions (toda escrita)
+lib/orders/            baixa de estoque e pedidos WhatsApp (transações em batch)
+lib/storage.ts         put/get/delete das fotos (KV hoje, R2 amanhã)
+lib/validations/       schemas Zod
+lib/payments/          PaymentProvider (Mercado Pago / WhatsApp) + conciliação do webhook
+drizzle/migrations/    SQL gerado pelo drizzle-kit, aplicado pelo wrangler
+drizzle/seed.sql       categorias, marca, 3 produtos, banner, cupom, configurações
+scripts/create-admin.mjs  cria ou promove a conta de administrador
 ```
 
 ## Configuração local
 
-1. Copie `.env.example` para `.env.local` e preencha com as credenciais do
-   seu projeto Supabase (veja a seção seguinte) e, se for testar
-   pagamento, do Mercado Pago.
-2. `npm install`
-3. `npm run dev` — abre em `http://localhost:3000`
-
-> Sem um projeto Supabase real conectado, o site ainda builda e roda: as
-> leituras públicas (`lib/data/*`) têm fallback para dados vazios em vez
-> de derrubar a página, mas nada de auth/checkout/admin funciona de fato.
-> Isso é intencional — ver `DECISIONS.md`, bloco "Hero e home".
-
-## Configurando o projeto Supabase
-
-1. Crie um projeto em [supabase.com](https://supabase.com).
-2. Rode **todos** os arquivos de `supabase/migrations/` em ordem numérica
-   (`0001_schema.sql` → `0014_whatsapp_orders.sql`), pelo SQL Editor do
-   painel Supabase ou via `supabase db push` com a CLI. A ordem importa:
-   cada arquivo a partir do `0006` altera o que os anteriores criaram.
-3. Rode `supabase/seed.sql` para popular o banco (1 admin, 4 categorias, 8
-   produtos com variações e fotos placeholder, 1 banner ativo,
-   configurações da loja, 1 cupom de boas-vindas). Isso sobe um ambiente
-   novo do zero em poucos minutos.
-   - **Antes de rodar**, abra `seed.sql` e troque
-     `set kingstore.admin_password = 'troque-esta-senha';` no topo do
-     arquivo. O seed se recusa a rodar com o valor de exemplo. A senha
-     não fica salva em lugar nenhum além do hash da própria conta — não
-     a escreva de volta aqui nem em nenhum arquivo versionado.
-   - O e-mail do admin seedado é `admin@kingstore.com.br`. Depois do
-     primeiro login, e-mail e senha são trocáveis em **Configurações →
-     Conta**, dentro do próprio painel.
-4. Em **Authentication → Settings**, desative a confirmação de e-mail
-   obrigatória (ou aceite que o cadastro no checkout pode pedir para o
-   cliente confirmar o e-mail antes de conseguir logar — o código já
-   trata os dois casos, mas a experiência é mais fluida sem confirmação
-   obrigatória).
-5. Copie **Project URL**, **anon public key** e **service_role key** de
-   **Settings → API** para `NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`.
-6. (Opcional, mas recomendado) Regenere `lib/database.types.ts` a partir
-   do projeto real depois de linkar a CLI:
+1. `npm install`
+2. Copie `.env.example` para `.env.local` e preencha ao menos
+   `BETTER_AUTH_SECRET` (o comando para gerar um está no arquivo).
+3. Banco local (fica em `.wrangler/`, ignorado pelo git):
    ```bash
-   supabase gen types typescript --linked > lib/database.types.ts
+   npm run db:migrate:local
+   npm run db:seed:local
+   npm run admin:create -- --email voce@loja.com.br --name "Seu Nome"
    ```
-   O arquivo atual foi escrito à mão espelhando exatamente as migrations
-   (não havia projeto Supabase real disponível durante a construção) —
-   regenerar garante que ele nunca diverge do schema de verdade.
+   O script pede a senha (ou lê `ADMIN_PASSWORD`). Se o e-mail já tiver
+   conta, ele vira admin e passa a usar a senha informada.
+4. `npm run dev` — `http://localhost:3000`, com o D1 e o KV locais
+   (`initOpenNextCloudflareForDev` no `next.config.ts`).
+5. `npm run preview` — o build real de Workers, no `wrangler dev`
+   (`http://localhost:8787`). É o que mais se parece com produção.
+
+## Produção (Cloudflare)
+
+Recursos (já criados): D1 `king-store-db` e KV `king-store-images`,
+ligados em `wrangler.jsonc` como `DB` e `IMAGES_KV`.
+
+1. Aplicar as migrations e o seed no D1 de produção:
+   ```bash
+   npm run db:migrate:remote
+   npm run db:seed:remote     # opcional: dados de exemplo
+   npm run admin:create -- --email voce@loja.com.br --name "Seu Nome" --remote
+   ```
+2. No painel do Worker `king-store` → **Settings → Variables and Secrets**
+   (as variáveis ficam só no painel; `keep_vars` no `wrangler.jsonc` impede
+   que o deploy as apague):
+   - secrets: `BETTER_AUTH_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`,
+     `MERCADOPAGO_WEBHOOK_SECRET`, `RESEND_API_KEY`, `MELHORENVIO_TOKEN`
+   - variáveis: `BETTER_AUTH_URL` (o domínio final, ex.
+     `https://www.kingstore.com.br`), `PAYMENT_PROVIDER`,
+     `RESEND_FROM_EMAIL`, `MELHORENVIO_URL`, `MELHORENVIO_EMAIL`
+3. Em **Settings → Build → Variables and secrets** (usadas no build):
+   `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`.
+4. Build command: `npx opennextjs-cloudflare build` — Deploy command:
+   `npx opennextjs-cloudflare deploy`.
+5. Registrar o webhook do Mercado Pago apontando para
+   `https://SEU_DOMINIO/api/webhooks/mercadopago`.
+
+Mudou o schema? Edite `lib/db/schema.ts`, rode `npm run db:generate` e
+aplique com `db:migrate:local` / `db:migrate:remote`.
 
 ## Configurando pagamento
 
-Escolha via `PAYMENT_PROVIDER` no `.env`:
+Escolha via `PAYMENT_PROVIDER`:
 
 - **`mercadopago`** (padrão): preencha `MERCADOPAGO_ACCESS_TOKEN`. Para o
   webhook (`/api/webhooks/mercadopago`) funcionar, configure a mesma URL
@@ -120,46 +127,40 @@ e o total.
 
 - **Não reserva estoque.** A baixa acontece só em **Pedidos WhatsApp →
   Confirmar venda**, numa transação que recusa o pedido inteiro se faltar
-  saldo de qualquer variação (`confirm_whatsapp_order`).
+  saldo de qualquer variação (`lib/orders/whatsapp.ts`).
 - **Pendentes expiram em 48h** e viram `expirado`. Não há cron: a
-  varredura (`expire_whatsapp_orders`) roda ao abrir a aba do painel e a
-  cada pedido novo, e confirmar um pedido vencido é recusado de qualquer
-  forma.
+  varredura roda ao abrir a aba do painel e a cada pedido novo, e
+  confirmar um pedido vencido é recusado de qualquer forma.
 - Não exige login — um visitante fecha pedido e se identifica na conversa.
 
 ## Padrões do projeto
 
 - TypeScript estrito, zero `any`, zero `@ts-ignore`.
-- RLS ativa em toda tabela (`is_admin()` como helper); leitura pública
-  restrita a conteúdo ativo/publicado, escrita restrita a admin.
-- `service_role` só em `lib/supabase/admin.ts` e só importado de arquivos
-  `'use server'` (Server Actions, Route Handlers) — nunca em Client
-  Components, nunca no bundle do navegador.
-- Toda mutação é uma Server Action; nenhuma escrita via `fetch` client-side.
+- **Sem RLS no D1: as regras de acesso são código**, centralizadas em
+  `lib/auth/guards.ts` — `requireAdmin()` em toda Action/rota de admin,
+  `requireAdminPage()` em toda página e loader do painel, `requireUser()`
+  e filtro por `user.id` em tudo que é do cliente. Leitura pública só de
+  conteúdo ativo/publicado.
+- Escrita com mais de um statement vai num `batch` do D1 (atômico); o D1
+  aceita no máximo 100 parâmetros por statement (`insertChunks`).
+- Toda mutação é uma Server Action; nenhuma escrita via `fetch`
+  client-side (exceção: o upload de foto, que vai para `/api/upload`).
 - Server Components por padrão; `"use client"` só onde há interatividade.
 - `npm run build` e `npm run lint` devem terminar limpos antes de cada commit.
 
 ## Scripts
 
 ```bash
-npm run dev     # desenvolvimento
-npm run build   # build de produção (roda type-check + lint)
-npm run start   # serve o build de produção
-npm run lint    # eslint
+npm run dev               # desenvolvimento (D1/KV locais)
+npm run build             # next build (type-check + lint)
+npm run preview           # build de Workers + wrangler dev
+npm run deploy            # build de Workers + deploy
+npm run cf-typegen        # tipos dos bindings (cloudflare-env.d.ts)
+npm run db:generate       # nova migration a partir do schema
+npm run db:migrate:local  # aplica migrations no D1 local
+npm run db:migrate:remote # aplica migrations no D1 de produção
+npm run db:seed:local     # dados de exemplo no D1 local
+npm run db:seed:remote    # dados de exemplo no D1 de produção
+npm run admin:create      # cria/promove admin (--remote para produção)
+npm run lint              # eslint
 ```
-
-## Deploy
-
-Ver checklist completo no final da conversa/entrega do projeto, ou
-resumidamente:
-
-**Supabase**: projeto criado → migrations aplicadas na ordem → seed
-rodado → confirmação de e-mail configurada → chaves copiadas.
-
-**Vercel**: importar o repositório → colar todas as variáveis de
-`.env.example` (com valores reais) em Project Settings → Environment
-Variables → deploy → configurar o domínio final em
-`NEXT_PUBLIC_SITE_URL` e redeploy (ele é usado para montar links de
-retorno do Mercado Pago e URLs absolutas de metadata/sitemap) → registrar
-a URL do webhook do Mercado Pago apontando para
-`https://SEU_DOMINIO/api/webhooks/mercadopago`.

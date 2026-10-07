@@ -5,10 +5,11 @@ Guia curto para quem toca a loja no dia a dia pelo painel
 
 ## Entrar no painel
 
-Acesse `/admin/login` com o e-mail e senha de administrador. Se você
-esqueceu a senha do admin seedado, troque-a direto pelo painel do
-Supabase (Authentication → Users → selecione o usuário → Reset password)
-até termos um fluxo de "esqueci minha senha" no próprio painel.
+Acesse `/admin/login` com o e-mail e senha de administrador. Esqueceu a
+senha? Use **"Esqueci minha senha"** na própria tela de login: chega um
+link por e-mail (precisa da `RESEND_API_KEY` configurada). Sem e-mail
+configurado, quem tem acesso ao projeto define uma senha nova com
+`npm run admin:create -- --email SEU_EMAIL --remote` (ver README).
 
 ## Trocar o banner da home
 

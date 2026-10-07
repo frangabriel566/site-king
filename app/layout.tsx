@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { Archivo } from "next/font/google";
+import localFont from "next/font/local";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const archivo = Archivo({
+// Archivo, self-hosted: the exact latin file Google Fonts served through
+// next/font/google (same bytes), so the build no longer depends on
+// reaching Google — a flaky fetch there failed a Cloudflare build once.
+// It is a variable font: one file covers every weight the site uses.
+// License: app/fonts/OFL.txt.
+//
+// The fallback shown while it loads keeps the metrics next/font/google
+// used ("Archivo Fallback" in globals.css): next/font/local would derive
+// slightly different ones from the file, shifting text during the swap.
+const archivo = localFont({
+  src: [{ path: "./fonts/archivo-latin-wght.woff2", weight: "400 900", style: "normal" }],
   variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  adjustFontFallback: false,
+  fallback: ["Archivo Fallback"],
 });
 
 // || not ?? — an env var explicitly set to "" (e.g. left blank in the

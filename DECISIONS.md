@@ -65,7 +65,7 @@ e a opção mais simples escolhida para resolvê-la.
   (`sm/md/lg/xl/2xl/3xl/4xl`) deriva de `--radius`; zerando a variável base
   satisfaz "sem arredondamento" em todos os componentes automaticamente, sem
   precisar tocar em cada componente individualmente.
-- **Fonte única: Archivo (via `next/font/google`), pesos 400–900.** O pedido
+- **Fonte única: Archivo (via `next/font/google`, hoje `next/font/local` — Bloco 24), pesos 400–900.** O pedido
   permite Inter ou Archivo; Archivo foi escolhida por ter um peso 800/900
   genuíno e um caráter geométrico mais alinhado ao "brutalista, caro" pedido
   para o wordmark gigante do hero. Usada tanto para display quanto para UI,
@@ -1125,3 +1125,23 @@ viver na Cloudflare, ao lado do Worker (OpenNext) que já servia o site.
   antigo sem OG, não dá para garantir que sumiu de vez — vale olhar o
   console em produção. O React se recupera sozinho (re-renderiza a
   árvore no cliente); nenhum fluxo quebrava.
+
+## Bloco 24 — Archivo self-hosted (next/font/local)
+
+Um build na Cloudflare falhou uma vez dentro do `next/font/google`
+(`Cannot read properties of null (reading '1')` no loader, ao buscar a
+fonte no Google); passou no retry, mas o build não deve depender da rede.
+
+- **`app/fonts/archivo-latin-wght.woff2`** é o mesmo arquivo que o
+  `next/font/google` servia — baixado com o User-Agent dele, SHA-256
+  idêntico ao do build anterior. É a Archivo variável: um arquivo cobre
+  os pesos 400–900; só o subset latin (o único que era pré-carregado; os
+  de latin-ext e vietnamita ficaram de fora, como pedido). Licença OFL em
+  `app/fonts/OFL.txt`.
+- **Visual igual:** mesma variável `--font-archivo`, mesmos pesos, `swap`.
+  A fonte de reserva ("Archivo Fallback", Arial ajustada) é declarada em
+  `globals.css` com as métricas exatas que o `next/font/google` gerava; o
+  `next/font/local` calcularia outras e o texto pularia na troca.
+- O Next não pré-carrega a fonte em nenhuma das duas versões (o
+  `next-font-manifest` sai vazio também com o Google) — nada mudou aí.
+- Worker: 2.334 KiB comprimidos.

@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/shop/safe-image";
-import { Menu, User, ShoppingBag, X, Truck, MessageCircle } from "lucide-react";
+import { Menu, User, ShoppingBag, X, MessageCircle, ChevronRight, Info } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
-import type { Category } from "@/lib/data/categories";
+import { AnnouncementBar } from "@/components/shop/announcement-bar";
+import { WhatsAppIcon } from "@/components/shop/whatsapp-icon";
+import type { CategoryShowcase } from "@/lib/data/categories";
 import type { SiteSettings } from "@/lib/data/settings";
-import { freeShippingText } from "@/lib/shop-config";
+import { announcementMessages } from "@/lib/shop-config";
 
 declare global {
   interface Window {
@@ -25,14 +27,15 @@ export function Header({
   categories,
 }: {
   settings: SiteSettings;
-  categories: Category[];
+  categories: CategoryShowcase[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { count, open: openBag, isHydrated } = useCart();
-  const shippingLine = freeShippingText({
-    freeShippingThreshold: settings.free_shipping_threshold,
-    freeShippingNote: settings.free_shipping_note,
-  });
+  const messages = announcementMessages(settings);
+  const whatsappHref = settings.whatsapp
+    ? `https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`
+    : null;
+  const closeMenu = () => setMobileOpen(false);
 
   // The links inside the drawer close it themselves, but that misses
   // every other way the route can change — the back button above all,
@@ -99,35 +102,39 @@ export function Header({
             this line and raise the Copiar/Pesquisar/Traduzir callout
             instead of delivering the tap. The menu button sits directly
             under this bar, so that is what swallowed the presses. */}
-        <div className="select-none border-b border-white/10">
-          <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
-            <div aria-hidden="true" />
-            {/* The configured rule first, so this line can't promise a
-                different value from the checkout; nothing when the store
-                has neither a rule nor a phrase. */}
-            {shippingLine ? (
-              <p className="flex items-center justify-center gap-2 truncate text-center">
-                <Truck className="size-3.5 shrink-0" aria-hidden="true" />
-                {shippingLine}
-              </p>
-            ) : (
-              <div aria-hidden="true" />
-            )}
-            {settings.whatsapp ? (
-              <a
-                href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden shrink-0 touch-manipulation items-center justify-self-end gap-2 hover:text-gold sm:flex"
-              >
-                <MessageCircle className="size-3.5" aria-hidden="true" />
-                Fale conosco
-              </a>
-            ) : (
-              <div aria-hidden="true" />
-            )}
+        {/* The store's messages, rotating (Configurações → Faixa de
+            avisos), or the free-shipping rule when there are none. On a
+            phone the bar is the whole row; with nothing to say there, the
+            row is gone rather than left as an empty black strip. */}
+        {(messages.length > 0 || whatsappHref) && (
+          <div
+            className={`select-none border-b border-white/10 ${
+              messages.length > 0 ? "" : "hidden sm:block"
+            }`}
+          >
+            <div className="mx-auto flex h-9 max-w-[1400px] items-center px-1.5 text-xs sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:px-4 md:px-8">
+              <div aria-hidden="true" className="hidden sm:block" />
+              {messages.length > 0 ? (
+                <AnnouncementBar messages={messages} />
+              ) : (
+                <div aria-hidden="true" />
+              )}
+              {whatsappHref ? (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden shrink-0 touch-manipulation items-center justify-self-end gap-2 hover:text-gold sm:flex"
+                >
+                  <MessageCircle className="size-3.5" aria-hidden="true" />
+                  Fale conosco
+                </a>
+              ) : (
+                <div aria-hidden="true" className="hidden sm:block" />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mx-auto grid h-16 max-w-[1400px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 md:flex md:gap-8 md:px-8">
           {/* Icon buttons carry a 44px hit area (`size-11`, or `min-h-11`
@@ -257,30 +264,90 @@ export function Header({
             </span>
             <button
               type="button"
-              onClick={() => setMobileOpen(false)}
+              onClick={closeMenu}
               aria-label="Fechar menu"
               className="-mr-2.5 flex size-11 touch-manipulation select-none items-center justify-center"
             >
               <X className="size-6" aria-hidden="true" />
             </button>
           </div>
-          <nav className="flex flex-1 flex-col divide-y divide-line overflow-y-auto">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/colecao?categoria=${category.slug}`}
-                onClick={() => setMobileOpen(false)}
-                className="px-6 py-4 text-base font-medium"
-              >
-                {category.name}
-              </Link>
-            ))}
+          <nav aria-label="Categorias" className="flex-1 overflow-y-auto">
+            <Link
+              href="/colecao"
+              onClick={closeMenu}
+              className="flex min-h-14 items-center justify-between gap-3 border-b border-line px-5 text-sm font-bold uppercase tracking-wide active:bg-surface"
+            >
+              Ver todos os produtos
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </Link>
+            {/* Big rows, thumb-sized, with the same photo the home's
+                category circles use (the first product's, see
+                getCategoriesWithImages) — the menu only mounts while it
+                is open, so these images cost nothing until then. */}
+            <ul className="divide-y divide-line">
+              {categories.map((category) => {
+                const initial = category.name.charAt(0).toUpperCase();
+                return (
+                  <li key={category.id}>
+                    <Link
+                      href={`/colecao?categoria=${category.slug}`}
+                      onClick={closeMenu}
+                      className="flex min-h-[4.5rem] items-center gap-4 px-5 py-2 active:bg-surface"
+                    >
+                      <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/40 bg-black text-lg font-bold text-gold">
+                        {category.image ? (
+                          <SafeImage
+                            src={category.image.url}
+                            alt=""
+                            fill
+                            sizes="56px"
+                            className="object-cover"
+                            fallbackLabel={initial}
+                          />
+                        ) : (
+                          <span aria-hidden="true">{initial}</span>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1 text-base font-semibold uppercase tracking-wide">
+                        {category.name}
+                      </span>
+                      <ChevronRight
+                        className="size-5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
-          <div className="flex flex-col gap-1 border-t border-line px-6 py-6">
-            <Link href="/conta" onClick={() => setMobileOpen(false)} className="py-2 text-sm">
+          <div className="flex flex-col border-t border-line px-5 py-3">
+            <Link
+              href="/conta"
+              onClick={closeMenu}
+              className="flex min-h-11 items-center gap-3 text-sm"
+            >
+              <User className="size-5 text-muted-foreground" aria-hidden="true" />
               Minha conta
             </Link>
-            <Link href="/sobre" onClick={() => setMobileOpen(false)} className="py-2 text-sm">
+            {whatsappHref && (
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noreferrer"
+                onClick={closeMenu}
+                className="flex min-h-11 items-center gap-3 text-sm"
+              >
+                <WhatsAppIcon className="size-5 text-[#1fa855]" />
+                Fale conosco no WhatsApp
+              </a>
+            )}
+            <Link
+              href="/sobre"
+              onClick={closeMenu}
+              className="flex min-h-11 items-center gap-3 text-sm"
+            >
+              <Info className="size-5 text-muted-foreground" aria-hidden="true" />
               Sobre a King
             </Link>
           </div>

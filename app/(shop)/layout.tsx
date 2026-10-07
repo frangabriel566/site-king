@@ -1,6 +1,6 @@
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/data/settings";
-import { getActiveCategories } from "@/lib/data/categories";
+import { getCategoriesWithImages } from "@/lib/data/categories";
 import { Header } from "@/components/shop/header";
 import { Footer } from "@/components/shop/footer";
 import { CartDrawer } from "@/components/shop/cart-drawer";
@@ -48,7 +48,9 @@ export default async function ShopLayout({
 }) {
   const [settings, categories] = await Promise.all([
     getSiteSettings(),
-    getActiveCategories(),
+    // With each category's photo, for the mobile menu. Cached per request:
+    // the home's category circles reuse this same result.
+    getCategoriesWithImages(),
   ]);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -72,7 +74,7 @@ export default async function ShopLayout({
   return (
     <ShopConfigProvider value={shopConfigFromSettings(settings)}>
     <CartProvider>
-      <div className="storefront-theme flex min-h-full flex-col bg-bg text-fg">
+      <div className="storefront-theme storefront-root flex min-h-full flex-col bg-bg text-fg">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}

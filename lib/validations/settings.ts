@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { imageUrlSchema } from "./image-url";
+import {
+  ANNOUNCEMENT_MAX_LENGTH,
+  ANNOUNCEMENT_MAX_MESSAGES,
+  splitAnnouncement,
+} from "@/lib/shop-config";
 
 /** "399", "399,90" or "1.299,90" from a form field; empty means "not set". */
 function parseFormNumber(value: unknown): unknown {
@@ -39,7 +44,21 @@ export const siteSettingsSchema = z.object({
   youtube: z.string().trim().max(120).optional().or(z.literal("")),
   shipping_note: z.string().trim().max(200).optional().or(z.literal("")),
   free_shipping_note: z.string().trim().max(200).optional().or(z.literal("")),
-  announcement: z.string().trim().max(240).optional().or(z.literal("")),
+  // Uma mensagem por linha; a faixa do topo alterna entre elas. Guardado
+  // já limpo (sem linhas vazias nem espaços sobrando).
+  announcement: z
+    .string()
+    .nullish()
+    .transform((value) => splitAnnouncement(value))
+    .refine(
+      (lines) => lines.length <= ANNOUNCEMENT_MAX_MESSAGES,
+      `Faixa de avisos: no máximo ${ANNOUNCEMENT_MAX_MESSAGES} mensagens`,
+    )
+    .refine(
+      (lines) => lines.every((line) => line.length <= ANNOUNCEMENT_MAX_LENGTH),
+      `Faixa de avisos: cada mensagem pode ter até ${ANNOUNCEMENT_MAX_LENGTH} caracteres`,
+    )
+    .transform((lines) => lines.join("\n")),
   announcement_active: z.boolean().default(false),
 
   // Vitrine — regras de venda exibidas no card, na página do produto e na

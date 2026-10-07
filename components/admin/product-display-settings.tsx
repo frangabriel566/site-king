@@ -4,14 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-/** products.badge — one storefront shelf per product. The empty value is
- * the plain catalog ("Produtos"), which is how the column stores it. */
+/** products.badge — the label on the product's card and page. It used to
+ * pick the home shelf too; the home's rails are worked out from the data
+ * now (lib/data/products.ts), so it is only the label. Empty is stored as
+ * null. */
 const NO_BADGE_VALUE = "__no_badge__";
 const PLACEMENT_OPTIONS = [
-  { value: NO_BADGE_VALUE, label: "Produtos" },
-  { value: "lancamento", label: "Lançamentos" },
-  { value: "mais_vendido", label: "Mais vendidos" },
-  { value: "oferta", label: "Ofertas" },
+  { value: NO_BADGE_VALUE, label: "Sem selo" },
+  { value: "lancamento", label: "Lançamento" },
+  { value: "mais_vendido", label: "Mais vendido" },
+  { value: "oferta", label: "Oferta" },
 ];
 
 export function ProductDisplaySettings({
@@ -34,7 +36,7 @@ export function ProductDisplaySettings({
       <input type="hidden" name="badge" value={badge} />
 
       <div className="flex flex-col gap-2">
-        <Label>Onde aparece na home</Label>
+        <Label>Selo no produto</Label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PLACEMENT_OPTIONS.map((option) => {
             const isActive = (badge || NO_BADGE_VALUE) === option.value;
@@ -56,8 +58,10 @@ export function ProductDisplaySettings({
           })}
         </div>
         <p className="text-xs text-ink-muted">
-          O produto aparece só na vitrine escolhida. Em todas elas ele continua no catálogo
-          da loja (/coleção).
+          Aparece no card e na página do produto, quando não há um selo automático
+          (Esgotado, Últimas unidades, Novo). As vitrines da home se montam sozinhas:
+          Novidades (cadastrados por último), Ofertas (com preço &quot;de&quot; maior que o
+          preço) e Mais vendidos (vendas confirmadas).
         </p>
       </div>
 
@@ -69,10 +73,11 @@ export function ProductDisplaySettings({
             checked={featured}
             onCheckedChange={onFeaturedChange}
           />
-          <span className="text-sm text-fg">Aparecer primeiro na vitrine</span>
+          <span className="text-sm text-fg">Aparecer primeiro no catálogo</span>
         </label>
         <p className="text-xs text-ink-muted">
-          Põe este produto na frente dos outros dentro da vitrine escolhida acima.
+          Põe este produto na frente dos outros na ordem &quot;Relevância&quot; do catálogo
+          (/colecao). Não muda as vitrines da home.
         </p>
       </div>
 

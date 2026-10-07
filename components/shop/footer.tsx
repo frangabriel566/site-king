@@ -6,6 +6,7 @@ import { FooterAccordionSection } from "./footer-accordion-section";
 import { WhatsAppIcon } from "./whatsapp-icon";
 import type { SiteSettings } from "@/lib/data/settings";
 import type { Category } from "@/lib/data/categories";
+import { freeShippingText } from "@/lib/shop-config";
 
 export function Footer({
   settings,
@@ -14,6 +15,11 @@ export function Footer({
   settings: SiteSettings;
   categories: Category[];
 }) {
+  const shippingLine = freeShippingText({
+    freeShippingThreshold: settings.free_shipping_threshold,
+    freeShippingNote: settings.free_shipping_note,
+  });
+
   return (
     <footer className="bg-black text-bg">
       <div className="mx-auto max-w-[1400px] px-4 pt-10 pb-6 sm:pt-14 sm:pb-8 md:px-8">
@@ -159,8 +165,11 @@ export function Footer({
             © {new Date().getFullYear()} {settings.store_name}. Todos os direitos reservados.
           </p>
 
-          {settings.free_shipping_note && (
-            <p className="hidden text-xs text-bg/60 sm:block">{settings.free_shipping_note}</p>
+          {/* The rule first, like the header and the trust strip — the
+              free-text note alone could promise a value the checkout
+              doesn't apply. */}
+          {shippingLine && (
+            <p className="hidden text-xs text-bg/60 sm:block">{shippingLine}</p>
           )}
 
           <div className="hidden items-center gap-5 text-bg/60 sm:flex">

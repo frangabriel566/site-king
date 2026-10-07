@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from "@/lib/constants";
 import { WhatsAppIcon } from "./whatsapp-icon";
+
+/** The bag and the checkout end in their own buttons (finalizar, pagar,
+ * "Comprar pelo WhatsApp"); a floating one there only covers them and
+ * pulls the shopper out of a purchase that is about to happen. */
+const HIDDEN_ON = ["/sacola", "/checkout"];
 
 export function WhatsAppFloat({
   phone,
@@ -17,6 +23,7 @@ export function WhatsAppFloat({
   // recorded, in this tab too (a `storage` event only fires in *other*
   // tabs, hence the custom event).
   const [raised, setRaised] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     function sync() {
@@ -32,6 +39,7 @@ export function WhatsAppFloat({
   }, []);
 
   if (!phone) return null;
+  if (HIDDEN_ON.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return null;
 
   const digits = phone.replace(/\D/g, "");
   const href = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;

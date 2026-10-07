@@ -1188,3 +1188,58 @@ cliente vem do banco ou de Configurações → Vitrine, e some quando vazio.
   cliente — vitrines, preços e a barra de compra saem idênticos. Fica como
   investigação separada.
 - Worker: 2.336 KiB comprimidos.
+
+## Bloco 26 — Header, menu, home e benefícios (Etapa 2)
+
+- **Faixa de avisos rotativa** no topo do header fixo. As mensagens são as
+  de Configurações → Faixa de avisos, uma por linha (até 6, de até 90
+  caracteres), guardadas no `site_settings.announcement` que já existia e
+  não era exibido em lugar nenhum. Por isso não há migration nesta etapa.
+  Desligada ou vazia, a faixa mostra a regra de frete grátis, como antes;
+  sem nada a mostrar, a linha some no celular em vez de ficar uma tarja
+  preta vazia. Troca a cada 5 s; para com o mouse ou o foco em cima e
+  para de vez quando o cliente usa as setas (WCAG 2.2.2). Todas as
+  mensagens ficam empilhadas na mesma caixa, então a altura do header não
+  muda (o header fixo depende disso, ver `header.tsx`).
+- **Header fixo e busca sempre visível no celular** já estavam assim; nada
+  mudou ali.
+- **Menu mobile:** linhas de 72 px com a foto da categoria num círculo,
+  "Ver todos os produtos" no topo e conta, WhatsApp e Sobre embaixo.
+  Categoria não tem campo de foto: a foto é a do primeiro produto ativo
+  com imagem, a mesma dos círculos da home. A escolha agora é feita no D1
+  (`row_number()` por categoria, usando os índices existentes, 0 ms no D1
+  local) e fica em cache por requisição. Antes a home carregava todos os
+  produtos com todas as imagens para ficar com uma foto por categoria; o
+  layout, que roda em toda página, não poderia fazer isso.
+- **Vitrines da home montadas pelos dados**, não mais pelo campo
+  "Onde aparece na home" (`products.badge`): Novidades (cadastrados por
+  último), Ofertas (preço "de" maior que o preço, maior desconto primeiro)
+  e Mais vendidos (soma de `order_items.qty` em pedidos pago, em preparação,
+  enviado ou entregue, em `CONFIRMED_ORDER_STATUSES`, a mesma lista do
+  faturamento do painel e do filtro "Confirmados" do WhatsApp). Só entram
+  produtos com estoque: uma vitrine é vitrine, e um esgotado puxando
+  "Novidades" é beco sem saída (ele continua no catálogo, marcado). Sem
+  venda confirmada, "Mais vendidos" não aparece. A vitrine "Produtos" e o
+  bloco escuro de Ofertas saíram; o filtro "promoção" de /colecao passou a
+  exigir desconto de verdade, como a vitrine.
+- **`products.badge` virou só o selo** ("Selo no produto": Lançamento,
+  Mais vendido, Oferta), exibido no card quando não há selo automático. O
+  interruptor `featured` passou a significar "Aparecer primeiro no
+  catálogo": coloca o produto na frente na ordem "Relevância" de /colecao.
+  Sem isso, ele não faria mais nada.
+- **Faixa de benefícios** (WhatsApp, parcelamento, trocas) depois de
+  Novidades. Cada item só aparece quando a loja tem o dado: número de
+  WhatsApp, parcelas sem juros e frase de trocas. O WhatsApp abre a conversa
+  e trocas leva à política.
+- **Botão flutuante do WhatsApp** some em /sacola e /checkout, que já têm os
+  próprios botões de finalizar (inclusive "Comprar pelo WhatsApp").
+- **Correções que apareceram nos testes:** o respiro da barra de compra
+  (`--sticky-buy-h`) estava na classe de tema e por isso entrava também na
+  sacola, no menu e nos filtros; agora fica só na raiz da página
+  (`.storefront-root`). O rodapé ainda mostrava a frase livre de frete
+  grátis ("R$ 299") enquanto a regra era R$ 399; agora usa a regra, como o
+  header.
+- Worker: 2.344 KiB comprimidos (+8 KiB). A CPU medida localmente (soma de
+  todo o workerd, D1 local incluído) varia de 15 a 30 ms entre rodadas da
+  mesma versão; antes e depois as medianas se sobrepõem. O número que vale
+  é o do painel da Cloudflare depois do deploy.

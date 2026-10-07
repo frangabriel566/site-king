@@ -6,15 +6,16 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
-  isNull,
   like,
   lte,
   max,
   min,
   ne,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
@@ -22,6 +23,7 @@ import type { Tables, ProductBadge } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
 import {
   COLLECTION_PAGE_SIZE,
+  CONFIRMED_ORDER_STATUSES,
   SIZE_ORDER,
   isColorlessVariant,
   isSimpleVariant,
@@ -72,7 +74,7 @@ export type ProductListItem = {
   createdAt: string;
 };
 
-const { products, product_variants, categories, brands } = schema;
+const { products, product_variants, categories, brands, orders, order_items } = schema;
 
 /** What a product card needs — the old PostgREST LIST_SELECT. */
 const LIST_COLUMNS = {
@@ -173,64 +175,108 @@ function toListItem(row: {
   };
 }
 
-/**
- * A home rail holds exactly the products the merchant placed there in
- * "Exibição" (products.badge) — nothing else.
- *
- * It used to top a short rail up with untagged products, using each
- * rail's old implicit signal (newest for Lançamentos, a promo price for
- * Ofertas, the destaque switch for Mais vendidos). That made every newly
- * registered product show up in rails nobody had put it in — a product
- * saved as "Produtos" still surfaced under Lançamentos, since untagged
- * plus no filter matched everything. The placement now decides, and a
- * rail nobody has filled renders nothing at all: ProductRail and
- * OffersBlock both return null when empty, so the home closes the gap.
- *
- * `featured` no longer decides *whether* a product is on a rail, only
- * that it leads the one it was placed in.
+/*
+ * The home rails are worked out from the data, not placed by hand: what
+ * is newest, what is marked down, what has sold. A product registered in
+ * the panel is on "Novidades" the moment it is published, and an empty
+ * rail renders nothing (ProductRail returns null), so the home closes the
+ * gap. products.badge is only the card's label now.
  */
-async function fetchRail(
-  badgeValue: ProductBadge,
-  limit: number,
-  orderColumn: "position" | "created_at",
-): Promise<ProductListItem[]> {
-  const rows = await getDb().query.products.findMany({
-    columns: LIST_COLUMNS,
-    with: LIST_WITH,
-    where: and(isActive, eq(products.badge, badgeValue)),
-    orderBy: [
-      desc(products.featured),
-      orderColumn === "position" ? asc(products.position) : desc(products.created_at),
-      // Every product starts at position 0, so ordering by position alone
-      // leaves the database free to hand back ties in any order on every
-      // request — a new product landed inside or outside the rail at random.
-      // Newest wins a tie, which also puts a just-registered product first.
-      desc(products.created_at),
-    ],
-    limit,
-  });
-  return rows.map(toListItem);
+
+/** A real markdown: a "de" price above the selling price. A "de" price at
+ * or under it is a data-entry slip, and the card shows no discount for it
+ * either (discountPercent in lib/shop-config). A null "de" price compares
+ * as null, which leaves the product out too. */
+const isDiscounted = gt(products.compare_at_price, products.price);
+
+/** At least one variant with stock. The home rails are a shop window: a
+ * sold-out product leading "Novidades" is a dead end the shopper can only
+ * back out of. It stays in the catalog (/colecao), marked Esgotado.
+ *
+ * The variant side is spelled out by hand on purpose: inside a
+ * `db.query.*.findMany` where, drizzle rewrites every column object to the
+ * root table's alias, so `${product_variants.product_id}` would come out as
+ * "products"."product_id". Only the outer `products.id` may be a column. */
+const hasStock = sql`exists (
+  select 1 from "product_variants" "in_stock"
+  where "in_stock"."product_id" = ${products.id} and "in_stock"."stock" > 0
+)`;
+
+/** "Novidades": the most recently registered active products in stock. */
+export async function getNewestProducts(limit = 8): Promise<ProductListItem[]> {
+  return safeQuery(async () => {
+    const rows = await getDb().query.products.findMany({
+      columns: LIST_COLUMNS,
+      with: LIST_WITH,
+      where: and(isActive, hasStock),
+      orderBy: desc(products.created_at),
+      limit,
+    });
+    return rows.map(toListItem);
+  }, []);
 }
 
-export async function getFeaturedProducts(limit = 4): Promise<ProductListItem[]> {
-  return safeQuery(() => fetchRail("mais_vendido", limit, "position"), []);
+/** "Ofertas": every active product with a real discount, biggest first. */
+export async function getDiscountedProducts(limit = 8): Promise<ProductListItem[]> {
+  return safeQuery(async () => {
+    const rows = await getDb().query.products.findMany({
+      columns: LIST_COLUMNS,
+      with: LIST_WITH,
+      where: and(isActive, hasStock, isDiscounted),
+      orderBy: [
+        desc(sql`1.0 - ${products.price} / ${products.compare_at_price}`),
+        desc(products.created_at),
+      ],
+      limit,
+    });
+    return rows.map(toListItem);
+  }, []);
 }
 
-export async function getNewArrivals(limit = 8): Promise<ProductListItem[]> {
-  return safeQuery(() => fetchRail("lancamento", limit, "created_at"), []);
-}
+/**
+ * "Mais vendidos": units sold (order_items.qty) across confirmed orders —
+ * paid and everything after it, never a pending, canceled or expired one.
+ * Empty until the store has a confirmed sale, which hides the rail rather
+ * than showing a "best seller" nobody bought. A best seller that has sold
+ * out gives its slot to the next one.
+ */
+export async function getBestSellers(limit = 8): Promise<ProductListItem[]> {
+  return safeQuery(async () => {
+    const db = getDb();
+    const units = sql<number>`sum(${order_items.qty})`;
+    const ranking = await db
+      .select({ id: order_items.product_id, units })
+      .from(order_items)
+      .innerJoin(orders, eq(orders.id, order_items.order_id))
+      // Inner join: a product deleted since (product_id set null) or no
+      // longer published doesn't take one of the slots.
+      .innerJoin(products, eq(products.id, order_items.product_id))
+      .where(and(inArray(orders.status, CONFIRMED_ORDER_STATUSES), isActive, hasStock))
+      .groupBy(order_items.product_id)
+      // A tie goes to the product that sold most recently.
+      .orderBy(desc(units), desc(sql`max(${orders.created_at})`))
+      .limit(limit);
 
-/** "Ofertas" home rail — the products placed there, not every marked-down
- * product: a discount shows on the product's own card wherever it sits. */
-export async function getOnSaleProducts(limit = 8): Promise<ProductListItem[]> {
-  return safeQuery(() => fetchRail("oferta", limit, "position"), []);
+    const ids = ranking.flatMap((row) => (row.id ? [row.id] : []));
+    if (ids.length === 0) return [];
+
+    const rows = await db.query.products.findMany({
+      columns: LIST_COLUMNS,
+      with: LIST_WITH,
+      where: inArray(products.id, ids),
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ids.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [toListItem(row)] : [];
+    });
+  }, []);
 }
 
 export type ProductSort = "relevance" | "newest" | "price-asc" | "price-desc";
 
 export type ProductListFilters = {
-  /** Overrides the /colecao page size. The home rails use it to show the
-   * whole shelf at once instead of a first page. */
+  /** Overrides the /colecao page size. */
   limit?: number;
   category?: string;
   brand?: string;
@@ -241,15 +287,6 @@ export type ProductListFilters = {
   onSale?: boolean;
   sort?: ProductSort;
   page?: number;
-  /** Home page's "Produtos" rail only: hides products explicitly placed in
-   * one of the other three rails, so a product picked for e.g. Lançamentos
-   * doesn't also show up here. Leave unset for the full /colecao catalog,
-   * which lists every active product regardless of badge. */
-  excludeBadged?: boolean;
-  /** Home rails only: products with the destaque switch on lead the list,
-   * matching the three badge rails. The catalog leaves it off so the
-   * shopper's own sort is the only thing ordering /colecao. */
-  featuredFirst?: boolean;
 };
 
 export type ProductListResult = {
@@ -269,11 +306,14 @@ function listOrder(filters: ProductListFilters): SQL[] {
     case "price-desc":
       return [desc(products.price)];
     default:
+      // "Relevância" is the store's own order: the products switched to
+      // "Aparecer primeiro no catálogo" in the panel lead it. A sort the
+      // shopper picks (above) is the only thing ordering the list.
       return [
-        ...(filters.featuredFirst ? [desc(products.featured)] : []),
+        desc(products.featured),
         asc(products.position),
-        // See fetchRail: position is 0 for nearly everything, so without
-        // this the tie order is whatever the database felt like.
+        // Position is 0 for nearly everything, so without this the tie
+        // order is whatever the database felt like on each request.
         desc(products.created_at),
       ];
   }
@@ -295,8 +335,6 @@ export async function listProducts(
   return safeQuery(async () => {
     const db = getDb();
     const conditions: SQL[] = [isActive];
-
-    if (filters.excludeBadged) conditions.push(isNull(products.badge));
 
     if (filters.category) {
       conditions.push(
@@ -333,7 +371,7 @@ export async function listProducts(
 
     if (filters.minPrice !== undefined) conditions.push(gte(products.price, filters.minPrice));
     if (filters.maxPrice !== undefined) conditions.push(lte(products.price, filters.maxPrice));
-    if (filters.onSale) conditions.push(isNotNull(products.compare_at_price));
+    if (filters.onSale) conditions.push(isDiscounted);
 
     const where = and(...conditions);
     // One round trip for the page and its total.

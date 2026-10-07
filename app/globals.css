@@ -189,9 +189,13 @@
   --radius: 0.5rem;
 
   color-scheme: light;
+}
 
-  /* Room for the product page's mobile buy bar while it is up, so it never
-     covers the end of the page. The bar sets --sticky-buy-h on <html>. */
+/* Room for the product page's mobile buy bar while it is up, so it never
+   covers the end of the page. The bar sets --sticky-buy-h on <html>. Only
+   on the page root: the bag, the menu and the filters are .storefront-theme
+   too, and would otherwise grow an empty strip at the bottom. */
+.storefront-root {
   padding-bottom: var(--sticky-buy-h, 0px);
 }
 

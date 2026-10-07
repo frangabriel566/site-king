@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { updateSiteSettingsAction, type ActionResult } from "@/lib/actions/settings";
-import { formatCep } from "@/lib/format";
+import { formatCep, formatCurrency } from "@/lib/format";
+import { ANNOUNCEMENT_MAX_LENGTH, ANNOUNCEMENT_MAX_MESSAGES } from "@/lib/shop-config";
 import type { SiteSettings } from "@/lib/data/settings";
 
 const initialState: ActionResult = { status: "idle" };
@@ -233,6 +234,10 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               placeholder="ex.: Primeira troca grátis em até 30 dias"
               defaultValue={settings.exchange_note ?? ""}
             />
+            <p className="text-xs text-ink-muted">
+              Também entra na faixa de benefícios da home, ao lado do WhatsApp e das
+              parcelas sem juros (cada um só quando está preenchido).
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="secure_purchase_note">Frase de compra segura</Label>
@@ -252,16 +257,31 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
       </section>
 
       <section>
-        <p className="text-label mb-4">Faixa de anúncio</p>
+        <p className="text-label mb-1">Faixa de avisos (topo do site)</p>
+        <p className="mb-4 text-sm text-ink-muted">
+          As mensagens se revezam a cada 5 segundos, acima do logo, em todas as páginas
+          da loja. Desligada ou sem mensagens, a faixa mostra a regra de frete grátis
+          (se houver uma).
+        </p>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="announcement">Texto</Label>
+            <Label htmlFor="announcement">Mensagens — uma por linha</Label>
             <Textarea
               id="announcement"
               name="announcement"
-              rows={2}
+              rows={4}
+              placeholder={"Frete grátis acima de R$ 199\nTroca fácil em até 30 dias\nParcele em até 3x sem juros"}
               defaultValue={settings.announcement ?? ""}
             />
+            <p className="text-xs text-ink-muted">
+              Até {ANNOUNCEMENT_MAX_MESSAGES} mensagens de até {ANNOUNCEMENT_MAX_LENGTH}{" "}
+              caracteres. Com até uns 40 caracteres a mensagem cabe inteira no celular.
+              {settings.free_shipping_threshold
+                ? ` Ao falar de frete grátis, use o valor configurado acima (${formatCurrency(
+                    settings.free_shipping_threshold,
+                  )}) — é ele que o checkout aplica.`
+                : ""}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Switch
@@ -270,7 +290,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               checked={announcementActive}
               onCheckedChange={setAnnouncementActive}
             />
-            <Label htmlFor="announcement_active">Exibir faixa no site</Label>
+            <Label htmlFor="announcement_active">Exibir estas mensagens no site</Label>
           </div>
         </div>
       </section>

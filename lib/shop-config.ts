@@ -113,6 +113,39 @@ export function trustItems(
     .filter((item): item is { kind: TrustItemKind; label: string } => Boolean(item.label));
 }
 
+/** Limits of the rotating bar at the top (Configurações → Faixa de avisos).
+ * Short enough to fit one line on a 375px phone without truncating much. */
+export const ANNOUNCEMENT_MAX_MESSAGES = 6;
+export const ANNOUNCEMENT_MAX_LENGTH = 90;
+
+/** site_settings.announcement holds one message per line. */
+export function splitAnnouncement(text: string | null | undefined): string[] {
+  return (text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * What the bar at the top rotates through: the store's own messages while
+ * the bar is switched on, else the free-shipping line (the same text the
+ * checkout honours), else nothing at all.
+ */
+export function announcementMessages(
+  settings: Pick<
+    SiteSettings,
+    "announcement" | "announcement_active" | "free_shipping_threshold" | "free_shipping_note"
+  >,
+): string[] {
+  const messages = settings.announcement_active ? splitAnnouncement(settings.announcement) : [];
+  if (messages.length > 0) return messages.slice(0, ANNOUNCEMENT_MAX_MESSAGES);
+  const shipping = freeShippingText({
+    freeShippingThreshold: settings.free_shipping_threshold,
+    freeShippingNote: settings.free_shipping_note,
+  });
+  return shipping ? [shipping] : [];
+}
+
 /** The trust strip's shipping line: the rule itself when there is one (so
  * it can never disagree with the checkout), else the store's own phrase. */
 export function freeShippingText(config: Pick<ShopConfig, "freeShippingThreshold" | "freeShippingNote">): string | null {

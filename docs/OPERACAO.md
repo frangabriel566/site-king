@@ -97,8 +97,8 @@ existentes navegando pelo site.
 `/admin/configuracoes` reúne o que aparece em vários lugares do site ao
 mesmo tempo: nome da loja, logo, WhatsApp (usado tanto no botão flutuante
 quanto no checkout via WhatsApp), redes sociais, as frases de envio/frete
-grátis que aparecem no rodapé do hero, e a faixa de anúncio no topo do
-site (com um interruptor para ligar/desligar sem apagar o texto).
+grátis que aparecem no rodapé do hero, e a faixa de avisos no topo do
+site (com um interruptor para ligar/desligar sem apagar as mensagens).
 
 ### Vitrine: preço, selos e confiança
 
@@ -119,4 +119,33 @@ nada aparece para o cliente sem ter sido definido aqui.
 - **"Últimas unidades" com até (peças)** — soma o estoque de todas as cores
   e tamanhos do produto.
 - **Frase de trocas** e **frase de compra segura** — junto com o frete
-  grátis, formam a faixa de confiança embaixo do botão de compra.
+  grátis, formam a faixa de confiança embaixo do botão de compra. A frase
+  de trocas também entra na faixa de benefícios da home, ao lado do
+  WhatsApp e das parcelas.
+
+### Faixa de avisos (topo do site)
+
+Uma mensagem por linha, até 6, de até 90 caracteres cada (com uns 40 ela
+cabe inteira no celular). Com o interruptor ligado, as mensagens se
+revezam a cada 5 segundos acima do logo, em todas as páginas da loja; o
+cliente pode passar pelas setas, e a faixa para quando ele usa as setas
+ou põe o mouse em cima. Desligada ou vazia, a faixa mostra a regra de
+frete grátis (se houver). Ao falar de frete grátis numa mensagem, use o
+mesmo valor da seção Vitrine — é ele que o checkout aplica.
+
+### Vitrines da home
+
+As vitrines da home se montam sozinhas, só com produtos ativos e com
+estoque:
+
+- **Novidades** — os cadastrados por último.
+- **Ofertas** — os que têm preço "de" maior que o preço, maior desconto
+  primeiro.
+- **Mais vendidos** — soma das peças vendidas em pedidos confirmados
+  (pago, em preparação, enviado, entregue). Fica escondida até a primeira
+  venda confirmada.
+
+O **selo no produto** (cadastro do produto → Exibição) só põe a etiqueta
+"Lançamento", "Mais vendido" ou "Oferta" no card e na página do produto; ele
+não escolhe mais a vitrine. O interruptor **Aparecer primeiro no catálogo**
+põe o produto na frente na ordem "Relevância" de /colecao.

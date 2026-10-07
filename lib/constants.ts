@@ -14,10 +14,9 @@ export const COLLECTION_PAGE_SIZE = 12;
  *
  * Deliberately generous: the rails drag sideways now, so a long one costs
  * nothing but a swipe, while a short one silently hides stock the store
- * just published. Paired with the created_at tie-break in lib/data/products,
- * it is what makes "cadastrou, aparece na home" true — a product registered
- * today sorts to the front of its rail, so it is visible whether or not the
- * catalogue has outgrown this number.
+ * just published. "Novidades" is newest-first, which is what makes
+ * "cadastrou, aparece na home" true whether or not the catalogue has
+ * outgrown this number.
  */
 export const HOME_RAIL_LIMIT = 24;
 
@@ -87,6 +86,16 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   expirado: "Expirado",
 };
 
+/** Pedidos que viraram venda: pagos e tudo o que vem depois. Conta para o
+ *  faturamento do painel, para o recorte "Confirmados" do WhatsApp e para a
+ *  vitrine "Mais vendidos" da home. */
+export const CONFIRMED_ORDER_STATUSES: OrderStatus[] = [
+  "paid",
+  "processing",
+  "shipped",
+  "delivered",
+];
+
 /** Quanto tempo um pedido de WhatsApp fica de pé antes de expirar.
  *  A regra mora no banco (create_whatsapp_order / expire_whatsapp_orders);
  *  isto é só o número que a interface mostra ao cliente e ao atendente. */
@@ -105,10 +114,7 @@ export const WHATSAPP_ORDER_TTL_HOURS = 48;
  */
 export const WHATSAPP_ORDER_FILTERS = {
   pendentes: { label: "Aguardando", statuses: ["aguardando_whatsapp"] },
-  confirmados: {
-    label: "Confirmados",
-    statuses: ["paid", "processing", "shipped", "delivered"],
-  },
+  confirmados: { label: "Confirmados", statuses: CONFIRMED_ORDER_STATUSES },
   cancelados: { label: "Cancelados", statuses: ["canceled"] },
   expirados: { label: "Expirados", statuses: ["expirado"] },
   todos: { label: "Todos", statuses: [] },

@@ -1,5 +1,6 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { cache } from "react";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
@@ -7,7 +8,7 @@ import { safeQuery } from "./safe";
 
 export type Category = Tables<"categories">;
 
-const { categories, products } = schema;
+const { categories, products, product_images } = schema;
 
 /** Public: active categories only. */
 export async function getActiveCategories(): Promise<Category[]> {
@@ -28,41 +29,47 @@ export type CategoryShowcase = Category & {
 /**
  * Categories don't have their own photo field in the schema — instead of
  * inventing one, each tile borrows the first image of its category's
- * first active product (lowest `position`). A category with no active
- * product yet just gets `image: null`, and the caller falls back to a
- * plain monogram tile.
+ * first active product (lowest `position`, newest on a tie) that has a
+ * photo. A category with none gets `image: null`, and the caller falls
+ * back to a plain monogram tile.
+ *
+ * The pick happens in D1 (one row per category comes back), not in the
+ * Worker: the shop layout asks for this on every page for the mobile
+ * menu, and loading every product's images to keep one per category
+ * would be CPU spent on each request. Cached per request so the home,
+ * which shows the same tiles, shares the result.
  */
-export async function getCategoriesWithImages(): Promise<CategoryShowcase[]> {
+export const getCategoriesWithImages = cache(async (): Promise<CategoryShowcase[]> => {
   return safeQuery(async () => {
     const db = getDb();
-    const [activeCategories, activeProducts] = await db.batch([
-      db.query.categories.findMany({
-        where: eq(categories.active, true),
-        orderBy: asc(categories.position),
-      }),
-      db.query.products.findMany({
-        columns: { category_id: true, position: true },
-        where: eq(products.status, "active"),
-        orderBy: asc(products.position),
-        with: { product_images: { columns: { url: true, alt: true, position: true } } },
-      }),
-    ]);
+    const ranked = db
+      .select({
+        category_id: products.category_id,
+        url: product_images.url,
+        alt: product_images.alt,
+        rank: sql<number>`row_number() over (
+          partition by ${products.category_id}
+          order by ${products.position}, ${products.created_at} desc, ${product_images.position}
+        )`.as("rank"),
+      })
+      .from(products)
+      .innerJoin(product_images, eq(product_images.product_id, products.id))
+      .where(eq(products.status, "active"))
+      .as("ranked");
 
-    const imageByCategory = new Map<string, { url: string; alt: string | null }>();
-    for (const product of activeProducts) {
-      if (!product.category_id || imageByCategory.has(product.category_id)) continue;
-      const [firstImage] = [...product.product_images].sort((a, b) => a.position - b.position);
-      if (firstImage) {
-        imageByCategory.set(product.category_id, { url: firstImage.url, alt: firstImage.alt });
-      }
-    }
+    const rows = await db
+      .select({ category: categories, url: ranked.url, alt: ranked.alt })
+      .from(categories)
+      .leftJoin(ranked, and(eq(ranked.category_id, categories.id), eq(ranked.rank, 1)))
+      .where(eq(categories.active, true))
+      .orderBy(asc(categories.position));
 
-    return activeCategories.map((category) => ({
+    return rows.map(({ category, url, alt }) => ({
       ...category,
-      image: imageByCategory.get(category.id) ?? null,
+      image: url ? { url, alt } : null,
     }));
   }, []);
-}
+});
 
 /** Admin listing — all rows, including inactive. */
 export async function getAllCategoriesAdmin(): Promise<Category[]> {

@@ -4,7 +4,7 @@ import {
   getPriceRange,
   listProducts,
 } from "@/lib/data/products";
-import { getActiveCategories } from "@/lib/data/categories";
+import { getCategoriesWithImages } from "@/lib/data/categories";
 import { getActiveBrands } from "@/lib/data/brands";
 import {
   parseCollectionParams,
@@ -34,7 +34,8 @@ export default async function CollectionPage({
 
   const [result, categories, brands, filterOptions, priceBounds] = await Promise.all([
     listProducts(filters),
-    getActiveCategories(),
+    // The shop layout already loaded these for the menu; cached per request.
+    getCategoriesWithImages(),
     getActiveBrands(),
     getFilterOptions(),
     getPriceRange(),

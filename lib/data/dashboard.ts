@@ -1,11 +1,8 @@
 import "server-only";
 import { and, count, gte, inArray, lte } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
-import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
-import type { OrderStatus } from "@/lib/database.types";
+import { CONFIRMED_ORDER_STATUSES, LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { requireAdminPage } from "@/lib/auth/guards";
-
-const PAID_STATUSES: OrderStatus[] = ["paid", "processing", "shipped", "delivered"];
 
 export type DashboardStats = {
   salesToday: number;
@@ -43,7 +40,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     db
       .select({ total: orders.total, created_at: orders.created_at })
       .from(orders)
-      .where(and(inArray(orders.status, PAID_STATUSES), gte(orders.created_at, since.toISOString()))),
+      .where(and(inArray(orders.status, CONFIRMED_ORDER_STATUSES), gte(orders.created_at, since.toISOString()))),
     db.select({ status: orders.status, count: count() }).from(orders).groupBy(orders.status),
     db
       .select({ lowStock: count() })

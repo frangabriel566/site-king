@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
-  getAllActiveProductSlugs,
   getProductBySlug,
   getRelatedProducts,
 } from "@/lib/data/products";
@@ -13,13 +12,6 @@ import { ProductInfoTabs } from "@/components/shop/product-info-tabs";
 import { ProductReviews } from "@/components/shop/product-reviews";
 import { Breadcrumbs } from "@/components/shop/breadcrumbs";
 import { ProductRail } from "@/components/shop/product-rail";
-
-export const revalidate = 300;
-
-export async function generateStaticParams() {
-  const slugs = await getAllActiveProductSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({
   params,
@@ -87,7 +79,10 @@ export default async function ProductPage({
     "@type": "Product",
     name: product.name,
     description: product.description ?? undefined,
-    image: images.map((i) => i.url),
+    // Uploads are relative (/img/…); structured data needs absolute URLs.
+    image: images.map((i) =>
+      i.url.startsWith("/") ? `${process.env.NEXT_PUBLIC_SITE_URL || ""}${i.url}` : i.url,
+    ),
     sku: product.id,
     brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
     offers: {

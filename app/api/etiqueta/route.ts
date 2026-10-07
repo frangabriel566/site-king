@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, AdminAuthError } from "@/lib/actions/require-admin";
+import { eq, inArray } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
+import { requireAdmin, AdminAuthError } from "@/lib/auth/guards";
 import { getSiteSettings } from "@/lib/data/settings";
 import {
   addShipmentToCart,
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     await requireAdmin();
   } catch (cause) {
     if (cause instanceof AdminAuthError) {
-      return fail("Acesso negado.", cause.message === "UNAUTHORIZED" ? 401 : 403);
+      return fail("Acesso negado.", cause.code === "UNAUTHORIZED" ? 401 : 403);
     }
     throw cause;
   }
@@ -87,12 +88,12 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return fail("Dados inválidos.", 400);
   const body = parsed.data;
 
-  const admin = createAdminClient();
-  const { data: order } = await admin
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("id", body.orderId)
-    .maybeSingle();
+  const db = getDb();
+  const { orders, products: productsTable } = schema;
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, body.orderId),
+    with: { order_items: true },
+  });
 
   if (!order) return fail("Pedido não encontrado.", 404);
 
@@ -118,12 +119,19 @@ export async function POST(request: NextRequest) {
   const productIds = [...new Set(items.map((i) => i.product_id).filter(Boolean))] as string[];
   if (productIds.length === 0) return fail("O pedido não tem itens com produto vinculado.", 422);
 
-  const { data: products } = await admin
-    .from("products")
-    .select("id, name, weight_grams, length_cm, width_cm, height_cm")
-    .in("id", productIds);
+  const products = await db
+    .select({
+      id: productsTable.id,
+      name: productsTable.name,
+      weight_grams: productsTable.weight_grams,
+      length_cm: productsTable.length_cm,
+      width_cm: productsTable.width_cm,
+      height_cm: productsTable.height_cm,
+    })
+    .from(productsTable)
+    .where(inArray(productsTable.id, productIds));
 
-  const byId = new Map((products ?? []).map((p) => [p.id, p]));
+  const byId = new Map(products.map((p) => [p.id, p]));
   const lines: PackageLine[] = [];
   for (const item of items) {
     const product = item.product_id ? byId.get(item.product_id) : undefined;
@@ -210,13 +218,13 @@ export async function POST(request: NextRequest) {
     // fails below, the order still points at the cart item, so the next
     // attempt short-circuits above instead of creating a second one and
     // the operator can finish it in the Melhor Envio panel.
-    await admin
-      .from("orders")
-      .update({
+    await db
+      .update(orders)
+      .set({
         melhorenvio_order_id: cartItem.id,
         shipping_service: String(body.serviceId),
       })
-      .eq("id", order.id);
+      .where(eq(orders.id, order.id));
 
     await checkoutShipments([cartItem.id]);
     await generateShipments([cartItem.id]);
@@ -225,13 +233,13 @@ export async function POST(request: NextRequest) {
     const info = await getShipmentInfo(cartItem.id).catch(() => null);
     const trackingCode = info?.tracking ?? info?.self_tracking ?? null;
 
-    await admin
-      .from("orders")
-      .update({
+    await db
+      .update(orders)
+      .set({
         label_url: printed?.url ?? null,
         ...(trackingCode ? { tracking_code: trackingCode } : {}),
       })
-      .eq("id", order.id);
+      .where(eq(orders.id, order.id));
 
     return NextResponse.json({
       melhorenvioOrderId: cartItem.id,

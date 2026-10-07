@@ -2,11 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { brandSchema } from "@/lib/validations/brand";
 import { slugify } from "@/lib/format";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
+import { runBatch } from "@/lib/db/batch";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { productIdsLinkedTo, refreshSearchText } from "@/lib/catalog/search-index";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
+
+const { brands } = schema;
 
 function revalidateStorefront() {
   revalidatePath("/", "layout");
@@ -24,6 +31,12 @@ function parseBrandForm(formData: FormData) {
   });
 }
 
+function saveError(error: unknown, duplicate: string): string {
+  if (isUniqueViolation(error, "brands.slug")) return duplicate;
+  console.error("[brands]", error);
+  return "Não foi possível salvar a marca.";
+}
+
 export async function createBrandAction(
   _prev: ActionResult,
   formData: FormData,
@@ -33,14 +46,11 @@ export async function createBrandAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("brands").insert(parsed.data);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe uma marca com esse slug." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb().insert(brands).values(parsed.data);
+  } catch (error) {
+    return { status: "error", message: saveError(error, "Já existe uma marca com esse slug.") };
   }
 
   revalidateStorefront();
@@ -68,22 +78,17 @@ export async function quickCreateBrandAction(name: string): Promise<QuickCreateB
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Nome inválido." };
   }
 
-  const { supabase } = await requireAdmin();
-  const { data, error } = await supabase
-    .from("brands")
-    .insert(parsed.data)
-    .select("id, name, slug")
-    .single();
-
-  if (error || !data) {
-    return {
-      ok: false,
-      message: error?.code === "23505" ? "Já existe uma marca com esse nome." : (error?.message ?? "Erro"),
-    };
+  await requireAdmin();
+  try {
+    const [brand] = await getDb()
+      .insert(brands)
+      .values(parsed.data)
+      .returning({ id: brands.id, name: brands.name, slug: brands.slug });
+    revalidateStorefront();
+    return { ok: true, brand };
+  } catch (error) {
+    return { ok: false, message: saveError(error, "Já existe uma marca com esse nome.") };
   }
-
-  revalidateStorefront();
-  return { ok: true, brand: data };
 }
 
 export async function updateBrandAction(
@@ -96,39 +101,37 @@ export async function updateBrandAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("brands")
-    .update(parsed.data)
-    .eq("id", id);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe uma marca com esse slug." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb().update(brands).set(parsed.data).where(eq(brands.id, id));
+  } catch (error) {
+    return { status: "error", message: saveError(error, "Já existe uma marca com esse slug.") };
   }
+
+  // The brand name is part of every one of its products' search text.
+  await refreshSearchText({ brandId: id });
 
   revalidateStorefront();
   redirect("/admin/marcas");
 }
 
 export async function deleteBrandAction(id: string): Promise<{ ok: boolean; message?: string }> {
-  const { supabase } = await requireAdmin();
-  // brand_id is ON DELETE SET NULL (see 0008_brands.sql) — this only ever
-  // clears products.brand_id, it never touches the products themselves.
-  const { error } = await supabase.from("brands").delete().eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  const affected = await productIdsLinkedTo({ brandId: id });
+  // brand_id is ON DELETE SET NULL — this only ever clears products.brand_id,
+  // it never touches the products themselves.
+  await getDb().delete(brands).where(eq(brands.id, id));
+  await refreshSearchText({ productIds: affected });
   revalidateStorefront();
   return { ok: true };
 }
 
 export async function reorderBrandsAction(orderedIds: string[]): Promise<{ ok: boolean }> {
-  const { supabase } = await requireAdmin();
-  await Promise.all(
-    orderedIds.map((id, index) =>
-      supabase.from("brands").update({ position: index }).eq("id", id),
-    ),
+  await requireAdmin();
+  const db = getDb();
+  await runBatch(
+    db,
+    orderedIds.map((id, index) => db.update(brands).set({ position: index }).where(eq(brands.id, id))),
   );
   revalidateStorefront();
   return { ok: true };

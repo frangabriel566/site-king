@@ -1,6 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { desc, eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth/guards";
+import { getCustomerForUser } from "@/lib/data/customers";
+import { getDb, schema } from "@/lib/db";
 
 export type CheckoutContext = {
   authenticated: boolean;
@@ -27,28 +30,21 @@ export async function getCheckoutContextAction(): Promise<CheckoutContext> {
     defaultAddress: null,
   };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) return empty;
 
-  const [{ data: customer }, { data: address }] = await Promise.all([
-    supabase.from("customers").select("*").eq("id", user.id).maybeSingle(),
-    supabase
-      .from("addresses")
-      .select("*")
-      .eq("customer_id", user.id)
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [customer, address] = await Promise.all([
+    getCustomerForUser(user.id),
+    getDb().query.addresses.findFirst({
+      where: eq(schema.addresses.customer_id, user.id),
+      orderBy: desc(schema.addresses.is_default),
+    }),
   ]);
 
   return {
     authenticated: true,
     name: customer?.name ?? "",
-    email: user.email ?? "",
+    email: user.email,
     phone: customer?.phone ?? "",
     defaultAddress: address
       ? {

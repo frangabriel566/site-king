@@ -17,8 +17,6 @@ import { ProductRail } from "@/components/shop/product-rail";
 import { OffersBlock } from "@/components/shop/offers-block";
 import { NewsletterSection } from "@/components/shop/newsletter-section";
 
-export const revalidate = 60;
-
 export const metadata: Metadata = {
   title: "King Store — Vestuário Masculino",
   description:

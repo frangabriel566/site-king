@@ -1,4 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { asc } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
+import { requireAdminPage } from "@/lib/auth/guards";
 
 export type InventoryRow = {
   id: string;
@@ -10,40 +13,33 @@ export type InventoryRow = {
 };
 
 export async function getInventoryRows(): Promise<InventoryRow[]> {
-  const supabase = await createClient();
+  await requireAdminPage();
 
-  const { data: variants } = await supabase
-    .from("product_variants")
-    .select("id, product_id, color, size, sku, stock")
-    .order("stock", { ascending: true });
-
-  if (!variants || variants.length === 0) return [];
-
-  const productIds = Array.from(new Set(variants.map((v) => v.product_id)));
-
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name, slug, product_images(url, position)")
-    .in("id", productIds);
-
-  const productMap = new Map(
-    (products ?? []).map((p) => {
-      const sorted = [...p.product_images].sort((a, b) => a.position - b.position);
-      return [p.id, { id: p.id, name: p.name, slug: p.slug, image: sorted[0]?.url ?? null }];
-    }),
-  );
-
-  return variants.map((v) => ({
-    id: v.id,
-    color: v.color,
-    size: v.size,
-    sku: v.sku,
-    stock: v.stock,
-    product: productMap.get(v.product_id) ?? {
-      id: v.product_id,
-      name: "—",
-      slug: "",
-      image: null,
+  const variants = await getDb().query.product_variants.findMany({
+    columns: { id: true, product_id: true, color: true, size: true, sku: true, stock: true },
+    orderBy: asc(schema.product_variants.stock),
+    with: {
+      product: {
+        columns: { id: true, name: true, slug: true },
+        with: { product_images: { columns: { url: true, position: true } } },
+      },
     },
-  }));
+  });
+
+  return variants.map((v) => {
+    const [firstImage] = [...v.product.product_images].sort((a, b) => a.position - b.position);
+    return {
+      id: v.id,
+      color: v.color,
+      size: v.size,
+      sku: v.sku,
+      stock: v.stock,
+      product: {
+        id: v.product.id,
+        name: v.product.name,
+        slug: v.product.slug,
+        image: firstImage?.url ?? null,
+      },
+    };
+  });
 }

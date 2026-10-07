@@ -1,6 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
-import { createPublicClient } from "@/lib/supabase/public";
+import "server-only";
+import { desc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
+import { requireAdminPage } from "@/lib/auth/guards";
 
 export type Review = Tables<"reviews"> & {
   customer: { name: string } | null;
@@ -10,61 +12,30 @@ export type AdminReview = Review & {
   product: { name: string; slug: string } | null;
 };
 
-/** Public read (no session cookie) — keeps the product page eligible
- * for ISR, same reasoning as the rest of lib/data/products.ts.
- *
- * customer_id references auth.users (any signed-in visitor can review,
- * not just shoppers who completed the customer signup form), so there's
- * no FK for PostgREST to embed a `customers` join on — look the name up
- * separately instead and treat a miss (e.g. an admin account) as
- * anonymous rather than an error. */
+const { reviews } = schema;
+
+/** Public read. `customer_id` is the reviewer's user id; the display name
+ * comes from their customers row, and a reviewer without one (an admin,
+ * say) shows as anonymous rather than as an error. */
 export async function getProductReviews(productId: string): Promise<Review[]> {
-  const supabase = createPublicClient();
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("product_id", productId)
-    .order("created_at", { ascending: false });
-
-  if (!reviews || reviews.length === 0) return [];
-
-  const customerIds = [...new Set(reviews.map((r) => r.customer_id))];
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name")
-    .in("id", customerIds);
-
-  const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
-  return reviews.map((r) => ({
-    ...r,
-    customer: nameById.has(r.customer_id) ? { name: nameById.get(r.customer_id)! } : null,
-  }));
+  return getDb().query.reviews.findMany({
+    where: eq(reviews.product_id, productId),
+    orderBy: desc(reviews.created_at),
+    with: { customer: { columns: { name: true } } },
+  });
 }
 
 /** Every review across every product, newest first — the moderation
- * list at /admin/avaliacoes. Same manual customer-name lookup as
- * getProductReviews, embedding products directly since that FK (unlike
- * customer_id) still exists. */
+ * list at /admin/avaliacoes. */
 export async function getAllReviewsAdmin(): Promise<AdminReview[]> {
-  const supabase = await createClient();
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("*, product:products(name, slug)")
-    .order("created_at", { ascending: false });
-
-  if (!reviews || reviews.length === 0) return [];
-
-  const customerIds = [...new Set(reviews.map((r) => r.customer_id))];
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name")
-    .in("id", customerIds);
-
-  const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
-  return reviews.map((r) => ({
-    ...r,
-    customer: nameById.has(r.customer_id) ? { name: nameById.get(r.customer_id)! } : null,
-  }));
+  await requireAdminPage();
+  return getDb().query.reviews.findMany({
+    orderBy: desc(reviews.created_at),
+    with: {
+      customer: { columns: { name: true } },
+      product: { columns: { name: true, slug: true } },
+    },
+  });
 }
 
 export function summarizeRatings(reviews: Pick<Review, "rating">[]): {

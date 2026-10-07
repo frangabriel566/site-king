@@ -1,54 +1,61 @@
-import { createPublicClient } from "@/lib/supabase/public";
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { asc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
+import { requireAdminPage } from "@/lib/auth/guards";
 import { safeQuery } from "./safe";
-
-export type Banner = Tables<"banners"> & {
-  featured_product: FeaturedBannerProduct | null;
-};
 
 export type FeaturedBannerProduct = Pick<
   Tables<"products">,
   "id" | "slug" | "name" | "description" | "price" | "compare_at_price"
 >;
 
-export async function getActiveBanners(): Promise<Banner[]> {
-  return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("banners")
-      .select(
-        "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
-      )
-      .eq("active", true)
-      .order("position", { ascending: true });
+export type Banner = Tables<"banners"> & {
+  featured_product: FeaturedBannerProduct | null;
+};
 
-    return (data as Banner[] | null) ?? [];
-  }, []);
+const { banners } = schema;
+
+const WITH_FEATURED = {
+  featured_product: {
+    columns: {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+      price: true,
+      compare_at_price: true,
+    },
+  },
+} as const;
+
+/** Public: active banners only. */
+export async function getActiveBanners(): Promise<Banner[]> {
+  return safeQuery(
+    () =>
+      getDb().query.banners.findMany({
+        where: eq(banners.active, true),
+        orderBy: asc(banners.position),
+        with: WITH_FEATURED,
+      }),
+    [],
+  );
 }
 
-/** Admin listing — all rows regardless of `active`, session-scoped RLS. */
+/** Admin listing — all rows regardless of `active`. */
 export async function getAllBannersAdmin(): Promise<Banner[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("banners")
-    .select(
-      "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
-    )
-    .order("position", { ascending: true });
-
-  return (data as Banner[] | null) ?? [];
+  await requireAdminPage();
+  return getDb().query.banners.findMany({
+    orderBy: asc(banners.position),
+    with: WITH_FEATURED,
+  });
 }
 
 export async function getBannerByIdAdmin(id: string): Promise<Banner | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("banners")
-    .select(
-      "*, featured_product:products!banners_featured_product_id_fkey(id, slug, name, description, price, compare_at_price)",
-    )
-    .eq("id", id)
-    .maybeSingle();
-
-  return data as Banner | null;
+  await requireAdminPage();
+  const row = await getDb().query.banners.findFirst({
+    where: eq(banners.id, id),
+    with: WITH_FEATURED,
+  });
+  return row ?? null;
 }

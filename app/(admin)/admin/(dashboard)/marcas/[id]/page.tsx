@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getBrandByIdAdmin } from "@/lib/data/brands";
 import { BrandForm } from "@/components/admin/brand-form";
 import { updateBrandAction } from "@/lib/actions/brands";
 
@@ -12,12 +12,7 @@ export default async function EditBrandPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: brand } = await supabase
-    .from("brands")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const brand = await getBrandByIdAdmin(id);
 
   if (!brand) notFound();
 

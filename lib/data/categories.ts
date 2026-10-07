@@ -1,21 +1,24 @@
-import { createPublicClient } from "@/lib/supabase/public";
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { asc, eq } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
+import { requireAdminPage } from "@/lib/auth/guards";
 import { safeQuery } from "./safe";
 
 export type Category = Tables<"categories">;
 
-export async function getActiveCategories(): Promise<Category[]> {
-  return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("active", true)
-      .order("position", { ascending: true });
+const { categories, products } = schema;
 
-    return data ?? [];
-  }, []);
+/** Public: active categories only. */
+export async function getActiveCategories(): Promise<Category[]> {
+  return safeQuery(
+    () =>
+      getDb().query.categories.findMany({
+        where: eq(categories.active, true),
+        orderBy: asc(categories.position),
+      }),
+    [],
+  );
 }
 
 export type CategoryShowcase = Category & {
@@ -31,22 +34,22 @@ export type CategoryShowcase = Category & {
  */
 export async function getCategoriesWithImages(): Promise<CategoryShowcase[]> {
   return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const [{ data: categories }, { data: products }] = await Promise.all([
-      supabase
-        .from("categories")
-        .select("*")
-        .eq("active", true)
-        .order("position", { ascending: true }),
-      supabase
-        .from("products")
-        .select("category_id, position, product_images(url, alt, position)")
-        .eq("status", "active")
-        .order("position", { ascending: true }),
+    const db = getDb();
+    const [activeCategories, activeProducts] = await db.batch([
+      db.query.categories.findMany({
+        where: eq(categories.active, true),
+        orderBy: asc(categories.position),
+      }),
+      db.query.products.findMany({
+        columns: { category_id: true, position: true },
+        where: eq(products.status, "active"),
+        orderBy: asc(products.position),
+        with: { product_images: { columns: { url: true, alt: true, position: true } } },
+      }),
     ]);
 
     const imageByCategory = new Map<string, { url: string; alt: string | null }>();
-    for (const product of products ?? []) {
+    for (const product of activeProducts) {
       if (!product.category_id || imageByCategory.has(product.category_id)) continue;
       const [firstImage] = [...product.product_images].sort((a, b) => a.position - b.position);
       if (firstImage) {
@@ -54,20 +57,21 @@ export async function getCategoriesWithImages(): Promise<CategoryShowcase[]> {
       }
     }
 
-    return (categories ?? []).map((category) => ({
+    return activeCategories.map((category) => ({
       ...category,
       image: imageByCategory.get(category.id) ?? null,
     }));
   }, []);
 }
 
-/** Admin listing — all rows (including inactive), session-scoped RLS. */
+/** Admin listing — all rows, including inactive. */
 export async function getAllCategoriesAdmin(): Promise<Category[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("categories")
-    .select("*")
-    .order("position", { ascending: true });
+  await requireAdminPage();
+  return getDb().query.categories.findMany({ orderBy: asc(categories.position) });
+}
 
-  return data ?? [];
+export async function getCategoryByIdAdmin(id: string): Promise<Category | null> {
+  await requireAdminPage();
+  const row = await getDb().query.categories.findFirst({ where: eq(categories.id, id) });
+  return row ?? null;
 }

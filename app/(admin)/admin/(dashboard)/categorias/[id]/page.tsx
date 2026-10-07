@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCategoryByIdAdmin } from "@/lib/data/categories";
 import { CategoryForm } from "@/components/admin/category-form";
 import { updateCategoryAction } from "@/lib/actions/categories";
 
@@ -12,12 +12,7 @@ export default async function EditCategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: category } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const category = await getCategoryByIdAdmin(id);
 
   if (!category) notFound();
 

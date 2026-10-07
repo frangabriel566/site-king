@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { couponSchema } from "@/lib/validations/coupon";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -18,6 +21,14 @@ function parseFormData(formData: FormData) {
   });
 }
 
+function saveError(error: unknown): ActionResult {
+  if (isUniqueViolation(error, "coupons.code")) {
+    return { status: "error", message: "Já existe um cupom com esse código." };
+  }
+  console.error("[coupons]", error);
+  return { status: "error", message: "Não foi possível salvar o cupom." };
+}
+
 export async function createCouponAction(
   _prev: ActionResult,
   formData: FormData,
@@ -27,17 +38,13 @@ export async function createCouponAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("coupons").insert({
-    ...parsed.data,
-    expires_at: parsed.data.expires_at || null,
-  });
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe um cupom com esse código." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb()
+      .insert(schema.coupons)
+      .values({ ...parsed.data, expires_at: parsed.data.expires_at || null });
+  } catch (error) {
+    return saveError(error);
   }
 
   revalidatePath("/admin/cupons");
@@ -54,17 +61,14 @@ export async function updateCouponAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("coupons")
-    .update({ ...parsed.data, expires_at: parsed.data.expires_at || null })
-    .eq("id", id);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe um cupom com esse código." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb()
+      .update(schema.coupons)
+      .set({ ...parsed.data, expires_at: parsed.data.expires_at || null })
+      .where(eq(schema.coupons.id, id));
+  } catch (error) {
+    return saveError(error);
   }
 
   revalidatePath("/admin/cupons");
@@ -72,9 +76,8 @@ export async function updateCouponAction(
 }
 
 export async function deleteCouponAction(id: string): Promise<{ ok: boolean; message?: string }> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("coupons").delete().eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  await getDb().delete(schema.coupons).where(eq(schema.coupons.id, id));
   revalidatePath("/admin/cupons");
   return { ok: true };
 }

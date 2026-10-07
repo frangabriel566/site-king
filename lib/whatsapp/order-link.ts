@@ -1,6 +1,6 @@
 import "server-only";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
-import { createPublicClient } from "@/lib/supabase/public";
+import { getSiteSettings } from "@/lib/data/settings";
 
 /**
  * O número da loja, só dígitos, como o wa.me exige.
@@ -15,14 +15,9 @@ import { createPublicClient } from "@/lib/supabase/public";
  * para simplesmente não oferecer o botão.
  */
 export async function getStoreWhatsAppNumber(): Promise<string | null> {
-  const supabase = createPublicClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("whatsapp")
-    .eq("id", 1)
-    .maybeSingle();
+  const settings = await getSiteSettings();
 
-  const phone = (data?.whatsapp ?? process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
+  const phone = (settings.whatsapp ?? process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(
     /\D/g,
     "",
   );

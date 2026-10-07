@@ -3,12 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { z } from "zod";
+import { eq } from "drizzle-orm";
 import { bannerSchema } from "@/lib/validations/banner";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
+import { runBatch } from "@/lib/db/batch";
 
 type BannerInput = z.infer<typeof bannerSchema>;
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
+
+const { banners } = schema;
 
 function revalidateStorefront() {
   revalidatePath("/", "layout");
@@ -56,9 +61,13 @@ export async function createBannerAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("banners").insert(toRow(parsed.data));
-  if (error) return { status: "error", message: error.message };
+  await requireAdmin();
+  try {
+    await getDb().insert(banners).values(toRow(parsed.data));
+  } catch (error) {
+    console.error("[createBannerAction]", error);
+    return { status: "error", message: "Não foi possível salvar o banner." };
+  }
 
   revalidateStorefront();
   redirect("/admin/banners");
@@ -74,21 +83,21 @@ export async function updateBannerAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("banners")
-    .update(toRow(parsed.data))
-    .eq("id", id);
-  if (error) return { status: "error", message: error.message };
+  await requireAdmin();
+  try {
+    await getDb().update(banners).set(toRow(parsed.data)).where(eq(banners.id, id));
+  } catch (error) {
+    console.error("[updateBannerAction]", error);
+    return { status: "error", message: "Não foi possível salvar o banner." };
+  }
 
   revalidateStorefront();
   redirect("/admin/banners");
 }
 
 export async function deleteBannerAction(id: string): Promise<{ ok: boolean; message?: string }> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("banners").delete().eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  await getDb().delete(banners).where(eq(banners.id, id));
   revalidateStorefront();
   return { ok: true };
 }
@@ -97,20 +106,24 @@ export async function toggleBannerActiveAction(
   id: string,
   active: boolean,
 ): Promise<{ ok: boolean }> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("banners").update({ active }).eq("id", id);
+  await requireAdmin();
+  const updated = await getDb()
+    .update(banners)
+    .set({ active })
+    .where(eq(banners.id, id))
+    .returning({ id: banners.id });
   revalidateStorefront();
-  return { ok: !error };
+  return { ok: updated.length > 0 };
 }
 
 export async function reorderBannersAction(
   orderedIds: string[],
 ): Promise<{ ok: boolean }> {
-  const { supabase } = await requireAdmin();
-  await Promise.all(
-    orderedIds.map((id, index) =>
-      supabase.from("banners").update({ position: index }).eq("id", id),
-    ),
+  await requireAdmin();
+  const db = getDb();
+  await runBatch(
+    db,
+    orderedIds.map((id, index) => db.update(banners).set({ position: index }).where(eq(banners.id, id))),
   );
   revalidateStorefront();
   return { ok: true };

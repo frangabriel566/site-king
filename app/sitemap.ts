@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getAllActiveProductSlugs } from "@/lib/data/products";
 import { getActiveCategories } from "@/lib/data/categories";
 
+// Reads the catalog from D1, which only exists at request time.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 

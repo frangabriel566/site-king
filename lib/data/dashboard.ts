@@ -1,6 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { and, count, gte, inArray, lte } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import type { OrderStatus } from "@/lib/database.types";
+import { requireAdminPage } from "@/lib/auth/guards";
 
 const PAID_STATUSES: OrderStatus[] = ["paid", "processing", "shipped", "delivered"];
 
@@ -23,43 +26,40 @@ function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+const { orders, product_variants } = schema;
+
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const supabase = await createClient();
+  await requireAdminPage();
+  const db = getDb();
   const now = new Date();
   const todayStart = startOfDay(now);
   const monthStart = startOfMonth(now);
   const rangeStart = new Date(todayStart);
   rangeStart.setDate(rangeStart.getDate() - 29);
+  // Timestamps are ISO strings in UTC, so they compare as text.
+  const since = rangeStart < monthStart ? rangeStart : monthStart;
 
-  const [{ data: monthOrders }, { data: statusRows }, { data: variants }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("total, status, created_at")
-      .in("status", PAID_STATUSES)
-      .gte("created_at", monthStart.toISOString()),
-    supabase.from("orders").select("status"),
-    supabase.from("product_variants").select("stock"),
+  const [paidOrders, statusRows, [{ lowStock }]] = await db.batch([
+    db
+      .select({ total: orders.total, created_at: orders.created_at })
+      .from(orders)
+      .where(and(inArray(orders.status, PAID_STATUSES), gte(orders.created_at, since.toISOString()))),
+    db.select({ status: orders.status, count: count() }).from(orders).groupBy(orders.status),
+    db
+      .select({ lowStock: count() })
+      .from(product_variants)
+      .where(lte(product_variants.stock, LOW_STOCK_THRESHOLD)),
   ]);
 
-  const salesToday = (monthOrders ?? [])
+  const monthOrders = paidOrders.filter((o) => new Date(o.created_at) >= monthStart);
+  const salesToday = monthOrders
     .filter((o) => new Date(o.created_at) >= todayStart)
     .reduce((sum, o) => sum + o.total, 0);
-
-  const salesMonth = (monthOrders ?? []).reduce((sum, o) => sum + o.total, 0);
-  const averageTicket = monthOrders && monthOrders.length > 0 ? salesMonth / monthOrders.length : 0;
+  const salesMonth = monthOrders.reduce((sum, o) => sum + o.total, 0);
+  const averageTicket = monthOrders.length > 0 ? salesMonth / monthOrders.length : 0;
 
   const ordersByStatus: Record<string, number> = {};
-  for (const row of statusRows ?? []) {
-    ordersByStatus[row.status] = (ordersByStatus[row.status] ?? 0) + 1;
-  }
-
-  const lowStockCount = (variants ?? []).filter((v) => v.stock <= LOW_STOCK_THRESHOLD).length;
-
-  const { data: last30 } = await supabase
-    .from("orders")
-    .select("total, created_at")
-    .in("status", PAID_STATUSES)
-    .gte("created_at", rangeStart.toISOString());
+  for (const row of statusRows) ordersByStatus[row.status] = row.count;
 
   const byDay = new Map<string, number>();
   for (let i = 0; i < 30; i++) {
@@ -67,19 +67,18 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     d.setDate(d.getDate() + i);
     byDay.set(d.toISOString().slice(0, 10), 0);
   }
-  for (const order of last30 ?? []) {
+  for (const order of paidOrders) {
+    if (new Date(order.created_at) < rangeStart) continue;
     const key = order.created_at.slice(0, 10);
     if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + order.total);
   }
-
-  const dailySales = Array.from(byDay, ([date, total]) => ({ date, total }));
 
   return {
     salesToday,
     salesMonth,
     averageTicket,
     ordersByStatus,
-    lowStockCount,
-    dailySales,
+    lowStockCount: lowStock,
+    dailySales: Array.from(byDay, ([date, total]) => ({ date, total })),
   };
 }

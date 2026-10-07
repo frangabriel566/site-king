@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 import { orderStatusSchema } from "@/lib/validations/order";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
+import { fulfillOrderStock } from "@/lib/orders/stock";
 
 export type ActionResult = { ok: boolean; message?: string };
 
@@ -22,30 +24,27 @@ export async function updateOrderStatusAction(
     return { ok: false, message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      status: parsed.data.status,
-      tracking_code: parsed.data.tracking_code || null,
-    })
-    .eq("id", parsed.data.order_id);
-
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  try {
+    await getDb()
+      .update(schema.orders)
+      .set({
+        status: parsed.data.status,
+        tracking_code: parsed.data.tracking_code || null,
+      })
+      .where(eq(schema.orders.id, parsed.data.order_id));
+  } catch (error) {
+    console.error("[updateOrderStatusAction]", error);
+    return { ok: false, message: "Não foi possível atualizar o pedido." };
+  }
 
   if (FULFILLED_STATUSES.has(parsed.data.status)) {
-    // fulfill_order_stock's execute grant was revoked from `public` (see
-    // 0003_functions.sql) — only the service-role client can call it, same
-    // as the Mercado Pago webhook. Safe here because requireAdmin() above
-    // already confirmed the caller is an admin; the RPC itself is
-    // idempotent (guarded by orders.stock_decremented_at), so calling it
+    // Idempotent (guarded by orders.stock_decremented_at), so calling it
     // again as the status moves paid → processing → shipped is a no-op.
-    const admin = createAdminClient();
-    const { error: stockError } = await admin.rpc("fulfill_order_stock", {
-      p_order_id: parsed.data.order_id,
-    });
-    if (stockError) {
-      console.error("[updateOrderStatusAction] fulfill_order_stock failed", stockError);
+    try {
+      await fulfillOrderStock(parsed.data.order_id);
+    } catch (error) {
+      console.error("[updateOrderStatusAction] baixa de estoque falhou", error);
     }
   }
 

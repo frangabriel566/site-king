@@ -1,4 +1,7 @@
-import { createPublicClient } from "@/lib/supabase/public";
+import "server-only";
+import { cache } from "react";
+import { eq } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { safeQuery } from "./safe";
 
@@ -27,15 +30,13 @@ const FALLBACK_SETTINGS: SiteSettings = {
   origin_state: null,
 };
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+/** Public. Read once per request — the layout, the page and the WhatsApp
+ * helpers all ask for it. */
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("site_settings")
-      .select("*")
-      .eq("id", 1)
-      .maybeSingle();
-
-    return data ?? FALLBACK_SETTINGS;
+    const row = await getDb().query.site_settings.findFirst({
+      where: eq(schema.site_settings.id, 1),
+    });
+    return row ?? FALLBACK_SETTINGS;
   }, FALLBACK_SETTINGS);
-}
+});

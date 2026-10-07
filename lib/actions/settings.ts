@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { siteSettingsSchema } from "@/lib/validations/settings";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -36,32 +37,40 @@ export async function updateSiteSettingsAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("site_settings")
-    .update({
-      ...parsed.data,
-      logo_url: parsed.data.logo_url || null,
-      whatsapp: parsed.data.whatsapp || null,
-      email: parsed.data.email || null,
-      instagram: parsed.data.instagram || null,
-      tiktok: parsed.data.tiktok || null,
-      youtube: parsed.data.youtube || null,
-      shipping_note: parsed.data.shipping_note || null,
-      free_shipping_note: parsed.data.free_shipping_note || null,
-      announcement: parsed.data.announcement || null,
-      origin_document: parsed.data.origin_document || null,
-      origin_cep: parsed.data.origin_cep || null,
-      origin_street: parsed.data.origin_street || null,
-      origin_number: parsed.data.origin_number || null,
-      origin_complement: parsed.data.origin_complement || null,
-      origin_district: parsed.data.origin_district || null,
-      origin_city: parsed.data.origin_city || null,
-      origin_state: parsed.data.origin_state || null,
-    })
-    .eq("id", 1);
+  await requireAdmin();
 
-  if (error) return { status: "error", message: error.message };
+  const values = {
+    ...parsed.data,
+    logo_url: parsed.data.logo_url || null,
+    whatsapp: parsed.data.whatsapp || null,
+    email: parsed.data.email || null,
+    instagram: parsed.data.instagram || null,
+    tiktok: parsed.data.tiktok || null,
+    youtube: parsed.data.youtube || null,
+    shipping_note: parsed.data.shipping_note || null,
+    free_shipping_note: parsed.data.free_shipping_note || null,
+    announcement: parsed.data.announcement || null,
+    origin_document: parsed.data.origin_document || null,
+    origin_cep: parsed.data.origin_cep || null,
+    origin_street: parsed.data.origin_street || null,
+    origin_number: parsed.data.origin_number || null,
+    origin_complement: parsed.data.origin_complement || null,
+    origin_district: parsed.data.origin_district || null,
+    origin_city: parsed.data.origin_city || null,
+    origin_state: parsed.data.origin_state || null,
+  };
+
+  try {
+    // Single row, id = 1. An upsert, so a fresh database without the seed
+    // row still saves on the first try.
+    await getDb()
+      .insert(schema.site_settings)
+      .values({ id: 1, ...values })
+      .onConflictDoUpdate({ target: schema.site_settings.id, set: values });
+  } catch (error) {
+    console.error("[updateSiteSettingsAction]", error);
+    return { status: "error", message: "Não foi possível salvar as configurações." };
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/configuracoes");

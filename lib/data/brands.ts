@@ -1,49 +1,51 @@
-import { createPublicClient } from "@/lib/supabase/public";
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+import { and, asc, count, eq, getTableColumns } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
+import { requireAdminPage } from "@/lib/auth/guards";
 import { safeQuery } from "./safe";
 
 export type Brand = Tables<"brands">;
 export type AdminBrandListItem = Brand & { productCount: number };
 
-export async function getActiveBrands(): Promise<Brand[]> {
-  return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("brands")
-      .select("*")
-      .eq("active", true)
-      .order("position", { ascending: true });
+const { brands, products } = schema;
 
-    return data ?? [];
-  }, []);
+/** Public: active brands only. */
+export async function getActiveBrands(): Promise<Brand[]> {
+  return safeQuery(
+    () =>
+      getDb().query.brands.findMany({
+        where: eq(brands.active, true),
+        orderBy: asc(brands.position),
+      }),
+    [],
+  );
 }
 
+/** Public: an active brand by slug. */
 export async function getBrandBySlug(slug: string): Promise<Brand | null> {
   return safeQuery(async () => {
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from("brands")
-      .select("*")
-      .eq("slug", slug)
-      .eq("active", true)
-      .maybeSingle();
-
-    return data ?? null;
+    const row = await getDb().query.brands.findFirst({
+      where: and(eq(brands.slug, slug), eq(brands.active, true)),
+    });
+    return row ?? null;
   }, null);
 }
 
 /** Admin listing — all rows (including inactive), with how many products
  *  reference each brand, so the delete confirmation can warn accurately. */
 export async function getAllBrandsAdmin(): Promise<AdminBrandListItem[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("brands")
-    .select("*, products(count)")
-    .order("position", { ascending: true });
+  await requireAdminPage();
+  return getDb()
+    .select({ ...getTableColumns(brands), productCount: count(products.id) })
+    .from(brands)
+    .leftJoin(products, eq(products.brand_id, brands.id))
+    .groupBy(brands.id)
+    .orderBy(asc(brands.position));
+}
 
-  return (data ?? []).map((row) => {
-    const { products, ...brand } = row as Brand & { products: { count: number }[] };
-    return { ...brand, productCount: products[0]?.count ?? 0 };
-  });
+export async function getBrandByIdAdmin(id: string): Promise<Brand | null> {
+  await requireAdminPage();
+  const row = await getDb().query.brands.findFirst({ where: eq(brands.id, id) });
+  return row ?? null;
 }

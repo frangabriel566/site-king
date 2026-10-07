@@ -1,4 +1,7 @@
-import { createPublicClient } from "@/lib/supabase/public";
+import "server-only";
+import { inArray } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
+import { roundMoney } from "@/lib/money";
 
 export type RevisedItem = {
   variantId: string;
@@ -21,11 +24,8 @@ export type ReviseCartResult = {
   hasChanges: boolean;
 };
 
-/**
- * Re-reads price and stock straight from the database for the given
- * variant ids — the cart in localStorage is never trusted as the
- * source of truth for money or availability.
- */
+const { product_variants } = schema;
+
 /**
  * Quanto existe hoje de cada variação da sacola — zero inclusive.
  *
@@ -44,22 +44,26 @@ export async function getCartStock(
 ): Promise<Record<string, number>> {
   if (variantIds.length === 0) return {};
 
-  const supabase = createPublicClient();
-  const { data } = await supabase
-    .from("product_variants")
-    .select("id, stock, products!inner(status)")
-    .in("id", variantIds.slice(0, 50));
+  const rows = await getDb().query.product_variants.findMany({
+    columns: { id: true, stock: true },
+    where: inArray(product_variants.id, variantIds.slice(0, 50)),
+    with: { product: { columns: { status: true } } },
+  });
 
   const stock: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const product = Array.isArray(row.products) ? row.products[0] : row.products;
+  for (const row of rows) {
     // Produto arquivado não se vende, então o saldo dele é zero para
     // efeito de sacola — mesma regra que reviseCartItems aplica.
-    stock[row.id] = product?.status === "active" ? Math.max(row.stock, 0) : 0;
+    stock[row.id] = row.product.status === "active" ? Math.max(row.stock, 0) : 0;
   }
   return stock;
 }
 
+/**
+ * Re-reads price and stock straight from the database for the given
+ * variant ids — the cart in localStorage is never trusted as the
+ * source of truth for money or availability.
+ */
 export async function reviseCartItems(
   requested: { variantId: string; qty: number }[],
 ): Promise<ReviseCartResult> {
@@ -67,27 +71,31 @@ export async function reviseCartItems(
     return { items: [], subtotal: 0, hasChanges: false };
   }
 
-  const supabase = createPublicClient();
-  const variantIds = requested.map((r) => r.variantId);
-
-  const { data } = await supabase
-    .from("product_variants")
-    .select(
-      "id, color, size, stock, products(id, slug, name, price, status, product_images(url, position))",
-    )
-    .in("id", variantIds);
+  const variants = await getDb().query.product_variants.findMany({
+    columns: { id: true, color: true, size: true, stock: true },
+    where: inArray(
+      product_variants.id,
+      requested.slice(0, 50).map((r) => r.variantId),
+    ),
+    with: {
+      product: {
+        columns: { id: true, slug: true, name: true, price: true, status: true },
+        with: { product_images: { columns: { url: true, position: true } } },
+      },
+    },
+  });
 
   let hasChanges = false;
   const items: RevisedItem[] = [];
 
   for (const req of requested) {
-    const variant = (data ?? []).find((v) => v.id === req.variantId);
+    const variant = variants.find((v) => v.id === req.variantId);
     if (!variant) {
       hasChanges = true;
       continue;
     }
-    const product = Array.isArray(variant.products) ? variant.products[0] : variant.products;
-    if (!product || product.status !== "active") {
+    const product = variant.product;
+    if (product.status !== "active") {
       hasChanges = true;
       continue;
     }
@@ -99,9 +107,7 @@ export async function reviseCartItems(
       continue;
     }
 
-    const images = [...(product.product_images ?? [])].sort(
-      (a, b) => a.position - b.position,
-    );
+    const images = [...product.product_images].sort((a, b) => a.position - b.position);
 
     items.push({
       variantId: variant.id,
@@ -119,7 +125,7 @@ export async function reviseCartItems(
     });
   }
 
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.availableQty, 0);
+  const subtotal = roundMoney(items.reduce((sum, i) => sum + i.price * i.availableQty, 0));
 
   return { items, subtotal, hasChanges };
 }

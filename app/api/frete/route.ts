@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createPublicClient } from "@/lib/supabase/public";
+import { and, eq, inArray } from "drizzle-orm";
+import { getDb, schema } from "@/lib/db";
 import { getSiteSettings } from "@/lib/data/settings";
 import {
   calculateShipping,
@@ -112,14 +113,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createPublicClient();
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("id, name, price, weight_grams, length_cm, width_cm, height_cm")
-    .in("id", [...quantities.keys()])
-    .eq("status", "active");
+  let products;
+  try {
+    const { products: table } = schema;
+    products = await getDb()
+      .select({
+        id: table.id,
+        name: table.name,
+        price: table.price,
+        weight_grams: table.weight_grams,
+        length_cm: table.length_cm,
+        width_cm: table.width_cm,
+        height_cm: table.height_cm,
+      })
+      .from(table)
+      // At most 50 lines reach here (the body schema caps it), well under
+      // D1's 100-parameter limit.
+      .where(and(inArray(table.id, [...quantities.keys()]), eq(table.status, "active")));
+  } catch (error) {
+    console.error("[frete] consulta de produtos", error);
+    products = null;
+  }
 
-  if (error) {
+  if (!products) {
     return NextResponse.json(
       { error: "Não foi possível consultar os produtos." },
       { status: 502 },

@@ -15,6 +15,13 @@ const archivo = Archivo({
 // below would throw "Invalid URL" during the production build.
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+// Every page reads the D1 database (the shop layout alone reads the site
+// settings), and D1 only exists inside a request on the Worker — at build
+// time there is no production database to prerender from. So nothing is
+// static: each request renders with live data. (ISR would not help either:
+// without an OpenNext incremental cache configured, it caches nothing.)
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {

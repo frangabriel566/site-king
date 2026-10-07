@@ -2,40 +2,53 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { categorySchema } from "@/lib/validations/category";
 import { slugify } from "@/lib/format";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema } from "@/lib/db";
+import { runBatch } from "@/lib/db/batch";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { productIdsLinkedTo, refreshSearchText } from "@/lib/catalog/search-index";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
+
+const { categories } = schema;
 
 function revalidateStorefront() {
   revalidatePath("/", "layout");
   revalidatePath("/admin/categorias");
 }
 
-export async function createCategoryAction(
-  _prev: ActionResult,
-  formData: FormData,
-): Promise<ActionResult> {
-  const parsed = categorySchema.safeParse({
+function parseCategoryForm(formData: FormData) {
+  return categorySchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug"),
     position: formData.get("position"),
     active: formData.get("active") === "on",
   });
+}
 
+function saveError(error: unknown, duplicate: string): string {
+  if (isUniqueViolation(error, "categories.slug")) return duplicate;
+  console.error("[categories]", error);
+  return "Não foi possível salvar a categoria.";
+}
+
+export async function createCategoryAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = parseCategoryForm(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("categories").insert(parsed.data);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe uma categoria com esse slug." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb().insert(categories).values(parsed.data);
+  } catch (error) {
+    return { status: "error", message: saveError(error, "Já existe uma categoria com esse slug.") };
   }
 
   revalidateStorefront();
@@ -52,10 +65,9 @@ export type QuickCreateCategoryResult =
  * product they're editing.
  */
 export async function quickCreateCategoryAction(name: string): Promise<QuickCreateCategoryResult> {
-  const slugBase = slugify(name);
   const parsed = categorySchema.safeParse({
     name,
-    slug: slugBase,
+    slug: slugify(name),
     position: 999,
     active: true,
   });
@@ -64,22 +76,17 @@ export async function quickCreateCategoryAction(name: string): Promise<QuickCrea
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Nome inválido." };
   }
 
-  const { supabase } = await requireAdmin();
-  const { data, error } = await supabase
-    .from("categories")
-    .insert(parsed.data)
-    .select("id, name, slug")
-    .single();
-
-  if (error || !data) {
-    return {
-      ok: false,
-      message: error?.code === "23505" ? "Já existe uma categoria com esse nome." : (error?.message ?? "Erro"),
-    };
+  await requireAdmin();
+  try {
+    const [category] = await getDb()
+      .insert(categories)
+      .values(parsed.data)
+      .returning({ id: categories.id, name: categories.name, slug: categories.slug });
+    revalidateStorefront();
+    return { ok: true, category };
+  } catch (error) {
+    return { ok: false, message: saveError(error, "Já existe uma categoria com esse nome.") };
   }
-
-  revalidateStorefront();
-  return { ok: true, category: data };
 }
 
 export async function updateCategoryAction(
@@ -87,38 +94,32 @@ export async function updateCategoryAction(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const parsed = categorySchema.safeParse({
-    name: formData.get("name"),
-    slug: formData.get("slug"),
-    position: formData.get("position"),
-    active: formData.get("active") === "on",
-  });
-
+  const parsed = parseCategoryForm(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("categories")
-    .update(parsed.data)
-    .eq("id", id);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.code === "23505" ? "Já existe uma categoria com esse slug." : error.message,
-    };
+  await requireAdmin();
+  try {
+    await getDb().update(categories).set(parsed.data).where(eq(categories.id, id));
+  } catch (error) {
+    return { status: "error", message: saveError(error, "Já existe uma categoria com esse slug.") };
   }
+
+  // The category name is part of every one of its products' search text.
+  await refreshSearchText({ categoryId: id });
 
   revalidateStorefront();
   redirect("/admin/categorias");
 }
 
 export async function deleteCategoryAction(id: string): Promise<{ ok: boolean; message?: string }> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("categories").delete().eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  const affected = await productIdsLinkedTo({ categoryId: id });
+  // category_id is ON DELETE SET NULL — this only ever clears the link on
+  // its products, never the products themselves.
+  await getDb().delete(categories).where(eq(categories.id, id));
+  await refreshSearchText({ productIds: affected });
   revalidateStorefront();
   return { ok: true };
 }
@@ -126,10 +127,12 @@ export async function deleteCategoryAction(id: string): Promise<{ ok: boolean; m
 export async function reorderCategoriesAction(
   orderedIds: string[],
 ): Promise<{ ok: boolean }> {
-  const { supabase } = await requireAdmin();
-  await Promise.all(
+  await requireAdmin();
+  const db = getDb();
+  await runBatch(
+    db,
     orderedIds.map((id, index) =>
-      supabase.from("categories").update({ position: index }).eq("id", id),
+      db.update(categories).set({ position: index }).where(eq(categories.id, id)),
     ),
   );
   revalidateStorefront();

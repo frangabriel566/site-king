@@ -2,10 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { collectPublishIssues, productSchema } from "@/lib/validations/product";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getDb, schema, type Db } from "@/lib/db";
+import { insertChunks, runBatch } from "@/lib/db/batch";
+import { isUniqueViolation } from "@/lib/db/errors";
+import { roundMoney } from "@/lib/money";
+import { searchTextFor } from "@/lib/catalog/search-index";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
+
+const { products, product_images, product_variants } = schema;
 
 /**
  * `("/", "layout")` rather than a list of pages, matching what the brand
@@ -85,21 +93,104 @@ function parseFormData(formData: FormData) {
   });
 }
 
-function friendlyDbError(
-  error: { code?: string; message: string; details?: string | null } | null,
-): string | undefined {
-  if (!error) return undefined;
-  if (error.code === "23505") {
-    // Postgres' detail for a unique-violation looks like
-    // `Key (sku)=(SAPATO-VERDE-40) already exists.` — surface the actual
-    // value so the operator knows which SKU to change, instead of a
-    // generic "one of them" that leaves them guessing across every row.
-    const skuMatch = error.details?.match(/Key \(sku\)=\(([^)]+)\)/);
-    if (skuMatch) return `O SKU "${skuMatch[1]}" já está em uso por outra variação.`;
-    if (error.message.includes("sku")) return "Um dos SKUs já está em uso por outra variação.";
-    if (error.message.includes("slug")) return "Já existe um produto com esse slug.";
+type ParsedProduct = NonNullable<ReturnType<typeof parseFormData>["data"]>;
+
+/** The products row for a parsed form — shared by create and update. */
+function toProductRow(data: ParsedProduct, searchText: string) {
+  return {
+    name: data.name,
+    slug: data.slug,
+    short_description: data.short_description || null,
+    description: data.description || null,
+    video_url: data.video_url || null,
+    tags: data.tags.length > 0 ? data.tags : null,
+    collection: data.collection || null,
+    shipping_note: data.shipping_note || null,
+    exchange_info: data.exchange_info || null,
+    care_instructions: data.care_instructions || null,
+    price: roundMoney(data.price),
+    compare_at_price: data.compare_at_price != null ? roundMoney(data.compare_at_price) : null,
+    category_id: data.category_id ?? null,
+    brand_id: data.brand_id ?? null,
+    manufacturer_ref: data.manufacturer_ref || null,
+    weight_grams: data.weight_grams ?? null,
+    length_cm: data.length_cm ?? null,
+    width_cm: data.width_cm ?? null,
+    height_cm: data.height_cm ?? null,
+    attributes: data.attributes ?? null,
+    badge: data.badge ?? null,
+    status: data.status,
+    featured: data.featured,
+    position: data.position,
+    search_text: searchText,
+  };
+}
+
+function childRows(productId: string, data: ParsedProduct) {
+  return {
+    images: data.images.map((img, index) => ({
+      product_id: productId,
+      url: img.url,
+      alt: img.alt || null,
+      position: index,
+    })),
+    variants: data.variants.map((v) => ({
+      product_id: productId,
+      color: v.color,
+      color_hex: v.color_hex || null,
+      size: v.size,
+      sku: v.sku || null,
+      stock: v.stock,
+      image_url: v.image_url || null,
+    })),
+  };
+}
+
+/**
+ * The two unique values an operator types and can collide on — checked
+ * before writing, because SQLite's error names the column but not the
+ * value, and "which SKU?" is the whole question.
+ */
+async function findConflict(
+  db: Db,
+  data: ParsedProduct,
+  productId?: string,
+): Promise<string | null> {
+  const slugTaken = await db.query.products.findFirst({
+    columns: { id: true },
+    where: and(eq(products.slug, data.slug), productId ? ne(products.id, productId) : undefined),
+  });
+  if (slugTaken) return "Já existe um produto com esse slug.";
+
+  const skus = data.variants.map((v) => v.sku).filter((sku): sku is string => Boolean(sku));
+  const repeated = skus.find((sku, i) => skus.indexOf(sku) !== i);
+  if (repeated) return `O SKU "${repeated}" aparece em mais de uma variação.`;
+  if (skus.length > 0) {
+    const [taken] = await db
+      .select({ sku: product_variants.sku })
+      .from(product_variants)
+      .where(
+        and(
+          inArray(product_variants.sku, skus.slice(0, 90)),
+          productId ? ne(product_variants.product_id, productId) : undefined,
+        ),
+      )
+      .limit(1);
+    if (taken?.sku) return `O SKU "${taken.sku}" já está em uso por outra variação.`;
   }
-  return error.message;
+  return null;
+}
+
+function friendlyDbError(error: unknown): string {
+  if (isUniqueViolation(error, "products.slug")) return "Já existe um produto com esse slug.";
+  if (isUniqueViolation(error, "product_variants.sku")) {
+    return "Um dos SKUs já está em uso por outra variação.";
+  }
+  if (isUniqueViolation(error, "product_variants.product_id")) {
+    return "Há duas variações com a mesma cor e o mesmo tamanho.";
+  }
+  console.error("[products]", error);
+  return "Não foi possível salvar o produto.";
 }
 
 /**
@@ -145,109 +236,37 @@ export async function createProductAction(
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
-  const {
-    name,
-    slug,
-    short_description,
-    description,
-    video_url,
-    tags,
-    collection,
-    shipping_note,
-    exchange_info,
-    care_instructions,
-    price,
-    compare_at_price,
-    category_id,
-    brand_id,
-    manufacturer_ref,
-    weight_grams,
-    length_cm,
-    width_cm,
-    height_cm,
-    attributes,
-    badge,
-    status,
-    featured,
-    position,
-    images,
-    variants,
-  } = parsed.data;
+  const data = parsed.data;
 
   // Defense in depth: the client already blocks publishing with missing
   // fields, but the server must not trust that — this is the real gate.
-  const publishIssues = collectPublishIssues(parsed.data);
+  const publishIssues = collectPublishIssues(data);
   if (publishIssues.length > 0) {
     return { status: "error", message: publishIssues[0].message };
   }
 
-  const { supabase } = await requireAdmin();
+  await requireAdmin();
+  const db = getDb();
 
-  const { data: product, error } = await supabase
-    .from("products")
-    .insert({
-      name,
-      slug,
-      short_description: short_description || null,
-      description: description || null,
-      video_url: video_url || null,
-      tags: tags.length > 0 ? tags : null,
-      collection: collection || null,
-      shipping_note: shipping_note || null,
-      exchange_info: exchange_info || null,
-      care_instructions: care_instructions || null,
-      price,
-      compare_at_price: compare_at_price ?? null,
-      category_id,
-      brand_id,
-      manufacturer_ref: manufacturer_ref || null,
-      weight_grams: weight_grams ?? null,
-      length_cm: length_cm ?? null,
-      width_cm: width_cm ?? null,
-      height_cm: height_cm ?? null,
-      attributes: attributes ?? null,
-      badge: badge ?? null,
-      status,
-      featured,
-      position,
-    })
-    .select("id")
-    .single();
+  const conflict = await findConflict(db, data);
+  if (conflict) return { status: "error", message: conflict };
 
-  if (error || !product) {
+  const productId = crypto.randomUUID();
+  const { images, variants } = childRows(productId, data);
+  try {
+    // Product, photos and variants in one transaction: a variant that fails
+    // no longer leaves a half-saved product behind.
+    await runBatch(db, [
+      db.insert(products).values({ id: productId, ...toProductRow(data, await searchTextFor(db, data)) }),
+      ...insertChunks(db, product_images, images),
+      ...insertChunks(db, product_variants, variants),
+    ]);
+  } catch (error) {
     return { status: "error", message: friendlyDbError(error) };
   }
 
-  if (images.length > 0) {
-    await supabase.from("product_images").insert(
-      images.map((img, index) => ({
-        product_id: product.id,
-        url: img.url,
-        alt: img.alt || null,
-        position: index,
-      })),
-    );
-  }
-
-  if (variants.length > 0) {
-    const { error: variantsError } = await supabase.from("product_variants").insert(
-      variants.map((v) => ({
-        product_id: product.id,
-        color: v.color,
-        color_hex: v.color_hex || null,
-        size: v.size,
-        sku: v.sku,
-        stock: v.stock,
-        image_url: v.image_url || null,
-      })),
-    );
-    if (variantsError) {
-      return { status: "error", message: friendlyDbError(variantsError) };
-    }
-  }
-
-  revalidateStorefront(slug);
-  redirectAfterSave(formData, category_id, brand_id);
+  revalidateStorefront(data.slug);
+  redirectAfterSave(formData, data.category_id, data.brand_id);
 }
 
 export async function updateProductAction(
@@ -259,114 +278,43 @@ export async function updateProductAction(
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
-  const {
-    name,
-    slug,
-    short_description,
-    description,
-    video_url,
-    tags,
-    collection,
-    shipping_note,
-    exchange_info,
-    care_instructions,
-    price,
-    compare_at_price,
-    category_id,
-    brand_id,
-    manufacturer_ref,
-    weight_grams,
-    length_cm,
-    width_cm,
-    height_cm,
-    attributes,
-    badge,
-    status,
-    featured,
-    position,
-    images,
-    variants,
-  } = parsed.data;
+  const data = parsed.data;
 
-  const publishIssues = collectPublishIssues(parsed.data);
+  const publishIssues = collectPublishIssues(data);
   if (publishIssues.length > 0) {
     return { status: "error", message: publishIssues[0].message };
   }
 
-  const { supabase } = await requireAdmin();
+  await requireAdmin();
+  const db = getDb();
 
-  const { error } = await supabase
-    .from("products")
-    .update({
-      name,
-      slug,
-      short_description: short_description || null,
-      description: description || null,
-      video_url: video_url || null,
-      tags: tags.length > 0 ? tags : null,
-      collection: collection || null,
-      shipping_note: shipping_note || null,
-      exchange_info: exchange_info || null,
-      care_instructions: care_instructions || null,
-      price,
-      compare_at_price: compare_at_price ?? null,
-      category_id,
-      brand_id,
-      manufacturer_ref: manufacturer_ref || null,
-      weight_grams: weight_grams ?? null,
-      length_cm: length_cm ?? null,
-      width_cm: width_cm ?? null,
-      height_cm: height_cm ?? null,
-      attributes: attributes ?? null,
-      badge: badge ?? null,
-      status,
-      featured,
-      position,
-    })
-    .eq("id", id);
+  const conflict = await findConflict(db, data, id);
+  if (conflict) return { status: "error", message: conflict };
 
-  if (error) {
+  const { images, variants } = childRows(id, data);
+  try {
+    // Photos and variants are replaced wholesale, as before — now in the
+    // same transaction as the product row.
+    await runBatch(db, [
+      db.update(products).set(toProductRow(data, await searchTextFor(db, data))).where(eq(products.id, id)),
+      db.delete(product_images).where(eq(product_images.product_id, id)),
+      ...insertChunks(db, product_images, images),
+      db.delete(product_variants).where(eq(product_variants.product_id, id)),
+      ...insertChunks(db, product_variants, variants),
+    ]);
+  } catch (error) {
     return { status: "error", message: friendlyDbError(error) };
   }
 
-  await supabase.from("product_images").delete().eq("product_id", id);
-  if (images.length > 0) {
-    await supabase.from("product_images").insert(
-      images.map((img, index) => ({
-        product_id: id,
-        url: img.url,
-        alt: img.alt || null,
-        position: index,
-      })),
-    );
-  }
-
-  await supabase.from("product_variants").delete().eq("product_id", id);
-  if (variants.length > 0) {
-    const { error: variantsError } = await supabase.from("product_variants").insert(
-      variants.map((v) => ({
-        product_id: id,
-        color: v.color,
-        color_hex: v.color_hex || null,
-        size: v.size,
-        sku: v.sku,
-        stock: v.stock,
-        image_url: v.image_url || null,
-      })),
-    );
-    if (variantsError) {
-      return { status: "error", message: friendlyDbError(variantsError) };
-    }
-  }
-
-  revalidateStorefront(slug);
-  redirectAfterSave(formData, category_id, brand_id);
+  revalidateStorefront(data.slug);
+  redirectAfterSave(formData, data.category_id, data.brand_id);
 }
 
 export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("products").delete().eq("id", id);
-  if (error) return { ok: false, message: error.message };
+  await requireAdmin();
+  // Photos and variants go with it (ON DELETE CASCADE); past orders keep
+  // their snapshot and lose only the link.
+  await getDb().delete(products).where(eq(products.id, id));
   revalidateStorefront();
   return { ok: true };
 }
@@ -376,110 +324,96 @@ export type DuplicateProductResult =
   | { ok: false; message: string };
 
 export async function duplicateProductAction(id: string): Promise<DuplicateProductResult> {
-  const { supabase } = await requireAdmin();
+  await requireAdmin();
+  const db = getDb();
 
-  const { data: original } = await supabase
-    .from("products")
-    .select("*, product_images(*), product_variants(*)")
-    .eq("id", id)
-    .maybeSingle();
-
+  const original = await db.query.products.findFirst({
+    where: eq(products.id, id),
+    with: { product_images: true, product_variants: true },
+  });
   if (!original) return { ok: false, message: "Produto não encontrado." };
 
   let newSlug = `${original.slug}-copia`;
   let attempt = 1;
-  while (true) {
-    const { data: existing } = await supabase
-      .from("products")
-      .select("id")
-      .eq("slug", newSlug)
-      .maybeSingle();
-    if (!existing) break;
+  while (
+    await db.query.products.findFirst({ columns: { id: true }, where: eq(products.slug, newSlug) })
+  ) {
     attempt += 1;
     newSlug = `${original.slug}-copia-${attempt}`;
   }
 
-  const { data: created, error } = await supabase
-    .from("products")
-    .insert({
-      name: `${original.name} (cópia)`,
-      slug: newSlug,
-      short_description: original.short_description,
-      description: original.description,
-      video_url: original.video_url,
-      tags: original.tags,
-      collection: original.collection,
-      shipping_note: original.shipping_note,
-      exchange_info: original.exchange_info,
-      care_instructions: original.care_instructions,
-      price: original.price,
-      compare_at_price: original.compare_at_price,
-      category_id: original.category_id,
-      brand_id: original.brand_id,
-      manufacturer_ref: original.manufacturer_ref,
-      // A copy is the same physical item in the same box, so it ships
-      // the same. Leaving these off would produce a duplicate that
-      // silently cannot be quoted.
-      weight_grams: original.weight_grams,
-      length_cm: original.length_cm,
-      width_cm: original.width_cm,
-      height_cm: original.height_cm,
-      attributes: original.attributes,
-      badge: null,
-      status: "draft",
-      featured: false,
-      position: original.position,
-    })
-    .select("id")
-    .single();
+  const newId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const {
+    product_images: originalImages,
+    product_variants: originalVariants,
+    ...fields
+  } = original;
 
-  if (error || !created) {
-    return { ok: false, message: friendlyDbError(error) ?? "Não foi possível duplicar." };
-  }
-
-  if (original.product_images.length > 0) {
-    await supabase.from("product_images").insert(
-      original.product_images.map((img) => ({
-        product_id: created.id,
-        url: img.url,
-        alt: img.alt,
-        position: img.position,
-      })),
-    );
-  }
-
-  if (original.product_variants.length > 0) {
-    // Stock is not copied — a duplicate is a new listing, not new
-    // physical inventory of the original. SKU is rebuilt from the new
-    // slug so it can't collide with the original's.
-    await supabase.from("product_variants").insert(
-      original.product_variants.map((v) => ({
-        product_id: created.id,
-        color: v.color,
-        color_hex: v.color_hex,
-        size: v.size,
-        sku: buildSku(newSlug, v.color, v.size),
-        stock: 0,
-        image_url: v.image_url,
-      })),
-    );
+  try {
+    await runBatch(db, [
+      db.insert(products).values({
+        ...fields,
+        id: newId,
+        created_at: now,
+        updated_at: now,
+        name: `${original.name} (cópia)`,
+        slug: newSlug,
+        // A copy is the same physical item in the same box, so weight and
+        // measurements carry over; placement and publication do not.
+        badge: null,
+        status: "draft",
+        featured: false,
+      }),
+      ...insertChunks(
+        db,
+        product_images,
+        originalImages.map((img) => ({
+          product_id: newId,
+          url: img.url,
+          alt: img.alt,
+          position: img.position,
+        })),
+      ),
+      // Stock is not copied — a duplicate is a new listing, not new
+      // physical inventory of the original. SKU is rebuilt from the new
+      // slug so it can't collide with the original's.
+      ...insertChunks(
+        db,
+        product_variants,
+        originalVariants.map((v) => ({
+          product_id: newId,
+          color: v.color,
+          color_hex: v.color_hex,
+          size: v.size,
+          sku: buildSku(newSlug, v.color, v.size) || null,
+          stock: 0,
+          image_url: v.image_url,
+        })),
+      ),
+    ]);
+  } catch (error) {
+    return { ok: false, message: friendlyDbError(error) };
   }
 
   revalidatePath("/admin/produtos");
-  return { ok: true, newId: created.id };
+  return { ok: true, newId };
 }
 
 export async function updateVariantStockAction(
   variantId: string,
   stock: number,
 ): Promise<{ ok: boolean; message?: string }> {
-  if (stock < 0) return { ok: false, message: "Estoque não pode ser negativo." };
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase
-    .from("product_variants")
-    .update({ stock })
-    .eq("id", variantId);
-  if (error) return { ok: false, message: error.message };
+  if (!Number.isInteger(stock) || stock < 0) {
+    return { ok: false, message: "Estoque não pode ser negativo." };
+  }
+  await requireAdmin();
+  const updated = await getDb()
+    .update(product_variants)
+    .set({ stock })
+    .where(eq(product_variants.id, variantId))
+    .returning({ id: product_variants.id });
+  if (updated.length === 0) return { ok: false, message: "Variação não encontrada." };
   revalidatePath("/admin/estoque");
   revalidatePath("/admin/produtos");
   revalidatePath("/colecao");

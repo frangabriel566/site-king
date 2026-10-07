@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getDb, schema } from "@/lib/db";
 
 const newsletterSchema = z.object({
   email: z.email("Informe um e-mail válido"),
@@ -12,6 +12,7 @@ export type NewsletterState = {
   message?: string;
 };
 
+/** Open to anyone (no session needed); only admins can read the list. */
 export async function subscribeNewsletterAction(
   _prevState: NewsletterState,
   formData: FormData,
@@ -24,12 +25,14 @@ export async function subscribeNewsletterAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("newsletter_subscribers")
-    .insert({ email: parsed.data.email });
-
-  if (error && error.code !== "23505") {
+  try {
+    // Subscribing twice is not an error the visitor needs to see.
+    await getDb()
+      .insert(schema.newsletter_subscribers)
+      .values({ email: parsed.data.email.trim().toLowerCase() })
+      .onConflictDoNothing({ target: schema.newsletter_subscribers.email });
+  } catch (error) {
+    console.error("[subscribeNewsletterAction]", error);
     return { status: "error", message: "Não foi possível cadastrar. Tente novamente." };
   }
 

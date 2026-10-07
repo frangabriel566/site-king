@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { adminLoginAction, type AdminLoginState } from "@/lib/actions/admin-auth";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,12 @@ export function LoginForm({ next }: { next?: string }) {
       <Button type="submit" size="xl" disabled={pending} className="mt-2">
         {pending ? "Entrando…" : "Entrar"}
       </Button>
+      <Link
+        href="/esqueci-senha"
+        className="text-center text-xs text-ink-muted underline underline-offset-4"
+      >
+        Esqueci minha senha
+      </Link>
     </form>
   );
 }

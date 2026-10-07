@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminPage } from "@/lib/auth/guards";
 import { AccountForm } from "@/components/admin/account-form";
 
 export const metadata: Metadata = { title: "Conta — Painel" };
@@ -10,10 +10,7 @@ export const metadata: Metadata = { title: "Conta — Painel" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminAccountPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await requireAdminPage("/admin/conta");
 
   return (
     <div>
@@ -25,15 +22,7 @@ export default async function AdminAccountPage() {
         rodapé do site.
       </p>
 
-      {/* O middleware já barrou quem não é admin, então isto é só o
-          compilador: `user` é tipado como possivelmente nulo. */}
-      {user?.email ? (
-        <AccountForm email={user.email} />
-      ) : (
-        <p className="text-sm text-ink-muted">
-          Não foi possível ler sua sessão. Saia e entre de novo.
-        </p>
-      )}
+      <AccountForm email={user.email} />
     </div>
   );
 }

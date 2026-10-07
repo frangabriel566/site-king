@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,7 +69,15 @@ function SignInForm({
         <Input id="signin-email" name="email" type="email" required />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="signin-password">Senha</Label>
+        <div className="flex items-baseline justify-between gap-4">
+          <Label htmlFor="signin-password">Senha</Label>
+          <Link
+            href="/esqueci-senha"
+            className="text-xs text-ink-muted underline underline-offset-4 hover:text-fg"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
         <Input id="signin-password" name="password" type="password" required />
       </div>
       <Button type="submit" size="xl" disabled={pending}>

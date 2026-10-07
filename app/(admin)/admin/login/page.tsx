@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/guards";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -11,6 +13,12 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
+
+  // Already signed in as an admin: straight into the panel.
+  const user = await getCurrentUser();
+  if (user?.role === "admin") {
+    redirect(next?.startsWith("/admin") ? next : "/admin");
+  }
 
   return (
     <div className="admin-theme flex min-h-dvh items-center justify-center bg-bg px-8 text-fg">

@@ -1,67 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createPublicClient } from "@/lib/supabase/public";
+import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
 import {
   changeEmailSchema,
   changePasswordSchema,
 } from "@/lib/validations/admin-account";
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { getAuth } from "@/lib/auth/server";
+import { authErrorCode } from "@/lib/auth/errors";
+import { findUserByEmail, passwordMatches } from "@/lib/auth/accounts";
+import { getDb, schema } from "@/lib/db";
+import { isUniqueViolation } from "@/lib/db/errors";
 
 export type AccountActionState = {
   status: "idle" | "error" | "success";
   message?: string;
 };
-
-/**
- * Confere a senha atual sem encostar na sessão de quem está logado.
- *
- * O cliente aqui é o `createPublicClient` — chave anon, `persistSession:
- * false`, nenhum cookie. Usar o cliente da sessão faria este
- * `signInWithPassword` reescrever os cookies do admin no meio da própria
- * troca de senha, e um erro no passo seguinte o deixaria numa sessão
- * nova que ele não pediu.
- *
- * Existe porque `updateUser()` não pede a senha antiga: sem esta
- * checagem, qualquer aba esquecida aberta viraria uma conta tomada.
- */
-async function currentPasswordMatches(email: string, password: string): Promise<boolean> {
-  const probe = createPublicClient();
-  const { error } = await probe.auth.signInWithPassword({ email, password });
-  return !error;
-}
-
-/** O GoTrue responde em inglês; isto é o que o operador lê. Só os casos
- *  que dependem do que ele digitou viram frase própria — o resto vira
- *  uma mensagem genérica com o original no log do servidor. */
-function translateAuthError(message: string | undefined, context: string): string {
-  const raw = (message ?? "").toLowerCase();
-
-  if (raw.includes("different from the old password")) {
-    return "A nova senha precisa ser diferente da atual.";
-  }
-  if (raw.includes("weak") || raw.includes("pwned") || raw.includes("at least")) {
-    return "Senha recusada por ser fraca demais. Escolha uma mais longa.";
-  }
-  if (raw.includes("already been registered") || raw.includes("already registered")) {
-    return "Já existe uma conta com esse e-mail.";
-  }
-  // O GoTrue tem a própria lista de endereços aceitáveis, mais estreita
-  // que o formato que o Zod valida: domínios de exemplo e descartáveis
-  // passam no `z.email()` e morrem aqui.
-  if (raw.includes("is invalid") || raw.includes("invalid email")) {
-    return "Endereço recusado pelo servidor. Use um e-mail real, que você consiga acessar.";
-  }
-  if (raw.includes("sending") || raw.includes("smtp")) {
-    return "Não consegui enviar o e-mail de confirmação. Verifique o SMTP do projeto no Supabase.";
-  }
-  if (raw.includes("rate limit") || raw.includes("too many")) {
-    return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
-  }
-
-  console.error(`[${context}]`, message);
-  return "Não foi possível concluir. Tente de novo.";
-}
 
 export async function changeAdminPasswordAction(
   _prev: AccountActionState,
@@ -77,24 +33,30 @@ export async function changeAdminPasswordAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase, user } = await requireAdmin();
-  if (!user.email) {
-    return { status: "error", message: "Esta conta não tem e-mail para confirmar a senha." };
-  }
+  await requireAdmin();
+  const auth = await getAuth();
 
-  if (!(await currentPasswordMatches(user.email, parsed.data.current_password))) {
-    return { status: "error", message: "Senha atual incorreta." };
-  }
-
-  const { error } = await supabase.auth.updateUser({
-    password: parsed.data.new_password,
-  });
-
-  if (error) {
-    return {
-      status: "error",
-      message: translateAuthError(error.message, "changeAdminPasswordAction"),
-    };
+  try {
+    // Better Auth checks the current password itself before changing it —
+    // without that, any forgotten open tab would be an account takeover.
+    await auth.api.changePassword({
+      body: {
+        currentPassword: parsed.data.current_password,
+        newPassword: parsed.data.new_password,
+        revokeOtherSessions: false,
+      },
+      headers: await headers(),
+    });
+  } catch (error) {
+    const code = authErrorCode(error);
+    if (code === "INVALID_PASSWORD") {
+      return { status: "error", message: "Senha atual incorreta." };
+    }
+    if (code === "PASSWORD_TOO_SHORT" || code === "PASSWORD_TOO_LONG") {
+      return { status: "error", message: "A nova senha precisa ter de 8 a 128 caracteres." };
+    }
+    console.error("[changeAdminPasswordAction]", error);
+    return { status: "error", message: "Não foi possível concluir. Tente de novo." };
   }
 
   return { status: "success", message: "Senha alterada." };
@@ -113,52 +75,36 @@ export async function changeAdminEmailAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const { supabase, user } = await requireAdmin();
-  if (!user.email) {
-    return { status: "error", message: "Esta conta não tem e-mail de acesso." };
-  }
-
+  const admin = await requireAdmin();
   const newEmail = parsed.data.new_email.trim().toLowerCase();
-  if (newEmail === user.email.toLowerCase()) {
+  if (newEmail === admin.email.toLowerCase()) {
     return { status: "error", message: "Este já é o seu e-mail de acesso." };
   }
 
-  if (!(await currentPasswordMatches(user.email, parsed.data.current_password))) {
+  // Asked for on both operations: without it, a forgotten open tab on a
+  // shared computer would be enough to take the account over.
+  if (!(await passwordMatches(admin.id, parsed.data.current_password))) {
     return { status: "error", message: "Senha atual incorreta." };
   }
 
-  const { data, error } = await supabase.auth.updateUser({ email: newEmail });
-
-  if (error) {
-    return {
-      status: "error",
-      message: translateAuthError(error.message, "changeAdminEmailAction"),
-    };
+  if (await findUserByEmail(newEmail)) {
+    return { status: "error", message: "Já existe uma conta com esse e-mail." };
   }
 
-  // Com confirmação de e-mail ligada no Supabase, `updateUser` não troca
-  // nada agora: guarda o endereço novo como pendente e manda um link. O
-  // `user.email` que volta ainda é o antigo, e é assim que dá para saber
-  // em qual dos dois mundos este projeto está, em vez de prometer ao
-  // operador uma troca que não aconteceu.
-  const appliedNow = data.user?.email?.toLowerCase() === newEmail;
-
-  if (!appliedNow) {
-    return {
-      status: "success",
-      message: `Confirme pelo link enviado para ${newEmail}. O acesso só muda depois disso.`,
-    };
-  }
-
-  // profiles.email é o que a listagem de Clientes mostra (lib/data/customers)
-  // — deixá-lo para trás apontaria para um endereço que não existe mais.
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({ email: newEmail })
-    .eq("id", user.id);
-
-  if (profileError) {
-    console.error("[changeAdminEmailAction] profiles.email dessincronizado", profileError);
+  // Applied right away: there is no e-mail confirmation in this setup (see
+  // lib/auth/server.ts). Sessions point at the user id, not the address,
+  // so the operator stays signed in.
+  try {
+    await getDb()
+      .update(schema.user)
+      .set({ email: newEmail, emailVerified: false })
+      .where(eq(schema.user.id, admin.id));
+  } catch (error) {
+    if (isUniqueViolation(error, "user.email")) {
+      return { status: "error", message: "Já existe uma conta com esse e-mail." };
+    }
+    console.error("[changeAdminEmailAction]", error);
+    return { status: "error", message: "Não foi possível concluir. Tente de novo." };
   }
 
   revalidatePath("/admin", "layout");

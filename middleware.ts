@@ -1,71 +1,42 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const isAdminRoute = pathname.startsWith("/admin");
-  const isLoginRoute = pathname === "/admin/login";
+// Better Auth's session cookie, plain and with the prefix it uses on https.
+const SESSION_COOKIES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
 
-  let session;
-  try {
-    session = await updateSession(request);
-  } catch (error) {
-    // Supabase is unreachable or misconfigured (e.g. a bad env var). Don't let
-    // that take down every page on the site — fail closed only for /admin
-    // (send to login) and let the public storefront render as usual.
-    console.error("middleware: updateSession failed", error);
-    if (isAdminRoute && !isLoginRoute) {
+/**
+ * First line of the /admin gate: no session cookie at all means no chance
+ * of being an admin, so bounce to the login screen without rendering
+ * anything.
+ *
+ * Deliberately only a cookie check. Validating the session and the role
+ * needs the database and Better Auth, and pulling those into the
+ * middleware bundle would grow the Worker for every request. The real
+ * check — session valid, role = admin — runs in the panel layout and in
+ * every admin Server Action and Route Handler (lib/auth/guards.ts).
+ *
+ * Also forwards the path as `x-pathname`, so the panel layout knows where
+ * to send the operator back to after logging in.
+ */
+export function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  if (pathname !== "/admin/login") {
+    const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
+    if (!hasSession) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
-  }
-
-  const { supabaseResponse, user, supabase } = session;
-
-  if (isAdminRoute && !isLoginRoute) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role !== "admin") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
+      url.search = "";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
   }
 
-  if (isAdminRoute && isLoginRoute && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role === "admin") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return supabaseResponse;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", `${pathname}${search}`);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
-  ],
+  // Only the panel: the storefront never pays for a middleware run.
+  matcher: ["/admin", "/admin/:path*"],
 };

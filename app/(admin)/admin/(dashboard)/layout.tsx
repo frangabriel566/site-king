@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import { requireAdminPage } from "@/lib/auth/guards";
 import { countPendingWhatsAppOrders } from "@/lib/data/whatsapp-orders";
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,18 +9,20 @@ export default async function AdminDashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const [{ data: { user } }, pendingWhatsApp] = await Promise.all([
-    supabase.auth.getUser(),
-    // Um pedido de WhatsApp morre sozinho em 48h, então ficar esperando
-    // que alguém abra a aba por conta própria é perder venda. O número
-    // fica no menu, onde é visto de qualquer tela do painel.
-    countPendingWhatsAppOrders(),
-  ]);
+  // The real gate for every panel page: valid session *and* role = admin.
+  // (middleware.ts only checks that a session cookie exists.) Every admin
+  // data loader and Server Action checks again on its own.
+  const next = (await headers()).get("x-pathname") ?? "/admin";
+  const user = await requireAdminPage(next);
+
+  // Um pedido de WhatsApp morre sozinho em 48h, então ficar esperando
+  // que alguém abra a aba por conta própria é perder venda. O número
+  // fica no menu, onde é visto de qualquer tela do painel.
+  const pendingWhatsApp = await countPendingWhatsAppOrders();
 
   return (
     <div className="admin-theme min-h-dvh bg-bg text-fg md:flex">
-      <AdminSidebar email={user?.email ?? null} pendingWhatsApp={pendingWhatsApp} />
+      <AdminSidebar email={user.email} pendingWhatsApp={pendingWhatsApp} />
       <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 md:px-10 md:py-8">
         {children}
       </main>

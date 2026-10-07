@@ -1,21 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/lib/validations/customer";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getRequestOrigin } from "@/lib/site-url";
+import { getAuth } from "@/lib/auth/server";
+import { authErrorCode } from "@/lib/auth/errors";
+import { getDb, schema } from "@/lib/db";
 
-/** `pending` is a *success* that isn't finished: the account exists and
- *  the confirmation mail is out, but there is no session until the
- *  customer clicks the link. It used to be reported as `error`, which
- *  put a red "something went wrong" toast on a signup that had in fact
- *  worked. */
+/** `pending` was "account created, waiting for the e-mail link" under
+ *  Supabase. Sign-up no longer requires confirmation, so it is not
+ *  returned today; kept so the forms keep handling it if confirmation is
+ *  switched back on (lib/auth/server.ts). */
 export type AuthState = {
   status: "idle" | "error" | "success" | "pending";
   message?: string;
 };
+
+type SignInResult = AuthState & { isAdmin?: boolean };
 
 async function performSignUp(formData: FormData): Promise<AuthState> {
   const parsed = signUpSchema.safeParse({
@@ -31,57 +33,36 @@ async function performSignUp(formData: FormData): Promise<AuthState> {
   }
 
   const { name, email, password, phone, birthdate } = parsed.data;
-  const supabase = await createClient();
+  const auth = await getAuth();
 
-  // Without `emailRedirectTo`, Supabase falls back to the project's
-  // Site URL — which is whatever was typed into the dashboard once, and
-  // was still `http://localhost:3000`, so every confirmation mail sent a
-  // customer to a machine that isn't theirs. Sending the origin the
-  // signup actually came from keeps the link on the same deployment.
-  const emailRedirectTo = `${await getRequestOrigin()}/auth/callback`;
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo },
-  });
-  if (error || !data.user) {
-    return {
-      status: "error",
-      message: error?.message === "User already registered"
-        ? "Este e-mail já está cadastrado."
-        : "Não foi possível criar a conta.",
-    };
+  let userId: string;
+  try {
+    // Creates the user and, through the nextCookies plugin, signs them in.
+    const result = await auth.api.signUpEmail({
+      body: { name, email, password },
+      headers: await headers(),
+    });
+    userId = result.user.id;
+  } catch (error) {
+    const code = authErrorCode(error);
+    if (code?.startsWith("USER_ALREADY_EXISTS")) {
+      return { status: "error", message: "Este e-mail já está cadastrado." };
+    }
+    console.error("[performSignUp]", error);
+    return { status: "error", message: "Não foi possível criar a conta." };
   }
 
-  // Uses the service-role client so the customer profile row is created
-  // immediately regardless of whether the Supabase project requires
-  // e-mail confirmation before a session (and therefore auth.uid()) is
-  // available for the normal RLS-scoped insert.
-  const admin = createAdminClient();
-  const { error: customerError } = await admin.from("customers").upsert({
-    id: data.user.id,
-    name,
-    phone,
-    birthdate,
-  });
-
-  if (customerError) {
+  try {
+    await getDb().insert(schema.customers).values({ id: userId, name, phone, birthdate });
+  } catch (error) {
+    console.error("[performSignUp] customers", error);
     return { status: "error", message: "Não foi possível salvar seus dados." };
-  }
-
-  if (!data.session) {
-    return {
-      status: "pending",
-      message:
-        "Conta criada. Enviamos um e-mail de confirmação — abra o link para ativar seu acesso.",
-    };
   }
 
   return { status: "success" };
 }
 
-async function performSignIn(formData: FormData): Promise<AuthState> {
+async function performSignIn(formData: FormData): Promise<SignInResult> {
   const parsed = signInSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -91,31 +72,18 @@ async function performSignIn(formData: FormData): Promise<AuthState> {
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
-
-  if (error) {
+  const auth = await getAuth();
+  try {
+    const result = await auth.api.signInEmail({
+      body: parsed.data,
+      headers: await headers(),
+    });
+    const role = (result.user as { role?: string }).role;
+    return { status: "success", isAdmin: role === "admin" };
+  } catch (error) {
+    if (!authErrorCode(error)) console.error("[performSignIn]", error);
     return { status: "error", message: "E-mail ou senha inválidos." };
   }
-
-  return { status: "success" };
-}
-
-/** True when the currently-authenticated user has the admin role. */
-async function isCurrentUserAdmin(): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return profile?.role === "admin";
 }
 
 /** Page variants — used on /conta, redirect there on success. */
@@ -140,9 +108,7 @@ export async function customerSignInAction(
   // A store admin logging in through the public "Conta" entry point goes
   // straight to the admin panel instead of the customer account page —
   // one login box, no separate /admin/login URL to remember.
-  if (await isCurrentUserAdmin()) {
-    redirect("/admin");
-  }
+  if (result.isAdmin) redirect("/admin");
 
   revalidatePath("/conta");
   redirect("/conta");
@@ -166,12 +132,17 @@ export async function checkoutSignInAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  return performSignIn(formData);
+  const { status, message } = await performSignIn(formData);
+  return { status, message };
 }
 
 export async function customerSignOutAction(): Promise<void> {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  const auth = await getAuth();
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch (error) {
+    console.error("[customerSignOutAction]", error);
+  }
   revalidatePath("/conta");
   redirect("/");
 }

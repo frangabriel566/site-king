@@ -41,3 +41,18 @@ export const signInSchema = z.object({
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("E-mail inválido"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "Link inválido. Peça um novo."),
+    password: z.string().min(8, "Mínimo de 8 caracteres").max(128, "Máximo de 128 caracteres"),
+    confirm_password: z.string().min(1, "Repita a nova senha"),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "As duas senhas não conferem",
+    path: ["confirm_password"],
+  });

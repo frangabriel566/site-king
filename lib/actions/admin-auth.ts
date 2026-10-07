@@ -1,8 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { getAuth } from "@/lib/auth/server";
+import { findUserByEmail, passwordMatches } from "@/lib/auth/accounts";
 
 const loginSchema = z.object({
   email: z.email("E-mail inválido"),
@@ -13,6 +15,8 @@ export type AdminLoginState = {
   status: "idle" | "error";
   message?: string;
 };
+
+const INVALID = "E-mail ou senha inválidos.";
 
 export async function adminLoginAction(
   _prevState: AdminLoginState,
@@ -27,22 +31,24 @@ export async function adminLoginAction(
     return { status: "error", message: parsed.error.issues[0]?.message };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  const account = await findUserByEmail(parsed.data.email);
+  if (!account) return { status: "error", message: INVALID };
 
-  if (error || !data.user) {
-    return { status: "error", message: "E-mail ou senha inválidos." };
+  // A customer account with the right password is told it has no access —
+  // but without a session ever being opened for it on the panel's door.
+  if (account.role !== "admin") {
+    const ok = await passwordMatches(account.id, parsed.data.password);
+    return {
+      status: "error",
+      message: ok ? "Esta conta não tem acesso ao painel." : INVALID,
+    };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", data.user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    await supabase.auth.signOut();
-    return { status: "error", message: "Esta conta não tem acesso ao painel." };
+  const auth = await getAuth();
+  try {
+    await auth.api.signInEmail({ body: parsed.data, headers: await headers() });
+  } catch {
+    return { status: "error", message: INVALID };
   }
 
   const next = String(formData.get("next") ?? "/admin");
@@ -50,7 +56,11 @@ export async function adminLoginAction(
 }
 
 export async function adminLogoutAction(): Promise<void> {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  const auth = await getAuth();
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch (error) {
+    console.error("[adminLogoutAction]", error);
+  }
   redirect("/");
 }

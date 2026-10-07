@@ -4,17 +4,14 @@ import { headers } from "next/headers";
 /**
  * The origin the current request actually arrived on.
  *
- * Used for links that leave the app and have to come back — the e-mail
- * confirmation link above all. `NEXT_PUBLIC_SITE_URL` is a single fixed
+ * Used for links that leave the app and have to come back — the
+ * password-reset link (when BETTER_AUTH_URL is not set) and the product
+ * links in a WhatsApp order message. `NEXT_PUBLIC_SITE_URL` is a single fixed
  * value baked in at build time, so it is wrong on every Vercel preview
  * deployment and stays wrong locally until someone remembers to change
  * it; reading the request's own host instead means the link always
  * points at whichever deployment sent it. The env var is the fallback
  * for calls made outside a request (a script, a cron job).
- *
- * Note this is only half the job: Supabase refuses any `emailRedirectTo`
- * that is not in the project's Redirect URLs allow-list, so each origin
- * this can return has to be listed there too.
  */
 export async function getRequestOrigin(): Promise<string> {
   try {

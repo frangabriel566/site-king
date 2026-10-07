@@ -1,106 +1,105 @@
 "use client";
 
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
-import type { Database } from "@/lib/database.types";
+import type { UploadFolder } from "@/lib/image-url";
+
+export type { UploadFolder };
 
 export const MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024; // 10MB, checked before compression
-const MAX_DIMENSION = 2560;
-// The file stored here is the ceiling for every size the storefront serves:
-// the product gallery asks the optimizer for ~1200px and then zooms 1.8x on
-// hover, so anything lost at upload time is exactly what shows up magnified.
-// 0.95 is near the top of WebP's useful range — past it the file grows fast
-// for differences nobody sees.
-const WEBP_QUALITY = 0.95;
 
-export type UploadFolder = "products" | "banners" | "brand";
+// The stored photo is the ceiling for every size the storefront shows — the
+// gallery zooms it 1.8x on hover — but Workers KV and a phone on 4G both
+// want it small. 1600px on the longest side, ≤500 KB: quality steps down
+// until it fits, and only if even the lowest step is too big does the
+// photo shrink further.
+const MAX_DIMENSION = 1600;
+const MAX_FULL_BYTES = 500 * 1024;
+const QUALITY_STEPS = [0.9, 0.84, 0.78, 0.72, 0.66, 0.6];
+const SHRINK_FACTOR = 0.85;
+const MAX_SHRINKS = 4;
+
+// What cards, rails and admin lists load (lib/image-loader.ts picks it for
+// any rendered width up to this). Width, not longest side: product photos
+// are portrait, and a 640px-wide slot needs 640 real pixels across.
+const THUMBNAIL_WIDTH = 640;
+const THUMBNAIL_QUALITY = 0.8;
 
 export type CompressedImage = { blob: Blob; width: number; height: number };
 
-/**
- * Resizes to at most 2000px on the longest side and re-encodes as WebP
- * entirely in the browser — this is what actually fixes the "Body
- * exceeded 1MB limit" error, not the server-side safety net.
- */
-export async function compressImageToWebp(file: File): Promise<CompressedImage> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+function encode(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => (result ? resolve(result) : reject(new Error("Falha ao gerar a imagem."))),
+      type,
+      quality,
+    );
+  });
+}
 
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-
+function draw(source: ImageBitmap, width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Este navegador não suporta processar imagens no cliente.");
   // Without this the browser picks the cheapest resampling it has, which on
-  // a big downscale (a 4000px phone photo into 2560) eats fine detail like
-  // fabric weave and stitching.
+  // a big downscale eats fine detail like fabric weave and stitching.
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
+  ctx.drawImage(source, 0, 0, width, height);
+  return canvas;
+}
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => (result ? resolve(result) : reject(new Error("Falha ao gerar a imagem."))),
-      "image/webp",
-      WEBP_QUALITY,
-    );
-  });
+/** WebP where the browser can encode it; older Safari silently hands back
+ * PNG for that request, which cannot be compressed by quality — JPEG then. */
+async function encodeSmallest(
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<Blob> {
+  const webp = await encode(canvas, "image/webp", quality);
+  if (webp.type === "image/webp") return webp;
+  return encode(canvas, "image/jpeg", quality);
+}
 
+async function compressFull(bitmap: ImageBitmap): Promise<CompressedImage> {
+  let scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+
+  for (let shrink = 0; shrink <= MAX_SHRINKS; shrink++) {
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = draw(bitmap, width, height);
+    for (const quality of QUALITY_STEPS) {
+      const blob = await encodeSmallest(canvas, quality);
+      if (blob.size <= MAX_FULL_BYTES) return { blob, width, height };
+    }
+    scale *= SHRINK_FACTOR;
+  }
+  throw new Error("Não foi possível reduzir a imagem para 500 KB.");
+}
+
+async function compressThumbnail(bitmap: ImageBitmap, type: string): Promise<CompressedImage> {
+  const scale = Math.min(1, THUMBNAIL_WIDTH / bitmap.width);
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  // Same format as the full-size file: the server stores both under one key.
+  const blob = await encode(draw(bitmap, width, height), type, THUMBNAIL_QUALITY);
   return { blob, width, height };
 }
 
 /**
- * A `fetch` replacement backed by XMLHttpRequest so we get real upload
- * progress events (fetch has no upload-progress API) and a handle to
- * abort mid-flight. Only used to intercept the Supabase JS client's own
- * network call — it still builds the request (headers, multipart body),
- * we just execute it differently.
+ * Resizes and re-encodes entirely in the browser, into the two files the
+ * storefront serves: the full photo and a 640px-wide thumbnail.
  */
-function createProgressFetch(
-  onProgress: (loaded: number, total: number) => void,
-  xhrHandle: { current: XMLHttpRequest | null },
-): typeof fetch {
-  return (input, init = {}) =>
-    new Promise<Response>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhrHandle.current = xhr;
-
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      const method = init.method ?? "GET";
-      xhr.open(method, url, true);
-
-      new Headers(init.headers).forEach((value, key) => xhr.setRequestHeader(key, value));
-      xhr.responseType = "text";
-
-      if (xhr.upload) {
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) onProgress(event.loaded, event.total);
-        };
-      }
-
-      xhr.onload = () => {
-        const headers = new Headers();
-        xhr
-          .getAllResponseHeaders()
-          .trim()
-          .split(/[\r\n]+/)
-          .filter(Boolean)
-          .forEach((line) => {
-            const idx = line.indexOf(":");
-            if (idx === -1) return;
-            headers.append(line.slice(0, idx).trim(), line.slice(idx + 1).trim());
-          });
-        resolve(new Response(xhr.responseText, { status: xhr.status, statusText: xhr.statusText, headers }));
-      };
-      xhr.onerror = () => reject(new TypeError("Falha de rede no upload."));
-      xhr.onabort = () => reject(new DOMException("Upload cancelado.", "AbortError"));
-
-      xhr.send((init.body as XMLHttpRequestBodyInit | null) ?? null);
-    });
+export async function compressImage(
+  file: File,
+): Promise<{ full: CompressedImage; thumbnail: CompressedImage }> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    const full = await compressFull(bitmap);
+    const thumbnail = await compressThumbnail(bitmap, full.blob.type);
+    return { full, thumbnail };
+  } finally {
+    bitmap.close();
+  }
 }
 
 export type UploadResult =
@@ -108,11 +107,42 @@ export type UploadResult =
   | { ok: false; error: string; cancelled?: boolean };
 
 /**
- * Compresses then uploads straight from the browser to Supabase Storage
- * — the file never touches our Next.js server, so the Server Action
- * body size limit is irrelevant to this path. RLS (media_admin_insert)
- * is what actually gates this to admins, using the caller's own
- * session — the same guarantee the old server-side upload had.
+ * POSTs both files to /api/upload over XMLHttpRequest — fetch has no
+ * upload-progress events, and the uploaders show a progress bar and a
+ * cancel button.
+ */
+function send(
+  body: FormData,
+  onProgress: (percent: number) => void,
+  xhrHandle: { current: XMLHttpRequest | null },
+): Promise<{ status: number; json: { url?: string; key?: string; error?: string } }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhrHandle.current = xhr;
+    xhr.open("POST", "/api/upload", true);
+    xhr.responseType = "text";
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      let json = {};
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {
+        // Non-JSON error page; the status code is what matters then.
+      }
+      resolve({ status: xhr.status, json });
+    };
+    xhr.onerror = () => reject(new TypeError("Falha de rede no upload."));
+    xhr.onabort = () => reject(new DOMException("Upload cancelado.", "AbortError"));
+    xhr.send(body);
+  });
+}
+
+/**
+ * Compresses then uploads to /api/upload, which stores the photo in
+ * Workers KV and returns its /img URL. The route itself checks that the
+ * caller is an admin (lib/auth/guards.ts).
  */
 export async function uploadImageToStorage(
   file: File,
@@ -129,19 +159,11 @@ export async function uploadImageToStorage(
     return { ok: false, error: "Arquivo maior que 10MB. Escolha uma foto menor." };
   }
 
-  let compressed: CompressedImage;
+  let compressed: { full: CompressedImage; thumbnail: CompressedImage };
   try {
-    compressed = await compressImageToWebp(file);
+    compressed = await compressImage(file);
   } catch {
     return { ok: false, error: "Não foi possível processar essa imagem." };
-  }
-
-  const sessionClient = createClient();
-  const {
-    data: { session },
-  } = await sessionClient.auth.getSession();
-  if (!session) {
-    return { ok: false, error: "Sessão expirada — atualize a página e entre novamente." };
   }
 
   const xhrHandle: { current: XMLHttpRequest | null } = { current: null };
@@ -151,48 +173,28 @@ export async function uploadImageToStorage(
     xhrHandle.current?.abort();
   });
 
-  const progressFetch = createProgressFetch((loaded, total) => {
-    options.onProgress?.(Math.round((loaded / total) * 100));
-  }, xhrHandle);
+  const body = new FormData();
+  body.set("folder", folder);
+  body.set("file", compressed.full.blob, "full");
+  body.set("thumb", compressed.thumbnail.blob, "thumb");
 
-  const uploadClient = createSupabaseClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: {
-        fetch: progressFetch,
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      },
-    },
-  );
-
-  const path = `${folder}/${crypto.randomUUID()}.webp`;
-
-  const { error } = await uploadClient.storage.from("media").upload(path, compressed.blob, {
-    contentType: compressed.blob.type || "image/webp",
-    upsert: false,
-    // A UUID path is never written twice (upsert is off), so the file behind
-    // it can be cached for a year. Supabase's default is one hour, and that
-    // hour is also what the browser keeps a photo served straight from
-    // Storage (SafeImage's last-resort step, the og:image).
-    cacheControl: "31536000",
-  });
-
-  if (error) {
+  try {
+    const { status, json } = await send(body, (p) => options.onProgress?.(p), xhrHandle);
+    if (status < 200 || status >= 300 || !json.url || !json.key) {
+      return { ok: false, error: json.error ?? "Não foi possível enviar a imagem." };
+    }
+    return {
+      ok: true,
+      url: json.url,
+      path: json.key,
+      width: compressed.full.width,
+      height: compressed.full.height,
+      sizeBytes: compressed.full.blob.size,
+    };
+  } catch (error) {
     if (cancelled) return { ok: false, error: "Upload cancelado.", cancelled: true };
-    return { ok: false, error: error.message };
+    return { ok: false, error: error instanceof Error ? error.message : "Falha no upload." };
   }
-
-  const { data } = uploadClient.storage.from("media").getPublicUrl(path);
-  return {
-    ok: true,
-    url: data.publicUrl,
-    path,
-    width: compressed.width,
-    height: compressed.height,
-    sizeBytes: compressed.blob.size,
-  };
 }
 
 /**
@@ -201,8 +203,8 @@ export async function uploadImageToStorage(
  * original avoids depending on that. Used to catch the same photo being
  * uploaded twice under two different admin fields (e.g. once as a
  * general product image, once again as a variant's color photo), which
- * Storage's random per-upload filename can't detect on its own since
- * every upload gets a fresh URL regardless of content.
+ * the random per-upload key can't detect on its own since every upload
+ * gets a fresh URL regardless of content.
  */
 export async function hashFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -210,11 +212,4 @@ export async function hashFile(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
-
-export function pathFromPublicUrl(url: string): string | null {
-  const marker = "/object/public/media/";
-  const index = url.indexOf(marker);
-  if (index === -1) return null;
-  return url.slice(index + marker.length);
 }

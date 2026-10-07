@@ -14,7 +14,7 @@ import { GALLERY_IMAGE_QUALITY, GALLERY_IMAGE_SIZES } from "@/lib/product-galler
  */
 
 type CardImage = {
-  /** The photo's source URL (Supabase Storage), as the gallery knows it. */
+  /** The photo's source URL (/img/…), as the gallery knows it. */
   src: string;
   /** The exact file the card displayed (the optimizer URL it picked from its
    * srcset), which is what sits in the browser cache. */

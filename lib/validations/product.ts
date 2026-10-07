@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { imageUrlSchema } from "./image-url";
 
 const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -25,12 +26,12 @@ export const productVariantSchema = z.object({
   // Photo for this specific color — same URL repeated across every size
   // row of that color (colors aren't a first-class table, just a shared
   // value across variant rows).
-  image_url: z.url().optional().or(z.literal("")),
+  image_url: imageUrlSchema().optional().or(z.literal("")),
 });
 
 export const productImageSchema = z.object({
   id: z.guid().optional(),
-  url: z.url("URL de imagem inválida"),
+  url: imageUrlSchema(),
   alt: z.string().trim().max(200).optional().or(z.literal("")),
   position: z.coerce.number().int().min(0).default(0),
 });

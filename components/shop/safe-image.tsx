@@ -8,25 +8,21 @@ import { cn } from "@/lib/utils";
  * `next/image` that recovers from a failed load instead of leaving a
  * broken-image icon on the page.
  *
- * Every storefront photo goes through Next's optimizer, which downloads
- * the file from Supabase Storage on a cold cache and gives up if that
- * download takes more than 7s (the timeout lives in Next itself, see
- * `next/dist/server/image-optimizer.js`). A product page fires ~20 of
- * those requests at once, so one network hiccup is enough for a single
- * response to come back 504 — and from there the `<img>` keeps the error
- * forever, showing the browser's broken icon plus the `alt` text, because
- * `next/image` never retries on its own. That is the "some photos load,
- * some don't, reload and it's a different set" symptom.
+ * Written when every photo went through an image optimizer that timed out
+ * on a cold cache; today photos come from the /img route (Workers KV, see
+ * lib/image-loader.ts), which fails far less — but a product page still
+ * fires ~20 image requests at once, one network hiccup is still enough
+ * for a single one to fail, and `next/image` still never retries on its
+ * own: the `<img>` keeps the error forever, showing the browser's broken
+ * icon plus the `alt` text.
  *
  * Each failure escalates one step:
- *   1. normal optimized request;
- *   2. the same request with `?retry=1` — a different URL, so neither the
- *      browser's cached failure nor the optimizer's on-disk cache entry
- *      can hand back the same error;
- *   3. `unoptimized` — straight from the Supabase CDN, skipping the
- *      optimizer entirely. Uploads are already WebP capped at 2560px
- *      (see `lib/client-upload.ts`), so the raw file is a fair last
- *      resort rather than a 5MB original.
+ *   1. the loader's URL — the thumbnail or the full photo, by width;
+ *   2. the same request with `?retry=1` — a different URL, so the
+ *      browser's cached failure cannot hand back the same error;
+ *   3. `unoptimized` — the plain /img URL, i.e. the full-size file. It is
+ *      capped at 1600px/≤500 KB at upload (lib/client-upload.ts), so it is
+ *      a fair last resort.
  * Only after all three does the gray "Sem imagem" box take over, which is
  * at least a deliberate empty state instead of a broken icon.
  *

@@ -1,23 +1,21 @@
 "use server";
 
-import { requireAdmin } from "./require-admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import { deleteObject } from "@/lib/storage";
+import { keyFromImageUrl, thumbnailKey } from "@/lib/image-url";
 
 /**
- * Uploads themselves go straight from the browser to Supabase Storage
- * (see lib/client-upload.ts) — a Server Action's body size limit made
- * file uploads through this file too easy to break on real phone
- * photos. This action is left only for deleting orphaned/replaced
- * objects, whose payload is just a URL.
+ * Deletes an orphaned/replaced upload — both the photo and its thumbnail.
+ * Uploads themselves go through /api/upload (see lib/client-upload.ts).
+ * URLs that are not ours (seed photos on picsum) are left alone.
  */
 export async function deleteMediaAction(url: string): Promise<{ ok: boolean }> {
   try {
-    const { supabase } = await requireAdmin();
-    const marker = "/object/public/media/";
-    const index = url.indexOf(marker);
-    if (index === -1) return { ok: false };
-    const path = url.slice(index + marker.length);
-    const { error } = await supabase.storage.from("media").remove([path]);
-    return { ok: !error };
+    await requireAdmin();
+    const key = keyFromImageUrl(url);
+    if (!key) return { ok: false };
+    await Promise.all([deleteObject(key), deleteObject(thumbnailKey(key))]);
+    return { ok: true };
   } catch {
     return { ok: false };
   }

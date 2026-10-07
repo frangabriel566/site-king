@@ -84,7 +84,8 @@ ligados em `wrangler.jsonc` como `DB` e `IMAGES_KV`.
    npm run db:seed:remote     # opcional: dados de exemplo
    npm run admin:create -- --email voce@loja.com.br --name "Seu Nome" --remote
    ```
-2. No painel do Worker `king-store` → **Settings → Variables and Secrets**
+2. No painel do Worker `site-king` (repositório `frangabriel566/site-king`)
+   → **Settings → Variables and Secrets**
    (as variáveis ficam só no painel; `keep_vars` no `wrangler.jsonc` impede
    que o deploy as apague):
    - secrets: `BETTER_AUTH_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`,

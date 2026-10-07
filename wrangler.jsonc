@@ -28,5 +28,9 @@
 	// Workers Logs: per-request CPU time, wall time and errors in the dashboard.
 	"observability": {
 		"enabled": true
-	}
+	},
+	// Plain-text variables (BETTER_AUTH_URL, PAYMENT_PROVIDER, …) are set in
+	// the Cloudflare dashboard, not here. Without this, every deploy would
+	// delete them; secrets survive either way.
+	"keep_vars": true
 }

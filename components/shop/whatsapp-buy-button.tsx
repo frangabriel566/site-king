@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { WhatsAppIcon } from "@/components/shop/whatsapp-icon";
 import { createWhatsAppOrderAction } from "@/lib/actions/whatsapp-orders";
+import { useCart } from "@/lib/cart/context";
 
 export type WhatsAppBuyItem = { variantId: string; qty: number };
 
@@ -19,12 +20,16 @@ export type WhatsAppBuyItem = { variantId: string; qty: number };
  */
 export function WhatsAppBuyButton({
   getItems,
+  couponCode = null,
   label = "Comprar pelo WhatsApp",
   disabled = false,
   className = "",
   size = "xl",
 }: {
   getItems: () => WhatsAppBuyItem[] | null;
+  /** The bag's coupon (bag and drawer only — buying one piece straight
+   * from the product page is not the bag the coupon was applied to). */
+  couponCode?: string | null;
   label?: string;
   disabled?: boolean;
   className?: string;
@@ -34,6 +39,7 @@ export function WhatsAppBuyButton({
   // e o pending de uma transition continua preso ao render do React
   // depois que o foco já saiu da página.
   const [pending, setPending] = useState(false);
+  const { setCouponCode } = useCart();
 
   async function handleClick() {
     const items = getItems();
@@ -47,10 +53,13 @@ export function WhatsAppBuyButton({
 
     setPending(true);
     try {
-      const result = await createWhatsAppOrderAction({ items });
+      const result = await createWhatsAppOrderAction({ items, couponCode });
 
       if (!result.ok) {
         tab?.close();
+        // The coupon stopped applying: off it comes, and the shopper sees
+        // the new total before trying again.
+        if (result.couponRejected) setCouponCode(null);
         toast.error(result.message);
         return;
       }

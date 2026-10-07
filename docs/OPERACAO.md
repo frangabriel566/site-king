@@ -86,11 +86,31 @@ e clique fora — salva sozinho.
 
 ## Cupons
 
-`/admin/cupons` → **Novo cupom**. Escolha percentual ou valor fixo, um
-pedido mínimo (opcional) e uma data de expiração (opcional). O cupom só
-funciona se estiver **Ativo**. A validação acontece sempre no servidor no
-momento do checkout — o cliente nunca consegue "ver" a lista de cupons
-existentes navegando pelo site.
+`/admin/cupons` → **Novo cupom**:
+
+- **Código** — salvo em maiúsculas e sem espaços; o cliente pode digitar
+  "teste 10" ou "Teste10" que funciona igual.
+- **Tipo e valor** — percentual (até 100%) ou valor fixo em R$. O desconto
+  é sobre os produtos, nunca sobre o frete, e nunca passa do subtotal.
+- **Também zera o frete** — o cupom dá frete grátis (pode ser só isso, com
+  valor 0).
+- **Pedido mínimo** — sobre o subtotal dos produtos. Se o cliente diminuir
+  a sacola para baixo do mínimo, o cupom sai sozinho com um aviso.
+- **Limite de usos** — em branco, sem limite. Cada pedido criado com o
+  cupom conta um uso; pedido **cancelado ou expirado devolve** o uso. O
+  banco não deixa passar do limite, nem com dois pedidos ao mesmo tempo.
+- **Começa em / Vale até** — dias inteiros no horário de Brasília (do
+  início do primeiro dia até 23:59 do último). Em branco, sem limite.
+- **Ativo** — dá para ligar e desligar direto na lista. Desativar é melhor
+  que excluir: a lista continua mostrando quantas vezes ele foi usado.
+
+O cliente aplica o cupom na **sacola**, logo abaixo do CEP (ou no resumo
+do checkout). O cupom segue com a sacola até o checkout e até o
+"Comprar pelo WhatsApp", e a mensagem do WhatsApp sai com o código e o
+valor do desconto. O desconto é sempre calculado no servidor, com os
+preços do banco, e conferido de novo quando o pedido é criado — se o cupom
+deixou de valer no meio do caminho, o pedido não é criado e o cliente vê o
+motivo. A lista de cupons nunca aparece na loja.
 
 ## Configurações gerais
 

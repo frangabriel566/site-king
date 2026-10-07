@@ -21,6 +21,7 @@ import { formatCurrency } from "@/lib/format";
 import { qualifiesForFreeShipping } from "@/lib/shop-config";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { RevisedItem } from "@/lib/data/checkout";
+import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -56,7 +57,9 @@ export function CheckoutWizard({
   const [address, setAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
   const [checkoutMethod, setCheckoutMethod] = useState<CheckoutMethod>(initialMethod);
-  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+  // The coupon applied in the bag comes along; it can also be applied or
+  // removed here, in the summary.
+  const coupon = useBagCoupon();
   const [revised, setRevised] = useState<RevisedItem[]>([]);
   const [revising, setRevising] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -90,12 +93,12 @@ export function CheckoutWizard({
     [revised],
   );
 
+  // The store's rule or a free-shipping coupon — createOrderAction applies
+  // the same two again.
+  const freeShipping =
+    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
   const shippingCost =
-    step >= 3
-      ? qualifiesForFreeShipping(subtotal, freeShippingThreshold)
-        ? 0
-        : SHIPPING_METHODS[shippingMethod].price
-      : null;
+    step >= 3 ? (freeShipping ? 0 : SHIPPING_METHODS[shippingMethod].price) : null;
 
   async function handleFinish() {
     setSubmitting(true);
@@ -103,12 +106,16 @@ export function CheckoutWizard({
       address,
       shippingMethod,
       method: checkoutMethod,
-      couponCode: coupon?.code,
+      couponCode: coupon.applied?.code ?? coupon.code ?? undefined,
       items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
     });
     setSubmitting(false);
 
     if (!result.ok) {
+      // The coupon stopped applying between the summary and the order:
+      // off it comes, the summary shows the real total, and the shopper
+      // decides again.
+      if (result.couponRejected) coupon.remove();
       toast.error(result.message);
       return;
     }
@@ -227,7 +234,7 @@ export function CheckoutWizard({
             <div className="flex flex-col gap-3">
               {(Object.keys(SHIPPING_METHODS) as ShippingMethod[]).map((method) => {
                 const info = SHIPPING_METHODS[method];
-                const free = qualifiesForFreeShipping(subtotal, freeShippingThreshold);
+                const free = freeShipping;
                 return (
                   <label
                     key={method}
@@ -332,8 +339,8 @@ export function CheckoutWizard({
         items={revised}
         subtotal={subtotal}
         shipping={shippingCost}
+        freeShipping={freeShipping}
         coupon={coupon}
-        onCouponChange={setCoupon}
       />
     </div>
   );

@@ -13,17 +13,20 @@ import { useShopConfig } from "@/components/shop/shop-config-provider";
  */
 export function FreeShippingProgress({
   subtotal,
+  unlocked = false,
   className = "",
 }: {
   subtotal: number;
+  /** Free shipping from elsewhere (a coupon): the bar shows it as won. */
+  unlocked?: boolean;
   className?: string;
 }) {
   const { freeShippingThreshold: threshold } = useShopConfig();
   if (!threshold || threshold <= 0) return null;
 
-  const reached = qualifiesForFreeShipping(subtotal, threshold);
+  const reached = unlocked || qualifiesForFreeShipping(subtotal, threshold);
   const remaining = Math.max(threshold - subtotal, 0);
-  const percent = Math.min(100, Math.round((subtotal / threshold) * 100));
+  const percent = reached ? 100 : Math.min(100, Math.round((subtotal / threshold) * 100));
 
   return (
     <div className={className}>

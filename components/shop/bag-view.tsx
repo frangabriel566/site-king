@@ -10,6 +10,10 @@ import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stoc
 import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
+import { CouponField } from "@/components/shop/coupon-field";
+import { OrderTotals } from "@/components/shop/order-totals";
+import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
+import { qualifiesForFreeShipping } from "@/lib/shop-config";
 import { formatCurrency } from "@/lib/format";
 import { BagVariantLine } from "@/components/shop/bag-variant-line";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
@@ -22,7 +26,8 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
   const { limitOf, isSoldOut, sizesFor } = useCartStock(items);
-  const { securePurchaseNote } = useShopConfig();
+  const { securePurchaseNote, freeShippingThreshold } = useShopConfig();
+  const coupon = useBagCoupon();
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
@@ -51,6 +56,9 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
       ),
     [items, isSoldOut],
   );
+
+  const freeShipping =
+    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
 
   const soldOutCount = items.filter((item) => isSoldOut(item.variantId)).length;
   const availableItems = items.filter((item) => !isSoldOut(item.variantId));
@@ -225,13 +233,24 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resumo do pedido
           </p>
-          <FreeShippingProgress subtotal={subtotal} className="mb-5 border-b border-line pb-5" />
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              {availableCount} {availableCount === 1 ? "item" : "itens"}
-            </span>
-            <span>{formatCurrency(subtotal)}</span>
-          </div>
+          <FreeShippingProgress
+            subtotal={subtotal}
+            unlocked={coupon.applied?.freeShipping}
+            className="mb-5 border-b border-line pb-5"
+          />
+          {/* Frete e cupom no mesmo bloco: o CEP cota as transportadoras de
+              verdade para a sacola como está (o cliente não escolhe nada
+              aqui — a escolha é no checkout), e o cupom vem logo abaixo. */}
+          <FreightCalculator items={freightItems} />
+          <CouponField coupon={coupon} className="mt-5" />
+          <OrderTotals
+            subtotal={subtotal}
+            itemCount={availableCount}
+            coupon={coupon.applied}
+            shipping={null}
+            freeShipping={freeShipping}
+            className="mt-5 border-t border-line pt-5"
+          />
           {soldOutCount > 0 && (
             <p className="mt-2 text-xs font-medium text-alert">
               {soldOutCount === 1
@@ -239,21 +258,6 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                 : `${soldOutCount} peças esgotaram e ficaram de fora do total.`}
             </p>
           )}
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-            <span className="text-sm font-semibold text-fg">Subtotal</span>
-            <span className="text-xl font-bold text-price">{formatCurrency(subtotal)}</span>
-          </div>
-          {/* Cota as transportadoras de verdade para a sacola como está.
-              O cliente não escolhe nada aqui — isso responde "quanto sai
-              o frete pra mim?" antes do checkout pedir o endereço, que é
-              onde a escolha acontece. */}
-          <FreightCalculator
-            items={freightItems}
-            className="mt-5 border-t border-line pt-5"
-          />
-          <p className="mt-3 text-xs text-muted-foreground">
-            Cupom aplicado no checkout.
-          </p>
           {/* Sacola inteiramente esgotada não tem compra a fazer: mandar
               o cliente ao checkout só para ele ver a sacola ser esvaziada
               lá seria pior do que dizer isto aqui. */}
@@ -272,6 +276,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                   marcações existem para remover itens em lote, e ninguém
                   espera que desmarcar uma peça também a tire do pedido. */}
               <WhatsAppBuyButton
+                couponCode={coupon.code}
                 getItems={() =>
                   availableItems.map((item) => ({
                     variantId: item.variantId,

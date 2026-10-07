@@ -22,6 +22,13 @@
       "when": 1791369844824,
       "tag": "0002_category_media_footer_texts",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791400249483,
+      "tag": "0003_coupons_usage",
+      "breakpoints": true
     }
   ]
 }

@@ -18,7 +18,12 @@ export class WhatsAppProvider implements PaymentProvider {
         (item) => `• ${item.qty}x ${item.name} — ${formatCurrency(item.unitPrice * item.qty)}`,
       ),
       "",
-      `Total: ${formatCurrency(input.total)}`,
+      `Subtotal: ${formatCurrency(input.subtotal)}`,
+      ...(input.couponCode && input.discount > 0
+        ? [`Cupom ${input.couponCode}: -${formatCurrency(input.discount)}`]
+        : []),
+      `Frete: ${input.shipping > 0 ? formatCurrency(input.shipping) : "Grátis"}`,
+      `*Total: ${formatCurrency(input.total)}*`,
       `Nome: ${input.customerName}`,
     ];
 

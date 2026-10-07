@@ -6,6 +6,8 @@ import { isCheckViolation } from "@/lib/db/errors";
 import { WHATSAPP_CODE_COUNTER, currentWhatsAppCode, nextOrderNumber } from "@/lib/db/sequences";
 import { roundMoney } from "@/lib/money";
 import type { CustomerSnapshot } from "@/lib/db/schema";
+import { evaluateCoupon } from "@/lib/data/coupons";
+import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
 
 /**
  * Compra direta pelo WhatsApp — the four Postgres functions of migration
@@ -14,7 +16,7 @@ import type { CustomerSnapshot } from "@/lib/db/schema";
  * can buy), confirming and cancelling are admin-only (lib/auth/guards.ts).
  */
 
-const { orders, order_items, product_variants, customers, user, counters } = schema;
+const { orders, order_items, product_variants, customers, user, counters, coupons } = schema;
 
 const PENDING = "aguardando_whatsapp";
 const EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -26,12 +28,15 @@ export type WhatsAppOrderErrorCode =
   | "NOT_FOUND"
   | "NOT_PENDING"
   | "EXPIRED"
-  | "OUT_OF_STOCK";
+  | "OUT_OF_STOCK"
+  /** detail: why, in Portuguese (lib/coupons/rules.ts). */
+  | "COUPON";
 
 export class WhatsAppOrderError extends Error {
   constructor(
     readonly code: WhatsAppOrderErrorCode,
-    /** For OUT_OF_STOCK: the name of the piece that ran out. */
+    /** For OUT_OF_STOCK: the name of the piece that ran out. For COUPON:
+     * the reason, ready for the shopper. */
     readonly detail?: string,
   ) {
     super(detail ? `${code}:${detail}` : code);
@@ -46,18 +51,25 @@ export class WhatsAppOrderError extends Error {
  * passado por ele.
  */
 export async function expireWhatsAppOrders(): Promise<number> {
-  const expired = await getDb()
-    .update(orders)
-    .set({ status: "expirado" })
-    .where(
-      and(
-        eq(orders.status, PENDING),
-        isNotNull(orders.expires_at),
-        lte(orders.expires_at, new Date().toISOString()),
-      ),
-    )
-    .returning({ id: orders.id });
-  return expired.length;
+  const db = getDb();
+  const due = and(
+    eq(orders.status, PENDING),
+    isNotNull(orders.expires_at),
+    lte(orders.expires_at, new Date().toISOString()),
+  );
+  // The coupon uses these orders held go back, in the same transaction as
+  // the expiry itself (lib/coupons/usage.ts) — first, while the orders
+  // still read as pending.
+  const [, expired] = await runBatch(db, [
+    db
+      .update(coupons)
+      .set({
+        used_count: sql`max(${coupons.used_count} - (select count(*) from ${orders} where ${orders.coupon_code} = ${coupons.code} and ${due}), 0)`,
+      })
+      .where(sql`${coupons.code} in (select ${orders.coupon_code} from ${orders} where ${due})`),
+    db.update(orders).set({ status: "expirado" }).where(due).returning({ id: orders.id }),
+  ]);
+  return (expired as { id: string }[]).length;
 }
 
 export type CreatedWhatsAppOrder = {
@@ -73,6 +85,12 @@ export type CreatedWhatsAppOrder = {
     qty: number;
     unit_price: number;
   }[];
+  /** Before the coupon. */
+  subtotal: number;
+  discount: number;
+  coupon_code: string | null;
+  /** The coupon also covers the shipping (agreed in the conversation). */
+  free_shipping: boolean;
   adjusted: boolean;
 };
 
@@ -88,6 +106,7 @@ export type CreatedWhatsAppOrder = {
 export async function createWhatsAppOrder(
   requested: { variantId: string; qty: number }[],
   userId: string | null,
+  couponCode: string | null = null,
 ): Promise<CreatedWhatsAppOrder> {
   if (requested.length === 0) throw new WhatsAppOrderError("EMPTY_CART");
   // Teto grosseiro: uma sacola real não passa disso, e sem ele um POST
@@ -167,13 +186,28 @@ export async function createWhatsAppOrder(
     }
   }
 
-  // Sem frete e sem cupom de propósito: este caminho não pede endereço.
-  // Frete e desconto são combinados na conversa e lançados pelo painel.
+  // Sem frete de propósito: este caminho não pede endereço, e o frete é
+  // combinado na conversa (um cupom de frete grátis vai escrito na
+  // mensagem). O cupom, sim: aplicado na sacola, é conferido de novo aqui
+  // contra o subtotal do banco — o que a sacola mostrou foi só a prévia.
   const subtotal = roundMoney(lines.reduce((sum, l) => sum + l.unit_price * l.qty, 0));
+  let discount = 0;
+  let appliedCoupon: string | null = null;
+  let freeShipping = false;
+  if (couponCode?.trim()) {
+    const check = await evaluateCoupon(couponCode, subtotal);
+    if (!check.ok) throw new WhatsAppOrderError("COUPON", check.message);
+    discount = check.discount;
+    appliedCoupon = check.code;
+    freeShipping = check.freeShipping;
+  }
+  const total = roundMoney(Math.max(subtotal - discount, 0));
   const orderId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + EXPIRY_MS).toISOString();
 
-  const results = await runBatch(db, [
+  let results;
+  try {
+    results = await runBatch(db, [
     db
       .insert(counters)
       .values({ name: WHATSAPP_CODE_COUNTER, value: 1 })
@@ -189,8 +223,9 @@ export async function createWhatsAppOrder(
         expires_at: expiresAt,
         subtotal,
         shipping: 0,
-        discount: 0,
-        total: subtotal,
+        discount,
+        total,
+        coupon_code: appliedCoupon,
         payment_method: "whatsapp",
         customer_snapshot: snapshot,
       })
@@ -209,7 +244,15 @@ export async function createWhatsAppOrder(
         qty: line.qty,
       })),
     ),
+    // Same batch: past the coupon's limit, no order and no code burned.
+    ...(appliedCoupon ? [takeCouponUse(db, appliedCoupon)] : []),
   ]);
+  } catch (error) {
+    if (isCouponLimitError(error)) {
+      throw new WhatsAppOrderError("COUPON", "Este cupom acabou de atingir o limite de usos.");
+    }
+    throw error;
+  }
 
   const [{ code }] = results[1] as { code: string | null }[];
 
@@ -217,7 +260,11 @@ export async function createWhatsAppOrder(
     order_id: orderId,
     code: code ?? "",
     expires_at: expiresAt,
-    total: subtotal,
+    subtotal,
+    discount,
+    coupon_code: appliedCoupon,
+    free_shipping: freeShipping,
+    total,
     items: lines.map(({ name, slug, color, size, qty, unit_price }) => ({
       name,
       slug,
@@ -318,10 +365,22 @@ export async function confirmWhatsAppOrder(orderId: string): Promise<void> {
  * caso continua no fluxo normal de Pedidos.
  */
 export async function cancelWhatsAppOrder(orderId: string): Promise<void> {
-  const cancelled = await getDb()
-    .update(orders)
-    .set({ status: "canceled", expires_at: null })
-    .where(and(eq(orders.id, orderId), eq(orders.status, PENDING)))
-    .returning({ id: orders.id });
-  if (cancelled.length === 0) throw new WhatsAppOrderError("NOT_PENDING");
+  const db = getDb();
+  const pendingOrder = and(eq(orders.id, orderId), eq(orders.status, PENDING));
+  // The order and its coupon use go back together: the use first, while
+  // the order still reads as pending, in one transaction. A second click
+  // matches nothing in either statement, so the use is never given back
+  // twice.
+  const [, cancelled] = await runBatch(db, [
+    db
+      .update(coupons)
+      .set({ used_count: sql`max(${coupons.used_count} - 1, 0)` })
+      .where(sql`${coupons.code} = (select ${orders.coupon_code} from ${orders} where ${pendingOrder})`),
+    db
+      .update(orders)
+      .set({ status: "canceled", expires_at: null })
+      .where(pendingOrder)
+      .returning({ id: orders.id }),
+  ]);
+  if ((cancelled as { id: string }[]).length === 0) throw new WhatsAppOrderError("NOT_PENDING");
 }

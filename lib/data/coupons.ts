@@ -1,9 +1,9 @@
 import "server-only";
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
-import { roundMoney } from "@/lib/money";
+import { checkCoupon, normalizeCouponCode, type CouponCheck } from "@/lib/coupons/rules";
 
 export type Coupon = Tables<"coupons">;
 
@@ -20,31 +20,19 @@ export async function getCouponByIdAdmin(id: string): Promise<Coupon | null> {
   return row ?? null;
 }
 
-export type ValidCoupon = { id: string; code: string; discount: number };
-
 /**
- * Server-side coupon check (was the `validate_coupon` Postgres function).
- * Coupons are never listed to shoppers; this only answers "does this code
- * apply to this subtotal, and for how much". `null` when the code does
- * not exist, is inactive, has expired (`expires_at` is a date — the
- * coupon stops working at 00:00 UTC that day, as before) or the subtotal
- * is under its minimum.
+ * Server-side coupon check. Coupons are never listed to shoppers; this
+ * only answers "does this code apply to this subtotal, and for how much"
+ * (or why not). The subtotal must come from the database — callers pass
+ * what reviseCartItems / the order lines computed, never a client number.
  */
-export async function validateCoupon(code: string, subtotal: number): Promise<ValidCoupon | null> {
-  const trimmed = code.trim();
-  if (!trimmed) return null;
-
+export async function evaluateCoupon(code: string, subtotal: number): Promise<CouponCheck> {
+  const normalized = normalizeCouponCode(code);
+  if (!normalized) {
+    return { ok: false, reason: "EMPTY_CODE", message: "Digite o código do cupom." };
+  }
   const coupon = await getDb().query.coupons.findFirst({
-    where: sql`lower(${coupons.code}) = lower(${trimmed}) and ${coupons.active} = 1`,
+    where: eq(coupons.code, normalized),
   });
-  if (!coupon) return null;
-  if (coupon.expires_at && new Date(coupon.expires_at).getTime() <= Date.now()) return null;
-  if (subtotal < (coupon.min_total ?? 0)) return null;
-
-  const discount =
-    coupon.type === "percent"
-      ? roundMoney((subtotal * coupon.value) / 100)
-      : Math.min(coupon.value, subtotal);
-
-  return { id: coupon.id, code: coupon.code, discount: roundMoney(discount) };
+  return checkCoupon(coupon, subtotal);
 }

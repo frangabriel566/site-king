@@ -33,7 +33,12 @@ export type CreateWhatsAppOrderResult =
        *  pedido vale, mas a vitrine precisa dizer isso em voz alta. */
       adjusted: boolean;
     }
-  | { ok: false; message: string };
+  | {
+      ok: false;
+      message: string;
+      /** O cupom deixou de valer: a sacola o tira e o cliente tenta de novo. */
+      couponRejected?: boolean;
+    };
 
 // As regras vivem em lib/orders/whatsapp.ts; o português da vitrine,
 // aqui.
@@ -77,10 +82,17 @@ export async function createWhatsAppOrderAction(
   // própria conversa.
   const user = await getCurrentUser();
 
+  // O código que a sacola aplicou; quem decide se ele vale é o servidor.
+  const rawCoupon = (input as { couponCode?: unknown } | null)?.couponCode;
+  const couponCode = typeof rawCoupon === "string" ? rawCoupon.slice(0, 60) : null;
+
   let order;
   try {
-    order = await createWhatsAppOrder(requested, user?.id ?? null);
+    order = await createWhatsAppOrder(requested, user?.id ?? null, couponCode);
   } catch (error) {
+    if (error instanceof WhatsAppOrderError && error.code === "COUPON") {
+      return { ok: false, couponRejected: true, message: `Cupom removido: ${error.detail}` };
+    }
     const message =
       error instanceof WhatsAppOrderError ? CREATE_ERRORS[error.code] : undefined;
     if (!message) console.error("[createWhatsAppOrderAction]", error);
@@ -103,6 +115,14 @@ export async function createWhatsAppOrderAction(
     code: order.code,
     items,
     total: order.total,
+    coupon: order.coupon_code
+      ? {
+          code: order.coupon_code,
+          subtotal: order.subtotal,
+          discount: order.discount,
+          freeShipping: order.free_shipping,
+        }
+      : null,
     expiresAt: order.expires_at,
     origin,
   });

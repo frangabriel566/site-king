@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CART_STORAGE_KEY } from "@/lib/constants";
+import { CART_STORAGE_KEY, COUPON_STORAGE_KEY } from "@/lib/constants";
 import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
 import type { CartItem } from "./types";
 
@@ -26,6 +26,11 @@ type CartContextValue = {
    * picker), keeping its place; merges into an existing line for that
    * variant if there is one. */
   changeVariant: (fromVariantId: string, to: Pick<CartItem, "variantId" | "color" | "size">) => void;
+  /** The coupon code the shopper applied, kept with the bag (bag → drawer
+   * → checkout → WhatsApp). Only the code: what it is worth is always
+   * asked of the server (lib/hooks/use-bag-coupon.ts). */
+  couponCode: string | null;
+  setCouponCode: (code: string | null) => void;
   removeItem: (variantId: string) => void;
   setQty: (variantId: string, qty: number) => void;
   clear: () => void;
@@ -53,11 +58,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
+  const [couponCode, setCouponCode] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(readStoredCart());
+    try {
+      setCouponCode(window.localStorage.getItem(COUPON_STORAGE_KEY) || null);
+    } catch {
+      // Storage blocked: the coupon just doesn't survive a reload.
+    }
     setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (couponCode) window.localStorage.setItem(COUPON_STORAGE_KEY, couponCode);
+      else window.localStorage.removeItem(COUPON_STORAGE_KEY);
+    } catch {
+      // See above.
+    }
+  }, [couponCode, isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -117,7 +138,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // still holding the body lock, and left the next page unusable.
   useCloseOnNavigation(useCallback(() => setIsOpen(false), []));
 
-  const clear = useCallback(() => setItems([]), []);
+  // An order was placed: the bag and its coupon go together.
+  const clear = useCallback(() => {
+    setItems([]);
+    setCouponCode(null);
+  }, []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((v) => !v), []);
@@ -138,6 +163,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addedCount,
       addItem,
       changeVariant,
+      couponCode,
+      setCouponCode,
       removeItem,
       setQty,
       clear,
@@ -145,7 +172,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       close,
       toggle,
     }),
-    [items, count, subtotal, isOpen, isHydrated, addedCount, addItem, changeVariant, removeItem, setQty, clear, open, close, toggle],
+    [items, count, subtotal, isOpen, isHydrated, addedCount, addItem, changeVariant, couponCode, removeItem, setQty, clear, open, close, toggle],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

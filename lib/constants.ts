@@ -1,6 +1,9 @@
 import type { OrderStatus } from "@/lib/database.types";
 
 export const CART_STORAGE_KEY = "king-store:cart";
+/** The coupon applied in the bag — only the code; the discount is always
+ * recomputed by the server (/api/coupons/validate). */
+export const COUPON_STORAGE_KEY = "king-store:coupon";
 export const COOKIE_CONSENT_KEY = "king-store:cookie-consent";
 /** Fired on `window` the moment cookie consent is accepted, so other
  * already-mounted widgets (e.g. the WhatsApp float, which raises itself

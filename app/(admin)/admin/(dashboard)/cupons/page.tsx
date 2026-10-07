@@ -4,9 +4,10 @@ import { Plus, Pencil } from "lucide-react";
 import { getAllCouponsAdmin } from "@/lib/data/coupons";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { ActiveBadge } from "@/components/admin/status-badge";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCouponAction } from "@/lib/actions/coupons";
+import { CouponActiveToggle } from "./coupon-active-toggle";
+import type { Coupon } from "@/lib/data/coupons";
 import {
   Table,
   TableBody,
@@ -44,8 +45,9 @@ export default async function AdminCouponsPage() {
               <TableHead>Código</TableHead>
               <TableHead>Desconto</TableHead>
               <TableHead>Mínimo</TableHead>
-              <TableHead>Expira</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Validade</TableHead>
+              <TableHead>Usos</TableHead>
+              <TableHead>Ativo</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -54,18 +56,23 @@ export default async function AdminCouponsPage() {
               <TableRow key={coupon.id} className="border-line">
                 <TableCell className="font-medium">{coupon.code}</TableCell>
                 <TableCell className="text-ink-muted">
-                  {coupon.type === "percent"
-                    ? `${coupon.value}%`
-                    : formatCurrency(coupon.value)}
+                  {describeDiscount(coupon)}
                 </TableCell>
                 <TableCell className="text-ink-muted">
                   {coupon.min_total > 0 ? formatCurrency(coupon.min_total) : "—"}
                 </TableCell>
-                <TableCell className="text-ink-muted">
-                  {coupon.expires_at ? formatDate(coupon.expires_at) : "—"}
+                <TableCell className="whitespace-nowrap text-ink-muted">
+                  {describeValidity(coupon)}
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-ink-muted">
+                  <span className="font-medium text-fg">{coupon.used_count}</span>
+                  {coupon.max_uses !== null ? ` / ${coupon.max_uses}` : ""}
+                  {coupon.max_uses !== null && coupon.used_count >= coupon.max_uses && (
+                    <span className="ml-2 text-xs text-warning">esgotado</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <ActiveBadge active={coupon.active} labels={["Ativo", "Inativo"]} />
+                  <CouponActiveToggle id={coupon.id} code={coupon.code} active={coupon.active} />
                 </TableCell>
                 <TableCell className="flex justify-end gap-1">
                   <Button variant="ghost" size="icon-sm" asChild>
@@ -85,4 +92,24 @@ export default async function AdminCouponsPage() {
       )}
     </div>
   );
+}
+
+function describeDiscount(coupon: Coupon): string {
+  const amount =
+    coupon.value > 0
+      ? coupon.type === "percent"
+        ? `${String(coupon.value).replace(".", ",")}%`
+        : formatCurrency(coupon.value)
+      : null;
+  return [amount, coupon.free_shipping ? "frete grátis" : null].filter(Boolean).join(" + ");
+}
+
+/** Dates are whole days (lib/coupons/rules.ts); shown at noon UTC so no
+ * time zone pushes them to the day before. */
+function describeValidity(coupon: Coupon): string {
+  const day = (value: string) => formatDate(`${value.slice(0, 10)}T12:00:00Z`);
+  if (coupon.starts_at && coupon.expires_at) return `${day(coupon.starts_at)} a ${day(coupon.expires_at)}`;
+  if (coupon.starts_at) return `a partir de ${day(coupon.starts_at)}`;
+  if (coupon.expires_at) return `até ${day(coupon.expires_at)}`;
+  return "—";
 }

@@ -6,6 +6,8 @@ import { orderStatusSchema } from "@/lib/validations/order";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
 import { fulfillOrderStock } from "@/lib/orders/stock";
+import { runBatch } from "@/lib/db/batch";
+import { RELEASED_STATUSES, releaseCouponUse, retakeCouponUse } from "@/lib/coupons/usage";
 
 export type ActionResult = { ok: boolean; message?: string };
 
@@ -25,14 +27,36 @@ export async function updateOrderStatusAction(
   }
 
   await requireAdmin();
+  const db = getDb();
   try {
-    await getDb()
-      .update(schema.orders)
-      .set({
-        status: parsed.data.status,
-        tracking_code: parsed.data.tracking_code || null,
-      })
-      .where(eq(schema.orders.id, parsed.data.order_id));
+    const current = await db.query.orders.findFirst({
+      columns: { status: true, coupon_code: true },
+      where: eq(schema.orders.id, parsed.data.order_id),
+    });
+    if (!current) return { ok: false, message: "Pedido não encontrado." };
+
+    // A canceled order gives its coupon use back; reopening it takes one
+    // again if there is one left (lib/coupons/usage.ts). Same batch as
+    // the status, so the count never drifts from the orders.
+    const wasHolding = !RELEASED_STATUSES.has(current.status);
+    const willHold = !RELEASED_STATUSES.has(parsed.data.status);
+    const coupon =
+      current.coupon_code && wasHolding !== willHold
+        ? willHold
+          ? retakeCouponUse(db, current.coupon_code)
+          : releaseCouponUse(db, current.coupon_code)
+        : null;
+
+    await runBatch(db, [
+      db
+        .update(schema.orders)
+        .set({
+          status: parsed.data.status,
+          tracking_code: parsed.data.tracking_code || null,
+        })
+        .where(eq(schema.orders.id, parsed.data.order_id)),
+      ...(coupon ? [coupon] : []),
+    ]);
   } catch (error) {
     console.error("[updateOrderStatusAction]", error);
     return { ok: false, message: "Não foi possível atualizar o pedido." };

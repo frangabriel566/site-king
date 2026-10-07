@@ -87,7 +87,9 @@ export default async function OrderConfirmationPage({
           </div>
           {order.discount > 0 && (
             <div className="flex justify-between">
-              <span className="text-ink-muted">Desconto</span>
+              <span className="text-ink-muted">
+                    Desconto{order.coupon_code ? ` (cupom ${order.coupon_code})` : ""}
+                  </span>
               <span>-{formatCurrency(order.discount)}</span>
             </div>
           )}

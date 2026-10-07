@@ -1,5 +1,6 @@
 import "server-only";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import { roundMoney } from "@/lib/money";
 import type { PaymentInitResult, PaymentOrderInput, PaymentProvider } from "./types";
 
 export class MercadoPagoProvider implements PaymentProvider {
@@ -15,13 +16,7 @@ export class MercadoPagoProvider implements PaymentProvider {
 
     const result = await preference.create({
       body: {
-        items: input.items.map((item) => ({
-          id: item.name,
-          title: item.name,
-          quantity: item.qty,
-          unit_price: item.unitPrice,
-          currency_id: "BRL",
-        })),
+        items: preferenceItems(input),
         payer: {
           name: input.customerName,
           email: input.customerEmail,
@@ -45,4 +40,37 @@ export class MercadoPagoProvider implements PaymentProvider {
 
     return { kind: "mercadopago", url };
   }
+}
+
+/**
+ * What Mercado Pago charges has to be the order's total. It used to be the
+ * items alone, so the shipping was never charged and a coupon was never
+ * taken off. A preference has no negative lines, so with a coupon the
+ * products go as one line already discounted; the shipping is its own line.
+ */
+function preferenceItems(input: PaymentOrderInput) {
+  const products =
+    input.discount > 0
+      ? [
+          {
+            id: `pedido-${input.orderNumber}`,
+            title: `Pedido #${input.orderNumber}${input.couponCode ? ` (cupom ${input.couponCode})` : ""}`,
+            quantity: 1,
+            unit_price: roundMoney(input.subtotal - input.discount),
+            currency_id: "BRL",
+          },
+        ]
+      : input.items.map((item) => ({
+          id: item.name,
+          title: item.name,
+          quantity: item.qty,
+          unit_price: item.unitPrice,
+          currency_id: "BRL",
+        }));
+  const shipping =
+    input.shipping > 0
+      ? [{ id: "frete", title: "Frete", quantity: 1, unit_price: input.shipping, currency_id: "BRL" }]
+      : [];
+  // A line at R$ 0,00 is refused by Mercado Pago (a 100% coupon).
+  return [...products, ...shipping].filter((line) => line.unit_price > 0);
 }

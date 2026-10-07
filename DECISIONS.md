@@ -1311,3 +1311,58 @@ cliente vem do banco ou de Configurações → Vitrine, e some quando vazio.
   dos cards subiram de 11/10 px para 12/11 px. Sem rolagem horizontal em
   320 e 375 px em nenhuma página da loja.
 - Worker: 2.353 KiB comprimidos (+9 KiB).
+
+## Bloco 28 — Cupom de desconto na sacola
+
+A tabela `coupons`, a validação no servidor e o admin já existiam; o cupom
+só podia ser aplicado no resumo do checkout, com uma mensagem genérica, e
+não chegava ao pedido pelo WhatsApp nem ao Mercado Pago.
+
+- **Migration `0003_coupons_usage`:** `starts_at`, `max_uses`,
+  `used_count`, `free_shipping` e `created_at` em `coupons`, mais
+  `orders.coupon_code`. A tabela é recriada (escrita à mão: o SQL gerado
+  copiava colunas que ainda não existiam e usava `PRAGMA foreign_keys`)
+  para ganhar o CHECK `coupons_usage_check`
+  (`used_count <= max_uses`). É ele que segura o limite: o uso é contado
+  no mesmo batch do pedido, e passar do limite derruba o batch inteiro —
+  dois pedidos disputando o último uso não levam os dois. Os códigos
+  existentes passam para maiúsculas e sem espaços. `min_total` manteve o
+  nome (é o "valor mínimo do pedido").
+- **Regras num lugar só** (`lib/coupons/rules.ts`): normalização do código,
+  validade em dias inteiros no horário de Brasília (antes o cupom morria às
+  00:00 UTC, 21:00 da véspera no Brasil), limite, mínimo e cálculo do
+  desconto (sobre os produtos, nunca maior que o subtotal), com o motivo
+  em português para cada recusa.
+- **`POST /api/coupons/validate`** recebe o código e as linhas da sacola,
+  não um subtotal: o subtotal é refeito com os preços do banco
+  (`reviseCartItems`). O valor respondido é prévia; o checkout e o pedido
+  pelo WhatsApp conferem de novo ao criar o pedido, e um cupom que deixou
+  de valer no meio do caminho recusa o pedido com o motivo (antes virava
+  desconto zero sem aviso — o cliente pagaria mais do que confirmou).
+- **Usos:** contados ao criar o pedido (checkout ou WhatsApp) e devolvidos
+  quando ele é cancelado (painel ou aba de WhatsApp) ou expira (48h); um
+  pedido reaberto conta de novo se ainda houver uso, sem nunca falhar.
+- **Sacola:** campo logo abaixo do CEP, no mesmo bloco; resumo com
+  Subtotal, Desconto (cupom X), Frete e Total, compartilhado com a sacola
+  lateral e o checkout (`OrderTotals`). O código fica guardado junto com a
+  sacola e é revalidado a cada mudança de quantidade ou tamanho; abaixo do
+  mínimo, sai com aviso. O frete na sacola continua "Calculado no
+  checkout" (ou "Grátis"): unificar a sacola (Melhor Envio) e o checkout
+  (valores fixos) é a próxima tarefa. A sacola lateral mostra o desconto,
+  mas o campo fica na sacola completa, para o rodapé não espremer a lista.
+- **WhatsApp:** as duas mensagens (compra direta e checkout) trazem o
+  código e o desconto. O botão da página de produto (compra de uma peça)
+  não leva o cupom da sacola.
+- **Mercado Pago cobrava só os itens:** sem frete e sem desconto,
+  divergindo do total do pedido. Agora a preferência soma o total: com
+  cupom, os produtos vão numa linha já com desconto; o frete vai em outra.
+- **Admin:** lista com usos (ex.: 3/50), validade e ativar/desativar na
+  linha; formulário com início, limite e frete grátis. O formulário deixou
+  de perder o que foi digitado quando o servidor recusa um campo (o React
+  19 limpa um `<form action>` depois de cada envio; os outros formulários
+  do painel têm o mesmo comportamento).
+- Worker: 2.381 KiB comprimidos (+28 KiB, quase tudo da rota nova).
+- O #418 intermitente segue como antes e não vem do cupom: na versão
+  anterior, 7 de 150 carregamentos (em /, /sacola, /checkout, /conta); com
+  o cupom, 4 de 60. Espalhado pelas páginas, aponta para algo comum a
+  todas — continua como investigação separada.

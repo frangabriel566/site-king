@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
+import { OrderTotals } from "@/components/shop/order-totals";
+import { useShopConfig } from "@/components/shop/shop-config-provider";
+import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
+import { qualifiesForFreeShipping } from "@/lib/shop-config";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
@@ -29,6 +33,11 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
     (sum, item) => sum + item.price * item.qty,
     0,
   );
+
+  const coupon = useBagCoupon(isOpen);
+  const { freeShippingThreshold } = useShopConfig();
+  const freeShipping =
+    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
@@ -189,14 +198,31 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
             </ul>
 
             <div className="border-t border-line px-6 py-6">
-              <FreeShippingProgress subtotal={subtotal} className="mb-5" />
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Subtotal</span>
-                <span className="text-xl font-bold text-price">{formatCurrency(subtotal)}</span>
-              </div>
-              <p className="mb-4 text-xs text-muted-foreground">
-                Frete e descontos calculados no checkout.
-              </p>
+              <FreeShippingProgress
+                subtotal={subtotal}
+                unlocked={coupon.applied?.freeShipping}
+                className="mb-4"
+              />
+              {/* The coupon applied in the bag shows here too; the field
+                  itself is on /sacola, right under the CEP — this footer
+                  can't grow without squeezing the item list on a phone. */}
+              <OrderTotals
+                subtotal={subtotal}
+                coupon={coupon.applied}
+                shipping={null}
+                freeShipping={freeShipping}
+                className="mb-2"
+              />
+              {!coupon.applied && (
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Tem cupom? Aplique em{" "}
+                  <Link href="/sacola" onClick={close} className="font-semibold text-fg underline underline-offset-2">
+                    Ver sacola completa
+                  </Link>
+                  .
+                </p>
+              )}
+              {coupon.applied && <div className="mb-4" />}
               {nothingAvailable ? (
                 <p className="rounded-md border border-alert/30 bg-alert/5 p-3 text-center text-sm font-medium text-alert">
                   Nenhuma peça da sacola está disponível agora.
@@ -214,6 +240,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               {whatsappEnabled && !nothingAvailable && (
                 <div className="mt-3">
                   <WhatsAppBuyButton
+                    couponCode={coupon.code}
                     getItems={() =>
                       availableItems.map((item) => ({
                         variantId: item.variantId,

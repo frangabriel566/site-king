@@ -459,6 +459,9 @@ export const orders = sqliteTable(
     shipping_service: text("shipping_service"),
     /** Also the idempotency key for buying a label. */
     melhorenvio_order_id: text("melhorenvio_order_id").unique(),
+    /** The coupon this order used (its code, as typed by the store), or
+     * null. `discount` holds the amount. */
+    coupon_code: text("coupon_code"),
     label_url: text("label_url"),
     created_at: createdAt(),
     updated_at: updatedAt(),
@@ -511,11 +514,29 @@ export const coupons = sqliteTable(
     value: real("value").notNull(),
     min_total: real("min_total").notNull().default(0),
     active: bool("active").notNull().default(true),
+    /** First and last day the coupon works (YYYY-MM-DD, whole days in
+     * Brasília time — lib/coupons/rules.ts). Null: no limit on that side. */
+    starts_at: text("starts_at"),
     expires_at: text("expires_at"),
+    /** Null: unlimited. */
+    max_uses: integer("max_uses"),
+    /** Orders holding a use: counted when the order is created, given back
+     * when it is canceled or expires (lib/coupons/usage.ts). */
+    used_count: integer("used_count").notNull().default(0),
+    /** Also zeroes the shipping. */
+    free_shipping: bool("free_shipping").notNull().default(false),
+    created_at: createdAt(),
   },
   (t) => [
     check("coupons_type_check", sql`${t.type} in ('percent', 'fixed')`),
     check("coupons_value_check", sql`${t.value} >= 0`),
+    // The limit lives here so two orders racing for the last use can't
+    // both get it: the second one's increment fails and its whole batch
+    // (order included) rolls back.
+    check(
+      "coupons_usage_check",
+      sql`${t.used_count} >= 0 and (${t.max_uses} is null or ${t.used_count} <= ${t.max_uses})`,
+    ),
   ],
 );
 

@@ -51,6 +51,7 @@ export function buildWhatsAppOrderMessage({
   code,
   items,
   total,
+  coupon = null,
   expiresAt,
   origin,
 }: {
@@ -58,6 +59,8 @@ export function buildWhatsAppOrderMessage({
   code: string;
   items: WhatsAppOrderItem[];
   total: number;
+  /** Applied and recorded on the order (lib/orders/whatsapp.ts). */
+  coupon?: { code: string; subtotal: number; discount: number; freeShipping: boolean } | null;
   expiresAt: string | null;
   origin: string;
 }): string {
@@ -85,6 +88,15 @@ export function buildWhatsAppOrderMessage({
     lines.push("");
   });
 
+  // With a coupon, the arithmetic is spelled out: the store reads the code
+  // and the amount straight off the message, the shopper sees the saving.
+  if (coupon) {
+    lines.push(`Subtotal: ${formatCurrency(coupon.subtotal)}`);
+    if (coupon.discount > 0) {
+      lines.push(`Cupom *${coupon.code}*: -${formatCurrency(coupon.discount)}`);
+    }
+    if (coupon.freeShipping) lines.push(`Frete grátis (cupom ${coupon.code})`);
+  }
   lines.push(`*Total: ${formatCurrency(total)}*`);
 
   if (expiresAt) {

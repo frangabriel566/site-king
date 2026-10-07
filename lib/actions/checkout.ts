@@ -8,7 +8,8 @@ import {
   type CartVariantOption,
   type ReviseCartResult,
 } from "@/lib/data/checkout";
-import { validateCoupon } from "@/lib/data/coupons";
+import { evaluateCoupon } from "@/lib/data/coupons";
+import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
 import { getCustomerForUser } from "@/lib/data/customers";
 import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
@@ -42,22 +43,6 @@ export async function getCartVariantsAction(
   return getCartVariants(productIds);
 }
 
-export type CouponResult =
-  | { ok: true; code: string; discount: number }
-  | { ok: false; message: string };
-
-export async function applyCouponAction(
-  code: string,
-  subtotal: number,
-): Promise<CouponResult> {
-  if (!code.trim()) return { ok: false, message: "Informe um cupom." };
-
-  const coupon = await validateCoupon(code, subtotal);
-  if (!coupon) return { ok: false, message: "Cupom inválido ou não aplicável." };
-
-  return { ok: true, code: coupon.code, discount: coupon.discount };
-}
-
 export type CreateOrderInput = {
   address: {
     cep: string;
@@ -79,7 +64,13 @@ export type CreateOrderInput = {
 
 export type CreateOrderResult =
   | { ok: true; orderId: string; orderNumber: number; payment: PaymentInitResult | null }
-  | { ok: false; message: string };
+  | {
+      ok: false;
+      message: string;
+      /** The coupon no longer applies (expired, out of uses, under its
+       * minimum…): the checkout drops it so the shopper can retry. */
+      couponRejected?: boolean;
+    };
 
 export async function createOrderAction(
   input: CreateOrderInput,
@@ -114,10 +105,25 @@ export async function createOrderAction(
 
   const subtotal = revision.subtotal;
 
+  // Re-checked here against the database subtotal — what the bag showed
+  // was only a preview. A coupon that stopped applying in between is an
+  // error, not a silent discount of zero: the shopper would otherwise pay
+  // more than the total they confirmed.
   let discount = 0;
-  if (input.couponCode) {
-    const coupon = await validateCoupon(input.couponCode, subtotal);
-    if (coupon) discount = coupon.discount;
+  let couponCode: string | null = null;
+  let couponFreeShipping = false;
+  if (input.couponCode?.trim()) {
+    const coupon = await evaluateCoupon(input.couponCode, subtotal);
+    if (!coupon.ok) {
+      return {
+        ok: false,
+        couponRejected: true,
+        message: `Cupom removido: ${coupon.message}`,
+      };
+    }
+    discount = coupon.discount;
+    couponCode = coupon.code;
+    couponFreeShipping = coupon.freeShipping;
   }
 
   // Resolved before the insert so the row records the route the order
@@ -130,9 +136,10 @@ export async function createOrderAction(
   const shippingInfo = SHIPPING_METHODS[input.shippingMethod];
   // Same rule the bag's progress bar shows (Configurações → Vitrine).
   const { free_shipping_threshold } = await getSiteSettings();
-  const shipping = qualifiesForFreeShipping(subtotal, free_shipping_threshold)
-    ? 0
-    : shippingInfo.price;
+  const shipping =
+    couponFreeShipping || qualifiesForFreeShipping(subtotal, free_shipping_threshold)
+      ? 0
+      : shippingInfo.price;
   const total = roundMoney(Math.max(subtotal + shipping - discount, 0));
 
   const db = getDb();
@@ -163,6 +170,7 @@ export async function createOrderAction(
           shipping,
           discount,
           total,
+          coupon_code: couponCode,
           payment_method: paymentMethod,
           shipping_address: addressParsed.data,
           customer_snapshot: {
@@ -186,9 +194,19 @@ export async function createOrderAction(
           qty: item.availableQty,
         })),
       ),
+      // The coupon's use is taken in the same batch: past its limit this
+      // fails and the order is not created either.
+      ...(couponCode ? [takeCouponUse(db, couponCode)] : []),
     ]);
     orderNumber = (created as { order_number: number }[])[0].order_number;
   } catch (error) {
+    if (isCouponLimitError(error)) {
+      return {
+        ok: false,
+        couponRejected: true,
+        message: "Cupom removido: este cupom acabou de atingir o limite de usos.",
+      };
+    }
     console.error("[createOrderAction]", error);
     return { ok: false, message: "Não foi possível criar o pedido." };
   }
@@ -200,6 +218,10 @@ export async function createOrderAction(
     const payment = await provider.createPayment({
       orderId,
       orderNumber,
+      subtotal,
+      shipping,
+      discount,
+      couponCode,
       total,
       customerName: customer.name,
       customerEmail: user.email,

@@ -1,0 +1,123 @@
+import { formatCurrency } from "@/lib/format";
+import { roundMoney } from "@/lib/money";
+import type { SiteSettings } from "@/lib/data/settings";
+
+/**
+ * The store's selling rules as the storefront needs them — from
+ * Configurações → Vitrine (site_settings). Every field is optional and
+ * every helper below returns null when its rule is not set: the
+ * storefront never shows a condition the store hasn't defined.
+ *
+ * Plain functions on purpose — the cards are Client Components, the
+ * checkout runs on the server, and both must agree to the cent.
+ */
+export type ShopConfig = {
+  installmentsMax: number | null;
+  pixDiscountPercent: number | null;
+  freeShippingThreshold: number | null;
+  newProductDays: number | null;
+  lowStockUnits: number | null;
+  freeShippingNote: string | null;
+  exchangeNote: string | null;
+  securePurchaseNote: string | null;
+  /** Server render time (ms). "Novo" is computed against this on the server
+   * and again while hydrating, so the badge can't flip in between. */
+  now: number;
+};
+
+export const EMPTY_SHOP_CONFIG: ShopConfig = {
+  installmentsMax: null,
+  pixDiscountPercent: null,
+  freeShippingThreshold: null,
+  newProductDays: null,
+  lowStockUnits: null,
+  freeShippingNote: null,
+  exchangeNote: null,
+  securePurchaseNote: null,
+  now: 0,
+};
+
+export function shopConfigFromSettings(settings: SiteSettings, now = Date.now()): ShopConfig {
+  return {
+    installmentsMax: settings.installments_max,
+    pixDiscountPercent: settings.pix_discount_percent,
+    freeShippingThreshold: settings.free_shipping_threshold,
+    newProductDays: settings.new_product_days,
+    lowStockUnits: settings.low_stock_units,
+    freeShippingNote: settings.free_shipping_note,
+    exchangeNote: settings.exchange_note,
+    securePurchaseNote: settings.secure_purchase_note,
+    now,
+  };
+}
+
+/** Whole-percent discount from the "de" price, or null when there is none
+ * worth showing. */
+export function discountPercent(price: number, compareAtPrice: number | null): number | null {
+  if (!compareAtPrice || compareAtPrice <= price) return null;
+  const percent = Math.round((1 - price / compareAtPrice) * 100);
+  return percent >= 1 ? percent : null;
+}
+
+/** "3x de R$ 33,30 sem juros" */
+export function installmentText(price: number, installmentsMax: number | null): string | null {
+  if (!installmentsMax || installmentsMax < 2 || price <= 0) return null;
+  return `${installmentsMax}x de ${formatCurrency(price / installmentsMax)} sem juros`;
+}
+
+export function pixPrice(price: number, pixDiscountPercent: number | null): number | null {
+  if (!pixDiscountPercent || pixDiscountPercent <= 0) return null;
+  return roundMoney(price * (1 - pixDiscountPercent / 100));
+}
+
+export function isNewProduct(createdAt: string, newProductDays: number | null, now: number): boolean {
+  if (!newProductDays || !now) return false;
+  const created = new Date(createdAt).getTime();
+  return Number.isFinite(created) && now - created <= newProductDays * 24 * 60 * 60 * 1000;
+}
+
+/** Stock summed over every variant, at or under the configured line. */
+export function isLowStock(totalStock: number, lowStockUnits: number | null): boolean {
+  return Boolean(lowStockUnits) && totalStock > 0 && totalStock <= (lowStockUnits ?? 0);
+}
+
+/** Shipping for a subtotal under the free-shipping rule. */
+export function qualifiesForFreeShipping(subtotal: number, threshold: number | null): boolean {
+  return threshold !== null && threshold > 0 && subtotal >= threshold;
+}
+
+export type TrustItemKind = "shipping" | "installments" | "exchange" | "secure";
+
+/**
+ * The reassurance lines (frete, parcelamento, trocas, compra segura), each
+ * only when the store configured it. Callers pick which kinds they show;
+ * the order is fixed.
+ */
+export function trustItems(
+  config: ShopConfig,
+  kinds: TrustItemKind[],
+  overrides: Partial<Record<TrustItemKind, string | null>> = {},
+): { kind: TrustItemKind; label: string }[] {
+  const labels: Record<TrustItemKind, string | null> = {
+    shipping: freeShippingText(config),
+    installments:
+      config.installmentsMax && config.installmentsMax >= 2
+        ? `Parcele em até ${config.installmentsMax}x sem juros`
+        : null,
+    exchange: config.exchangeNote,
+    secure: config.securePurchaseNote,
+    ...overrides,
+  };
+  return kinds
+    .map((kind) => ({ kind, label: labels[kind] }))
+    .filter((item): item is { kind: TrustItemKind; label: string } => Boolean(item.label));
+}
+
+/** The trust strip's shipping line: the rule itself when there is one (so
+ * it can never disagree with the checkout), else the store's own phrase. */
+export function freeShippingText(config: Pick<ShopConfig, "freeShippingThreshold" | "freeShippingNote">): string | null {
+  if (config.freeShippingThreshold) {
+    return `Frete grátis acima de ${formatCurrency(config.freeShippingThreshold)}`;
+  }
+  return config.freeShippingNote;
+}

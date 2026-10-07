@@ -4,9 +4,17 @@ import { useEffect, useRef } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
-import { formatCurrency, formatInstallments } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { useFavorite } from "@/lib/hooks/use-favorite";
 import { preloadGalleryImage, rememberCardImage } from "@/lib/image-handoff";
+import {
+  discountPercent,
+  installmentText,
+  isLowStock,
+  isNewProduct,
+  pixPrice,
+} from "@/lib/shop-config";
+import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { ProductListItem } from "@/lib/data/products";
 
 const BADGE_LABEL: Record<string, string> = {
@@ -15,15 +23,17 @@ const BADGE_LABEL: Record<string, string> = {
   mais_vendido: "Mais vendido",
 };
 
-const LOW_STOCK_THRESHOLD = 3;
-
 // How long the pointer has to rest on a card before its big photo is
 // fetched: sweeping the mouse across the grid would otherwise start a
 // download of several hundred KB for every card it crossed.
 const HOVER_INTENT_MS = 100;
 
+// Colour dots shown before collapsing the rest into "+N".
+const MAX_SWATCHES = 5;
+
 export function ProductCard({ product }: { product: ProductListItem }) {
   const { isFavorite, toggle } = useFavorite(product.id);
+  const config = useShopConfig();
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -45,14 +55,20 @@ export function ProductCard({ product }: { product: ProductListItem }) {
     if (product.heroImage) preloadGalleryImage(product.heroImage, fetchPriority);
   }
 
-  const badge = !product.inStock
+  const discount = discountPercent(product.price, product.compare_at_price);
+  const installments = installmentText(product.price, config.installmentsMax);
+  const pix = pixPrice(product.price, config.pixDiscountPercent);
+
+  // One status badge at most, most useful first. Every one of them comes
+  // from the product row or the store's own rules (Configurações → Vitrine).
+  const status = !product.inStock
     ? { label: "Esgotado", className: "bg-fg/80 text-white" }
-    : product.badge
-      ? { label: BADGE_LABEL[product.badge], className: "bg-gold text-fg" }
-      : product.totalStock > 0 && product.totalStock <= LOW_STOCK_THRESHOLD
-        ? { label: "Últimas unidades", className: "bg-alert text-white" }
-        : product.compare_at_price
-          ? { label: "Oferta", className: "bg-gold text-fg" }
+    : isLowStock(product.totalStock, config.lowStockUnits)
+      ? { label: "Últimas unidades", className: "bg-alert text-white" }
+      : isNewProduct(product.createdAt, config.newProductDays, config.now)
+        ? { label: "Novo", className: "bg-fg text-white" }
+        : product.badge
+          ? { label: BADGE_LABEL[product.badge], className: "bg-gold text-fg" }
           : null;
 
   return (
@@ -82,8 +98,10 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               alt={product.image.alt ?? product.name}
               fill
               sizes="(min-width: 1024px) 23vw, 45vw"
+              // The second photo only takes over on a real hover — on a
+              // touch screen the first tap would otherwise leave it stuck.
               className={`object-cover transition-opacity duration-200 ease-out ${
-                product.secondImage ? "group-hover:opacity-0" : ""
+                product.secondImage ? "[@media(hover:hover)]:group-hover:opacity-0" : ""
               }`}
             />
             {product.secondImage && (
@@ -92,7 +110,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
                 alt={product.secondImage.alt ?? product.name}
                 fill
                 sizes="(min-width: 1024px) 23vw, 45vw"
-                className="object-cover opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100"
+                className="hidden object-cover opacity-0 transition-opacity duration-200 ease-out [@media(hover:hover)]:block [@media(hover:hover)]:group-hover:opacity-100"
               />
             )}
           </>
@@ -102,11 +120,11 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           </div>
         )}
 
-        {badge && (
+        {status && (
           <span
-            className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
+            className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${status.className}`}
           >
-            {badge.label}
+            {status.label}
           </span>
         )}
 
@@ -137,35 +155,49 @@ export function ProductCard({ product }: { product: ProductListItem }) {
             {product.brand.name}
           </p>
         )}
-        <p className="line-clamp-2 min-h-[2.5em] text-[15px] font-semibold leading-tight text-fg">
+        <p className="line-clamp-2 min-h-[2.5em] text-sm font-medium leading-tight text-fg sm:text-[15px]">
           {product.name}
         </p>
 
         <div className="mt-1">
-          {product.compare_at_price && (
-            <p className="text-xs text-muted-foreground line-through">
-              {formatCurrency(product.compare_at_price)}
+          {product.compare_at_price && discount && (
+            <p className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground line-through">
+                {formatCurrency(product.compare_at_price)}
+              </span>
+              <span className="rounded bg-buy px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                -{discount}%
+              </span>
             </p>
           )}
-          <p className="text-xl font-bold text-price">{formatCurrency(product.price)}</p>
-          {product.compare_at_price && (
-            <p className="text-sm font-semibold text-discount">
-              {formatCurrency(product.price)} no Pix
+          <p className="text-xl font-extrabold leading-tight text-buy sm:text-2xl">
+            {formatCurrency(product.price)}
+          </p>
+          {installments && (
+            <p className="text-xs text-muted-foreground">{installments}</p>
+          )}
+          {pix !== null && (
+            <p className="mt-0.5 text-xs font-semibold text-buy">
+              {formatCurrency(pix)} no Pix
             </p>
           )}
-          <p className="text-xs text-muted-foreground">{formatInstallments(product.price)}</p>
         </div>
 
         {product.colors.length > 0 && (
-          <div className="mt-1 flex items-center gap-1.5">
-            {product.colors.slice(0, 5).map((c) => (
+          <div className="mt-1 flex items-center gap-1.5" aria-label={`${product.colors.length} cores`}>
+            {product.colors.slice(0, MAX_SWATCHES).map((c) => (
               <span
                 key={c.color}
                 title={c.color}
-                className="size-3 rounded-full border border-line"
+                className="size-3.5 rounded-full border border-line"
                 style={{ backgroundColor: c.color_hex ?? "#8A8A8A" }}
               />
             ))}
+            {product.colors.length > MAX_SWATCHES && (
+              <span className="text-[11px] font-medium text-muted-foreground">
+                +{product.colors.length - MAX_SWATCHES}
+              </span>
+            )}
           </div>
         )}
       </div>

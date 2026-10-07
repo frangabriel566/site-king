@@ -1145,3 +1145,46 @@ fonte no Google); passou no retry, mas o build não deve depender da rede.
 - O Next não pré-carrega a fonte em nenhuma das duas versões (o
   `next-font-manifest` sai vazio também com o Google) — nada mudou aí.
 - Worker: 2.334 KiB comprimidos.
+
+## Bloco 25 — Vitrine: preço, selos e conversão (Etapa 1)
+
+Interface da loja pública no estilo varejo, mobile-first, com uma regra
+acima das outras: **nada de condição inventada**. Tudo que promete algo ao
+cliente vem do banco ou de Configurações → Vitrine, e some quando vazio.
+
+- **Configurações novas** em `site_settings` (migration
+  `0001_storefront_settings`): parcelas sem juros, % de desconto no Pix,
+  valor de frete grátis, dias do selo "Novo", peças de "Últimas unidades",
+  frase de trocas e frase de compra segura. A migration preservou as duas
+  regras que já estavam no código: frete grátis a partir de R$ 399 (o
+  checkout já usava `FREE_SHIPPING_THRESHOLD`) e "Últimas unidades" com até
+  3 peças. Saíram o "3x sem juros" fixo (`MAX_INSTALLMENTS`), o "no Pix"
+  que repetia o próprio preço e os textos de confiança escritos no código
+  (inclusive um "Compra 100% segura" que, nas abas do produto, mostrava a
+  frase de frete grátis no lugar).
+- **Uma cor de compra:** `--buy` (#0D7A34, o verde que já marcava desconto
+  e Pix, 5,45:1 no branco) para botões de compra, preços, selo "-X%" e
+  preço no Pix. Filtros, paginação e tamanho escolhido seguem em preto.
+- **Card:** preço maior; "de" riscado + "-X%"; parcelas e Pix das
+  configurações; um selo de status (Esgotado > Últimas unidades > Novo >
+  selo do painel); bolinhas de cor com "+N"; a 2ª foto só em quem tem
+  hover de verdade (no toque ela nem é baixada). "Novo" usa o horário do
+  render no servidor, passado pelo contexto, para não mudar na hidratação.
+- **Página do produto:** barra fixa no celular (preço + "Comprar") que
+  aparece ao rolar e some quando o botão principal está na tela; o botão
+  dela usa o mesmo handler (sem tamanho, rola até o seletor e avisa).
+  Enquanto está de pé, publica a altura em `--sticky-buy-h`: a loja ganha
+  esse respiro embaixo e o botão do WhatsApp sobe. Tamanhos com 48px e
+  esgotados riscados (texto e diagonal) e desabilitados. Faixa de
+  confiança logo abaixo dos botões de compra.
+- **Sacola e gaveta:** barra "Faltam R$ X para frete grátis" com o mesmo
+  valor que o checkout aplica (server action e wizard leem a mesma
+  configuração). A faixa do topo do site mostra a regra, não a frase livre,
+  quando há regra.
+- **#418 na página de produto continua, e é anterior a esta etapa:** sem
+  estas mudanças, 5/40 carregamentos de produto; com elas, 3/40. Comparando
+  o HTML do servidor com o DOM final nos carregamentos com erro, a única
+  diferença é o formulário de avaliação (`useActionState`) refeito no
+  cliente — vitrines, preços e a barra de compra saem idênticos. Fica como
+  investigação separada.
+- Worker: 2.336 KiB comprimidos.

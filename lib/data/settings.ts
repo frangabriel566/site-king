@@ -28,6 +28,13 @@ const FALLBACK_SETTINGS: SiteSettings = {
   origin_district: null,
   origin_city: null,
   origin_state: null,
+  installments_max: null,
+  pix_discount_percent: null,
+  free_shipping_threshold: null,
+  new_product_days: null,
+  low_stock_units: null,
+  exchange_note: null,
+  secure_purchase_note: null,
 };
 
 /** Public. Read once per request — the layout, the page and the WhatsApp

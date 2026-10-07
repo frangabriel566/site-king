@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
 import type { Category } from "@/lib/data/categories";
 import type { SiteSettings } from "@/lib/data/settings";
+import { freeShippingText } from "@/lib/shop-config";
 
 declare global {
   interface Window {
@@ -28,6 +29,10 @@ export function Header({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { count, open: openBag, isHydrated } = useCart();
+  const shippingLine = freeShippingText({
+    freeShippingThreshold: settings.free_shipping_threshold,
+    freeShippingNote: settings.free_shipping_note,
+  });
 
   // The links inside the drawer close it themselves, but that misses
   // every other way the route can change — the back button above all,
@@ -97,10 +102,17 @@ export function Header({
         <div className="select-none border-b border-white/10">
           <div className="mx-auto grid h-9 max-w-[1400px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 text-xs md:px-8">
             <div aria-hidden="true" />
-            <p className="flex items-center justify-center gap-2 truncate text-center">
-              <Truck className="size-3.5 shrink-0" aria-hidden="true" />
-              {settings.free_shipping_note ?? "Frete grátis em compras selecionadas"}
-            </p>
+            {/* The configured rule first, so this line can't promise a
+                different value from the checkout; nothing when the store
+                has neither a rule nor a phrase. */}
+            {shippingLine ? (
+              <p className="flex items-center justify-center gap-2 truncate text-center">
+                <Truck className="size-3.5 shrink-0" aria-hidden="true" />
+                {shippingLine}
+              </p>
+            ) : (
+              <div aria-hidden="true" />
+            )}
             {settings.whatsapp ? (
               <a
                 href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}

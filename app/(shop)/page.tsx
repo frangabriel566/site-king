@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getActiveBanners } from "@/lib/data/banners";
-import { getSiteSettings } from "@/lib/data/settings";
 import { getCategoriesWithImages } from "@/lib/data/categories";
 import {
   getFeaturedProducts,
@@ -24,10 +23,9 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [banners, settings, categories, newArrivals, bestSellers, catalog, onSale] =
+  const [banners, categories, newArrivals, bestSellers, catalog, onSale] =
     await Promise.all([
       getActiveBanners(),
-      getSiteSettings(),
       getCategoriesWithImages(),
       getNewArrivals(HOME_RAIL_LIMIT),
       getFeaturedProducts(HOME_RAIL_LIMIT),
@@ -54,7 +52,7 @@ export default async function HomePage() {
           happened to be listed first. */}
       <ProductRail title="Produtos" products={catalog.items} seeAllHref="/colecao" />
       <OffersBlock products={onSale} />
-      <TrustBadges freeShippingNote={settings.free_shipping_note} />
+      <TrustBadges />
       <NewsletterSection />
     </>
   );

@@ -137,6 +137,121 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
       </section>
 
       <section>
+        <p className="text-label mb-1">Vitrine: preço, selos e confiança</p>
+        <p className="mb-4 text-sm text-ink-muted">
+          Aparecem nos cards, na página do produto e na sacola. Campo vazio = não
+          mostrar — a loja nunca exibe uma condição que não foi definida aqui.
+        </p>
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="installments_max">Parcelas sem juros</Label>
+              <Input
+                id="installments_max"
+                name="installments_max"
+                type="number"
+                min={2}
+                max={24}
+                step={1}
+                inputMode="numeric"
+                placeholder="ex.: 3"
+                defaultValue={settings.installments_max ?? ""}
+              />
+              <p className="text-xs text-ink-muted">
+                Mostra &quot;3x de R$ 33,30 sem juros&quot;. Precisa bater com o que o
+                Mercado Pago da loja oferece sem juros.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="pix_discount_percent">Desconto no Pix (%)</Label>
+              <Input
+                id="pix_discount_percent"
+                name="pix_discount_percent"
+                inputMode="decimal"
+                placeholder="ex.: 5"
+                defaultValue={settings.pix_discount_percent ?? ""}
+              />
+              <p className="text-xs text-ink-muted">
+                Mostra o preço no Pix. Só exibição: o checkout online não aplica o
+                desconto sozinho — a loja precisa honrá-lo no pagamento.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="free_shipping_threshold">Frete grátis a partir de (R$)</Label>
+              <Input
+                id="free_shipping_threshold"
+                name="free_shipping_threshold"
+                inputMode="decimal"
+                placeholder="ex.: 399"
+                defaultValue={settings.free_shipping_threshold ?? ""}
+              />
+              <p className="text-xs text-ink-muted">
+                Zera o frete no checkout a partir deste subtotal e alimenta a barra
+                &quot;Faltam R$ X para frete grátis&quot; da sacola. Vazio: sem frete grátis.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="new_product_days">Selo &quot;Novo&quot; por (dias)</Label>
+              <Input
+                id="new_product_days"
+                name="new_product_days"
+                type="number"
+                min={1}
+                max={365}
+                step={1}
+                inputMode="numeric"
+                placeholder="ex.: 30"
+                defaultValue={settings.new_product_days ?? ""}
+              />
+              <p className="text-xs text-ink-muted">
+                Produtos cadastrados há até esse número de dias ganham o selo.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="low_stock_units">&quot;Últimas unidades&quot; com até (peças)</Label>
+              <Input
+                id="low_stock_units"
+                name="low_stock_units"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                placeholder="ex.: 3"
+                defaultValue={settings.low_stock_units ?? ""}
+              />
+              <p className="text-xs text-ink-muted">
+                Soma o estoque de todas as cores e tamanhos do produto.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="exchange_note">Frase de trocas</Label>
+            <Input
+              id="exchange_note"
+              name="exchange_note"
+              maxLength={80}
+              placeholder="ex.: Primeira troca grátis em até 30 dias"
+              defaultValue={settings.exchange_note ?? ""}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="secure_purchase_note">Frase de compra segura</Label>
+            <Input
+              id="secure_purchase_note"
+              name="secure_purchase_note"
+              maxLength={80}
+              placeholder="ex.: Pagamento processado pelo Mercado Pago"
+              defaultValue={settings.secure_purchase_note ?? ""}
+            />
+            <p className="text-xs text-ink-muted">
+              As duas frases e a de frete grátis (acima) formam a faixa de confiança
+              embaixo do botão de compra.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <p className="text-label mb-4">Faixa de anúncio</p>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">

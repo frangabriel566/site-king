@@ -133,11 +133,15 @@
 
   --cta: #1a1d21;
   --cta-gold: #c9a227;
-  --price: #1a1d21;
-  /* #0F8A3C (the spec's literal value) is 4.45:1 on white — just under the
+  /* The single "buy" accent: purchase buttons, prices, the -X% badge and
+     the Pix price all use it, and nothing else does. Change it here only.
+     #0F8A3C (the spec's literal value) is 4.45:1 on white — just under the
      4.5:1 body-text minimum. Darkened slightly to 5.45:1; visually almost
      identical. */
-  --discount: #0d7a34;
+  --buy: #0d7a34;
+  --buy-hover: #0a6129;
+  --price: var(--buy);
+  --discount: var(--buy);
   --alert: #c0392b;
 
   --accent: var(--gold-text);
@@ -185,6 +189,10 @@
   --radius: 0.5rem;
 
   color-scheme: light;
+
+  /* Room for the product page's mobile buy bar while it is up, so it never
+     covers the end of the page. The bar sets --sticky-buy-h on <html>. */
+  padding-bottom: var(--sticky-buy-h, 0px);
 }
 
 .storefront-theme ::selection {
@@ -280,6 +288,8 @@
   --color-chrome: var(--chrome);
   --color-cta: var(--cta);
   --color-cta-gold: var(--cta-gold);
+  --color-buy: var(--buy);
+  --color-buy-hover: var(--buy-hover);
   --color-price: var(--price);
   --color-discount: var(--discount);
   --color-alert: var(--alert);

@@ -353,6 +353,25 @@ export const site_settings = sqliteTable(
     origin_district: text("origin_district"),
     origin_city: text("origin_city"),
     origin_state: text("origin_state"),
+    // Storefront selling rules (Configurações → Vitrine). Every one is
+    // optional: left empty, the storefront simply doesn't show the line or
+    // badge it drives — nothing is shown that the store hasn't set.
+    /** "3x de R$ 33,30 sem juros". Null or < 2: no installment line. */
+    installments_max: integer("installments_max"),
+    /** Pix price shown next to the regular one. Display only — the online
+     * checkout does not apply it by itself. */
+    pix_discount_percent: real("pix_discount_percent"),
+    /** Orders from this subtotal ship free (checkout and the bag's progress
+     * bar). Null: no free shipping. */
+    free_shipping_threshold: real("free_shipping_threshold"),
+    /** "Novo" badge for products created within this many days. */
+    new_product_days: integer("new_product_days"),
+    /** "Últimas unidades" when a product's stock, summed over its
+     * variants, is at most this. */
+    low_stock_units: integer("low_stock_units"),
+    /** Trust strip under the buy button. */
+    exchange_note: text("exchange_note"),
+    secure_purchase_note: text("secure_purchase_note"),
   },
   (t) => [check("site_settings_single_row", sql`${t.id} = 1`)],
 );

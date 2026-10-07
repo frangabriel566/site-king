@@ -9,6 +9,7 @@ import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
+import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,7 +80,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const itemCount = items.reduce((sum, item) => sum + item.qty, 0);
 
   return (
-    <div className="px-8 py-12 md:px-12">
+    <div className="px-4 py-8 sm:px-8 sm:py-12 md:px-12">
       <Link
         href="/colecao"
         className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-fg"
@@ -115,7 +116,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           </div>
           <ul className="divide-y divide-line rounded-b-lg border border-line bg-white">
             {items.map((item) => (
-              <li key={item.variantId} className="flex gap-4 p-5 md:p-6">
+              <li key={item.variantId} className="flex gap-3 p-4 sm:gap-4 sm:p-5 md:p-6">
                 <Checkbox
                   checked={selectedIds.has(item.variantId)}
                   onCheckedChange={() => toggleSelect(item.variantId)}
@@ -223,6 +224,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resumo do pedido
           </p>
+          <FreeShippingProgress subtotal={subtotal} className="mb-5 border-b border-line pb-5" />
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
               {availableCount} {availableCount === 1 ? "item" : "itens"}
@@ -259,7 +261,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               Nenhuma peça da sacola está disponível agora.
             </p>
           ) : (
-            <Button asChild size="xl" className="mt-6 w-full">
+            <Button asChild size="xl" className="mt-6 w-full bg-buy text-white hover:bg-buy-hover">
               <Link href="/checkout">Finalizar compra</Link>
             </Button>
           )}

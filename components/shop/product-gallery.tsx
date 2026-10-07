@@ -165,7 +165,7 @@ export function ProductGallery({
 
         <div className="relative min-w-0 flex-1">
           {discountPercent > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-lg bg-gold-soft py-1.5 text-center text-sm font-bold text-fg">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-lg bg-buy py-1.5 text-center text-sm font-bold text-white">
               -{discountPercent}% OFF
             </div>
           )}

@@ -15,8 +15,9 @@ import {
   resolvePaymentMethod,
   type PaymentInitResult,
 } from "@/lib/payments";
+import { getSiteSettings } from "@/lib/data/settings";
+import { qualifiesForFreeShipping } from "@/lib/shop-config";
 import {
-  FREE_SHIPPING_THRESHOLD,
   SHIPPING_METHODS,
   isCheckoutMethod,
   type CheckoutMethod,
@@ -122,7 +123,11 @@ export async function createOrderAction(
   );
 
   const shippingInfo = SHIPPING_METHODS[input.shippingMethod];
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : shippingInfo.price;
+  // Same rule the bag's progress bar shows (Configurações → Vitrine).
+  const { free_shipping_threshold } = await getSiteSettings();
+  const shipping = qualifiesForFreeShipping(subtotal, free_shipping_threshold)
+    ? 0
+    : shippingInfo.price;
   const total = roundMoney(Math.max(subtotal + shipping - discount, 0));
 
   const db = getDb();

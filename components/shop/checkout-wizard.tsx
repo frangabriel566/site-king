@@ -13,12 +13,13 @@ import { getCheckoutContextAction } from "@/lib/actions/checkout-context";
 import { reviseCartAction, createOrderAction } from "@/lib/actions/checkout";
 import {
   SHIPPING_METHODS,
-  FREE_SHIPPING_THRESHOLD,
   CHECKOUT_METHODS,
   type CheckoutMethod,
   type ShippingMethod,
 } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import { qualifiesForFreeShipping } from "@/lib/shop-config";
+import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { RevisedItem } from "@/lib/data/checkout";
 
 type Step = 1 | 2 | 3 | 4;
@@ -45,6 +46,8 @@ export function CheckoutWizard({
 }) {
   const { items, clear, isHydrated } = useCart();
   const router = useRouter();
+  // The free-shipping rule the server applies again in createOrderAction.
+  const { freeShippingThreshold } = useShopConfig();
 
   const [step, setStep] = useState<Step>(1);
   const [loadingContext, setLoadingContext] = useState(true);
@@ -89,7 +92,7 @@ export function CheckoutWizard({
 
   const shippingCost =
     step >= 3
-      ? subtotal >= FREE_SHIPPING_THRESHOLD
+      ? qualifiesForFreeShipping(subtotal, freeShippingThreshold)
         ? 0
         : SHIPPING_METHODS[shippingMethod].price
       : null;
@@ -220,7 +223,7 @@ export function CheckoutWizard({
             <div className="flex flex-col gap-3">
               {(Object.keys(SHIPPING_METHODS) as ShippingMethod[]).map((method) => {
                 const info = SHIPPING_METHODS[method];
-                const free = subtotal >= FREE_SHIPPING_THRESHOLD;
+                const free = qualifiesForFreeShipping(subtotal, freeShippingThreshold);
                 return (
                   <label
                     key={method}
@@ -308,7 +311,12 @@ export function CheckoutWizard({
               <Button variant="outline" size="lg" onClick={() => setStep(3)}>
                 Voltar
               </Button>
-              <Button size="lg" onClick={handleFinish} disabled={submitting || revising}>
+              <Button
+                size="lg"
+                className="bg-buy text-white hover:bg-buy-hover"
+                onClick={handleFinish}
+                disabled={submitting || revising}
+              >
                 {submitting ? "Finalizando…" : "Finalizar pedido"}
               </Button>
             </div>

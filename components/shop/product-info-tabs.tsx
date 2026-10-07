@@ -1,44 +1,68 @@
 import { Truck, RotateCcw, ShieldCheck, CreditCard } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MAX_INSTALLMENTS } from "@/lib/format";
+import { trustItems, type ShopConfig, type TrustItemKind } from "@/lib/shop-config";
+
+const ICONS: Record<TrustItemKind, typeof Truck> = {
+  shipping: Truck,
+  installments: CreditCard,
+  exchange: RotateCcw,
+  secure: ShieldCheck,
+};
 
 export function ProductInfoTabs({
   description,
   shippingNote,
   exchangeInfo,
-  freeShippingNote,
+  config,
 }: {
   description: string | null;
+  /** The product's own delivery copy, else the store's "frase de envio". */
   shippingNote: string | null;
+  /** The product's own exchange copy; falls back to the store's. */
   exchangeInfo: string | null;
-  freeShippingNote: string | null;
+  config: ShopConfig;
 }) {
-  const items = [
-    { icon: Truck, label: shippingNote ?? "Entrega para todo o Brasil" },
-    { icon: CreditCard, label: `Até ${MAX_INSTALLMENTS}x sem juros` },
-    { icon: RotateCcw, label: exchangeInfo ?? "Troca grátis em 30 dias" },
-    { icon: ShieldCheck, label: freeShippingNote ?? "Compra 100% segura" },
-  ];
+  // Only lines the product or the store actually filled in.
+  const items = trustItems(config, ["shipping", "installments", "exchange", "secure"], {
+    shipping: shippingNote,
+    exchange: exchangeInfo ?? config.exchangeNote,
+  });
 
-  const featuresPanel = (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {items.map(({ icon: Icon, label }) => (
-        <div
-          key={label}
-          className="flex flex-col items-center gap-2 rounded-lg border border-line bg-surface p-4 text-center"
-        >
-          <Icon className="size-6 text-gold-text" aria-hidden="true" />
-          <span className="text-xs text-fg">{label}</span>
-        </div>
-      ))}
-    </div>
-  );
+  const featuresPanel =
+    items.length > 0 ? (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {items.map(({ kind, label }) => {
+          const Icon = ICONS[kind];
+          return (
+            <div
+              key={kind}
+              className="flex flex-col items-center gap-2 rounded-lg border border-line bg-surface p-4 text-center"
+            >
+              <Icon className="size-6 text-gold-text" aria-hidden="true" />
+              <span className="text-xs text-fg">{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    ) : null;
 
   if (!description) {
+    if (!featuresPanel) return null;
     return (
       <section>
         <h2 className="mb-4 text-lg font-bold text-fg">Principais características</h2>
         {featuresPanel}
+      </section>
+    );
+  }
+
+  if (!featuresPanel) {
+    return (
+      <section>
+        <h2 className="mb-4 text-lg font-bold text-fg">Descrição</h2>
+        <p className="max-w-3xl whitespace-pre-line text-sm leading-relaxed text-fg">
+          {description}
+        </p>
       </section>
     );
   }

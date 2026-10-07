@@ -99,3 +99,24 @@ mesmo tempo: nome da loja, logo, WhatsApp (usado tanto no botão flutuante
 quanto no checkout via WhatsApp), redes sociais, as frases de envio/frete
 grátis que aparecem no rodapé do hero, e a faixa de anúncio no topo do
 site (com um interruptor para ligar/desligar sem apagar o texto).
+
+### Vitrine: preço, selos e confiança
+
+Na mesma tela, a seção **Vitrine** define as condições que a loja mostra
+nos cards, na página do produto e na sacola. **Campo vazio = não mostrar**:
+nada aparece para o cliente sem ter sido definido aqui.
+
+- **Parcelas sem juros** — "3x de R$ 33,30 sem juros". Precisa bater com o
+  que o Mercado Pago da loja oferece sem juros.
+- **Desconto no Pix (%)** — mostra o preço no Pix. É só exibição: o
+  checkout online não aplica o desconto sozinho; a loja precisa honrá-lo
+  (ex.: na venda pelo WhatsApp).
+- **Frete grátis a partir de (R$)** — zera o frete no checkout a partir
+  desse subtotal e alimenta a barra "Faltam R$ X para frete grátis" da
+  sacola e a faixa do topo do site.
+- **Selo "Novo" por (dias)** — produtos cadastrados há até esse número de
+  dias.
+- **"Últimas unidades" com até (peças)** — soma o estoque de todas as cores
+  e tamanhos do produto.
+- **Frase de trocas** e **frase de compra segura** — junto com o frete
+  grátis, formam a faixa de confiança embaixo do botão de compra.

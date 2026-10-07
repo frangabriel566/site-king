@@ -68,6 +68,8 @@ export type ProductListItem = {
   totalStock: number;
   badge: ProductBadge | null;
   brand: ListBrand | null;
+  /** ISO timestamp — the "Novo" badge compares it with the store's rule. */
+  createdAt: string;
 };
 
 const { products, product_variants, categories, brands } = schema;
@@ -114,6 +116,7 @@ function toListItem(row: {
   name: string;
   price: number;
   compare_at_price: number | null;
+  created_at: string;
   badge?: ProductBadge | null;
   brand?: ListBrand | null;
   product_images: ListImage[];
@@ -166,6 +169,7 @@ function toListItem(row: {
     totalStock,
     badge: row.badge ?? null,
     brand: row.brand ?? null,
+    createdAt: row.created_at,
   };
 }
 

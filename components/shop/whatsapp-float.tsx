@@ -47,11 +47,12 @@ export function WhatsAppFloat({
       // < drawers/dialogs (z-50, components/ui/sheet.tsx & dialog.tsx). It
       // sits above the cookie banner on purpose — see `raised` below — but
       // must stay under anything modal.
-      className={`fixed right-4 z-[45] flex size-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-[transform,bottom,background-color] duration-200 ease-out hover:scale-105 hover:bg-[#20bd5a] sm:right-6 ${
-        raised
-          ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]"
-          : "bottom-[calc(env(safe-area-inset-bottom)+1.25rem)]"
-      }`}
+      className="fixed right-4 z-[45] flex size-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-[transform,bottom,background-color] duration-200 ease-out hover:scale-105 hover:bg-[#20bd5a] sm:right-6"
+      // Also clears the product page's mobile buy bar, whose height it
+      // publishes as --sticky-buy-h while it is up (components/shop/buy-box).
+      style={{
+        bottom: `calc(env(safe-area-inset-bottom) + ${raised ? "6.5rem" : "1.25rem"} + var(--sticky-buy-h, 0px))`,
+      }}
     >
       <WhatsAppIcon className="size-6" />
     </a>

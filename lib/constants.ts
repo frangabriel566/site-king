@@ -21,8 +21,6 @@ export const COLLECTION_PAGE_SIZE = 12;
  */
 export const HOME_RAIL_LIMIT = 24;
 
-export const FREE_SHIPPING_THRESHOLD = 399;
-
 export const SHIPPING_METHODS = {
   standard: {
     label: "Padrão",

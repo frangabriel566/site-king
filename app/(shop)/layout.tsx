@@ -9,6 +9,8 @@ import { CookieBanner } from "@/components/shop/cookie-banner";
 import { HeaderDebug } from "@/components/shop/header-debug";
 import { OverlayGuard } from "@/components/shop/overlay-guard";
 import { Toaster } from "@/components/ui/sonner";
+import { ShopConfigProvider } from "@/components/shop/shop-config-provider";
+import { shopConfigFromSettings } from "@/lib/shop-config";
 
 /**
  * Records which header control was pressed before the page was able to
@@ -68,6 +70,7 @@ export default async function ShopLayout({
   };
 
   return (
+    <ShopConfigProvider value={shopConfigFromSettings(settings)}>
     <CartProvider>
       <div className="storefront-theme flex min-h-full flex-col bg-bg text-fg">
         <script
@@ -92,5 +95,6 @@ export default async function ShopLayout({
         <Toaster theme="light" position="bottom-right" />
       </div>
     </CartProvider>
+    </ShopConfigProvider>
   );
 }

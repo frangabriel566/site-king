@@ -5,6 +5,7 @@ import {
   getRelatedProducts,
 } from "@/lib/data/products";
 import { getSiteSettings } from "@/lib/data/settings";
+import { shopConfigFromSettings } from "@/lib/shop-config";
 import { getProductReviews, summarizeRatings } from "@/lib/data/reviews";
 import { ProductMedia } from "@/components/shop/product-media";
 import { ProductSpecs } from "@/components/shop/product-specs";
@@ -167,7 +168,7 @@ export default async function ProductPage({
           description={product.description}
           shippingNote={product.shipping_note ?? settings.shipping_note}
           exchangeInfo={product.exchange_info}
-          freeShippingNote={settings.free_shipping_note}
+          config={shopConfigFromSettings(settings)}
         />
 
         <ProductReviews

@@ -4,14 +4,17 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Lock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
 import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
-import { formatCurrency, formatInstallments } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
+import { discountPercent, installmentText, pixPrice } from "@/lib/shop-config";
+import { useShopConfig } from "@/components/shop/shop-config-provider";
 import { SizeGuideModal } from "@/components/shop/size-guide-modal";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
+import { TrustStrip } from "@/components/shop/trust-strip";
+import { StickyBuyBar } from "@/components/shop/sticky-buy-bar";
 import { Button } from "@/components/ui/button";
 import type { ProductWithRelations } from "@/lib/data/products";
 import type { ProductColor } from "@/lib/product-gallery";
@@ -48,9 +51,12 @@ export function BuyBox({
 }) {
   const { addItem, open } = useCart();
   const router = useRouter();
-  const discountPercent = product.compare_at_price
-    ? Math.round((1 - product.price / product.compare_at_price) * 100)
-    : 0;
+  const config = useShopConfig();
+  const discount = discountPercent(product.price, product.compare_at_price);
+  const installments = installmentText(product.price, config.installmentsMax);
+  const pix = pixPrice(product.price, config.pixDiscountPercent);
+  // Watched by the mobile buy bar: it shows only while this is off screen.
+  const buyButtonRef = useRef<HTMLButtonElement>(null);
   const [isPending, startTransition] = useTransition();
   const [added, setAdded] = useState(false);
   const variants = product.product_variants;
@@ -208,25 +214,30 @@ export function BuyBox({
       )}
 
       <div className="mt-3 rounded-lg border border-line p-4 sm:mt-4">
-        {product.compare_at_price && (
+        {product.compare_at_price && discount && (
           <p className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground line-through">
               {formatCurrency(product.compare_at_price)}
             </span>
-            {discountPercent > 0 && (
-              <span className="rounded-md bg-gold-soft px-1.5 py-0.5 text-xs font-bold text-fg">
-                {discountPercent}% OFF
-              </span>
-            )}
+            <span className="rounded bg-buy px-1.5 py-0.5 text-xs font-bold text-white">
+              -{discount}%
+            </span>
           </p>
         )}
-        <p className="mt-1 text-[26px] font-bold leading-none text-price">
+        <p className="mt-1 text-3xl font-extrabold leading-none text-buy">
           {formatCurrency(product.price)}
-          <span className="ml-1.5 text-sm font-semibold text-discount">no Pix</span>
         </p>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {formatInstallments(product.price)}
-        </p>
+        {installments && (
+          <p className="mt-1.5 text-sm text-muted-foreground">{installments}</p>
+        )}
+        {pix !== null && (
+          <p className="mt-1 text-sm font-semibold text-buy">
+            {formatCurrency(pix)} no Pix
+            <span className="ml-1 font-normal text-muted-foreground">
+              ({config.pixDiscountPercent?.toLocaleString("pt-BR")}% de desconto)
+            </span>
+          </p>
+        )}
         {product.collection && (
           <span className="mt-3 inline-block rounded-md bg-surface px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {product.collection}
@@ -315,19 +326,27 @@ export function BuyBox({
                     setError(null);
                   }}
                   aria-pressed={selectedSize === variant.size}
-                  // Unavailable reads as a filled, greyed-out key — the same
-                  // way a marketplace listing shows a size it can't sell —
-                  // and keeps the strike-through so the state doesn't rest
-                  // on colour alone.
-                  className={`relative flex h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors duration-150 ease-out ${
+                  aria-label={outOfStock ? `${variant.size} — esgotado` : variant.size}
+                  // Big keys (48px, a full fingertip) for the one choice every
+                  // purchase needs. Unavailable reads as a greyed-out key
+                  // crossed by a diagonal, like a marketplace listing shows a
+                  // size it can't sell, and the label is struck through too,
+                  // so the state doesn't rest on colour alone.
+                  className={`relative flex h-12 min-w-12 items-center justify-center overflow-hidden rounded-md border px-4 text-base font-semibold transition-colors duration-150 ease-out ${
                     outOfStock
                       ? "cursor-not-allowed border-line bg-surface text-muted-foreground/70"
                       : selectedSize === variant.size
-                        ? "border-cta bg-cta text-white"
-                        : "border-line text-fg hover:border-cta"
+                        ? "border-fg bg-fg text-white"
+                        : "border-line text-fg hover:border-fg"
                   }`}
                 >
                   <span className={outOfStock ? "line-through" : undefined}>{variant.size}</span>
+                  {outOfStock && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 [background:linear-gradient(to_top_right,transparent_calc(50%-0.5px),var(--line-strong)_calc(50%-0.5px),var(--line-strong)_calc(50%+0.5px),transparent_calc(50%+0.5px))]"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -344,8 +363,9 @@ export function BuyBox({
 
       <div className="mt-5 flex flex-col gap-3 sm:mt-6">
         <Button
+          ref={buyButtonRef}
           size="xl"
-          className="w-full bg-cta text-white hover:bg-cta/90"
+          className="w-full bg-buy text-white hover:bg-buy-hover"
           onClick={handleBuyNow}
           disabled={isPending || allOutOfStock}
         >
@@ -375,6 +395,9 @@ export function BuyBox({
         )}
       </div>
 
+      {/* Frete, trocas e compra segura — right where the shopper decides. */}
+      <TrustStrip className="mt-4" />
+
       <div className="mt-6 border-t border-line pt-6">
         {/* A mesma cotação da sacola, para uma peça. Antes isto era uma
             faixa de prazo inventada por região ("2 a 4 dias úteis") com
@@ -384,17 +407,16 @@ export function BuyBox({
         <FreightCalculator items={[{ productId: product.id, quantity: 1 }]} />
       </div>
 
-      <div className="mt-6 flex flex-col gap-2 border-t border-line pt-6 text-xs text-fg sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
-        <span className="flex items-center gap-2">
-          <Lock className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Compra segura
-        </span>
-        <span className="flex items-center gap-2">
-          <ShieldCheck className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Dados protegidos
-        </span>
-        <span className="flex items-center gap-2">
-          <RotateCcw className="size-4 shrink-0 text-gold-text" aria-hidden="true" /> Troca garantida
-        </span>
-      </div>
+      {!allOutOfStock && (
+        <StickyBuyBar
+          watchRef={buyButtonRef}
+          price={product.price}
+          compareAtPrice={discount ? product.compare_at_price : null}
+          installments={installments}
+          pending={isPending}
+          onBuy={handleBuyNow}
+        />
+      )}
     </div>
   );
 }

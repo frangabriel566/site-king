@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
+import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
@@ -191,6 +192,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
             </ul>
 
             <div className="border-t border-line px-6 py-6">
+              <FreeShippingProgress subtotal={subtotal} className="mb-5" />
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Subtotal</span>
                 <span className="text-xl font-bold text-price">{formatCurrency(subtotal)}</span>
@@ -203,7 +205,12 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                   Nenhuma peça da sacola está disponível agora.
                 </p>
               ) : (
-                <Button asChild size="xl" className="w-full" onClick={close}>
+                <Button
+                  asChild
+                  size="xl"
+                  className="w-full bg-buy text-white hover:bg-buy-hover"
+                  onClick={close}
+                >
                   <Link href="/checkout">Finalizar compra</Link>
                 </Button>
               )}

@@ -39,9 +39,10 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: product.description ?? undefined,
-      // A chave é omitida, não posta como `undefined`: é a ausência dela
-      // que deixa o opengraph-image.tsx deste segmento gerar o cartão de
-      // reserva para um produto ainda sem foto alguma.
+      // Produto ainda sem foto alguma sai sem og:image. O cartão gerado
+      // (opengraph-image.tsx, via next/og) cobria esse caso, mas custava
+      // ~750 KiB no Worker — mais do que cabe no limite de 3 MiB do plano
+      // Free da Cloudflare (Bloco 23).
       ...(ogImage ? { images: [{ url: ogImage, alt: product.name }] } : {}),
     },
   };

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -49,5 +50,11 @@ const nextConfig: NextConfig = {
     ],
   },
 };
+
+// Gives `next dev` the same D1/KV bindings `wrangler dev` has (local state
+// in .wrangler/), so getCloudflareContext() works outside the Worker too.
+if (process.env.NODE_ENV === "development") {
+  void initOpenNextCloudflareForDev();
+}
 
 export default nextConfig;

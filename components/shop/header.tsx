@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SafeImage } from "@/components/shop/safe-image";
+import { StoreLogo } from "@/components/store-logo";
 import { Menu, User, ShoppingBag, X, MessageCircle, ChevronRight, Info } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
@@ -183,22 +184,17 @@ export function Header({
             <Menu className="size-6" aria-hidden="true" />
           </button>
 
+          {/* Inside the 64px row on every screen: up to 36px tall on a
+              phone (and narrow enough to leave the icons their 44px
+              targets), 48px from md up. */}
           <Link href="/" className="col-start-2 shrink-0 select-none justify-self-center">
-            {settings.logo_url ? (
-              <SafeImage
-                src={settings.logo_url}
-                alt={settings.store_name}
-                width={174}
-                height={58}
-                className="h-14 w-auto object-contain"
-                priority
-                fallbackLabel={settings.store_name}
-              />
-            ) : (
-              <span className="text-lg font-extrabold uppercase tracking-[0.08em] text-gold">
-                {settings.store_name}
-              </span>
-            )}
+            <StoreLogo
+              logoUrl={settings.logo_url}
+              name={settings.store_name}
+              priority
+              imageClassName="h-9 max-w-[150px] min-[400px]:max-w-[190px] md:h-12 md:max-w-[260px]"
+              textClassName="text-lg font-extrabold uppercase tracking-[0.08em] text-gold"
+            />
           </Link>
 
           <div className="hidden flex-1 md:block">
@@ -288,9 +284,14 @@ export function Header({
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <div className="flex h-16 items-center justify-between bg-black px-6 text-bg">
-            <span className="text-sm font-extrabold uppercase tracking-[0.08em] text-gold">
-              {settings.store_name}
-            </span>
+            <Link href="/" onClick={closeMenu} className="select-none">
+              <StoreLogo
+                logoUrl={settings.logo_url}
+                name={settings.store_name}
+                imageClassName="h-8 max-w-[180px]"
+                textClassName="text-sm font-extrabold uppercase tracking-[0.08em] text-gold"
+              />
+            </Link>
             <button
               type="button"
               onClick={closeMenu}

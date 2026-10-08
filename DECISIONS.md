@@ -1538,3 +1538,42 @@ Melhor Envio, `config()` falha antes de qualquer cotação).
   `tests/order-totals.d1.test.ts` (o mesmo carrinho em cinco cenários dá
   o mesmo total, modo de frete e texto na sacola, no pedido do WhatsApp,
   no checkout e nas duas mensagens; e o preenchimento da 0007).
+
+## Bloco 33 — Logo no lugar do nome
+
+O campo de logo já existia (`site_settings.logo_url`, Configurações → Loja)
+e o cabeçalho e o rodapé já o liam; faltavam o menu do celular, o painel e
+o login, e o envio tratava a logo como uma foto (WebP com perdas, recortada
+em quadrado na prévia).
+
+- **Sem migration.** Uma versão só: cabeçalho, rodapé, faixa do menu do
+  celular, menu do painel e login têm fundo escuro, então não há lugar
+  para uma versão "para fundo claro".
+- **Envio próprio da logo** (`uploadLogoToStorage`): PNG, SVG ou WebP. O
+  SVG ganha tamanho em pixels a partir do `viewBox` e é desenhado como
+  imagem (os scripts dele nunca rodam), então o site nunca serve SVG. A
+  margem transparente é cortada, e o resultado é um PNG sem perdas de até
+  240 px de altura (nítido num celular 3x, onde a logo tem até 36 px).
+- **Ícones gerados no navegador, sem custo no worker:** 512 px (tela
+  inicial, `apple-touch-icon` e manifesto) e 48 px (aba), num quadrado
+  preto. Ficam ao lado da logo no KV com chaves derivadas
+  (`brand/<uuid>.icon.png`, `.favicon.png`), então não precisam de coluna.
+  PNG só é aceito no envio da logo — é assim que um PNG em `brand/` é
+  reconhecido como logo com ícones (`storeLogoIconUrls`).
+- **`storedKeysFor(key)`** lista todos os arquivos de um envio (foto,
+  miniatura e, na logo, os ícones). `deleteMediaAction` já usa; a função
+  de liberar imagens da Etapa 4 vai usar a mesma.
+- **Favicon:** `app/favicon.ico` virou `public/favicon.ico`. A convenção
+  de arquivo do Next acrescentaria o próprio `<link>` ao lado dos ícones
+  da logo, e o arquivo era embutido no worker: tirá-lo de `app/` reduziu o
+  worker de 2.438,6 para ~2.420 KiB comprimidos (`wrangler deploy
+  --dry-run`; dois builds iguais variam ~10 KiB). `app/manifest.ts` dá nome e ícone ao "adicionar à tela
+  inicial" no Android, abrindo o site no navegador como antes.
+- **`StoreLogo`** (`components/store-logo.tsx`) é o mesmo componente em
+  todos os lugares. A altura vem de cada lugar: no cabeçalho, 36 px no
+  celular e 48 px a partir de md, dentro da linha de 64 px. O nome continua
+  como `alt`, no título das páginas e na mensagem do WhatsApp; o JSON-LD
+  passou a levar a URL absoluta da logo.
+- **Testes:** `tests/image-url.unit.test.ts` (chaves derivadas). Teste
+  manual na loja local: envio de SVG com margem, prévia, ícones, cabeçalho
+  em 1280 px e 390 px, menu do celular, painel, login e remoção.

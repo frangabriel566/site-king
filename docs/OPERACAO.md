@@ -207,6 +207,26 @@ quanto no checkout via WhatsApp), redes sociais, as frases de envio/frete
 grátis que aparecem no rodapé do hero, e a faixa de avisos no topo do
 site (com um interruptor para ligar/desligar sem apagar as mensagens).
 
+### Logo
+
+- **Enviar:** em Configurações → Logo, envie um PNG com fundo
+  transparente, um SVG ou um WebP. O site guarda uma versão PNG nítida,
+  corta a margem transparente em volta e mostra a prévia sobre fundo preto.
+- **Onde aparece:** no lugar do nome da loja, no cabeçalho, no menu do
+  celular, no rodapé, no menu do painel e na tela de login do painel.
+  Todos esses lugares têm fundo escuro, então use uma logo clara ou
+  colorida. Clicar na logo leva à página inicial.
+- **Ícones:** o ícone da aba do navegador e o de "adicionar à tela inicial"
+  são gerados a partir da logo, num quadrado preto, e aparecem como prévia
+  logo abaixo dela. Uma logo larga, só com o nome escrito, fica pequena
+  nesses ícones; uma logo com símbolo funciona melhor.
+- **Salvar:** a logo e os ícones só entram no ar ao clicar em **Salvar
+  configurações**.
+- **Remover:** "Remover logo (volta ao nome em texto)" e salvar. O site
+  volta a mostrar o nome e o ícone padrão.
+- **O nome continua:** "King Store" segue no título das páginas, na
+  mensagem do WhatsApp e como texto alternativo da logo.
+
 ### Vitrine: preço, selos e confiança
 
 Na mesma tela, a seção **Vitrine** define as condições que a loja mostra

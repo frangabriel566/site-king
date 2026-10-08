@@ -60,7 +60,8 @@ export default async function ShopLayout({
     "@type": "Organization",
     name: settings.store_name,
     url: siteUrl,
-    logo: settings.logo_url ?? undefined,
+    // Absolute: search engines read this out of the page, not relative to it.
+    logo: settings.logo_url ? new URL(settings.logo_url, siteUrl).href : undefined,
     sameAs: [
       settings.instagram
         ? `https://instagram.com/${settings.instagram.replace("@", "")}`

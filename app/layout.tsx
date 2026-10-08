@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getSiteSettings } from "@/lib/data/settings";
+import { storeLogoIconUrls } from "@/lib/image-url";
 import "./globals.css";
 
 // Archivo, self-hosted: the exact latin file Google Fonts served through
@@ -33,24 +35,36 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 // without an OpenNext incremental cache configured, it caches nothing.)
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "King Store — Roupa Masculina",
-    template: "%s — King Store",
-  },
-  description:
-    "King Store. Vista-se como um rei: moletons, camisetas, calças e acessórios.",
-  openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    siteName: "King Store",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // The logo's icons when the store has one (Configurações → Logo), else the
+  // default favicon in public/. Not app/favicon.ico: that file convention
+  // would add its own <link> next to these and the browser could pick it.
+  const icons = storeLogoIconUrls((await getSiteSettings()).logo_url);
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: "King Store — Roupa Masculina",
+      template: "%s — King Store",
+    },
+    description:
+      "King Store. Vista-se como um rei: moletons, camisetas, calças e acessórios.",
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      siteName: "King Store",
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    icons: icons
+      ? {
+          icon: [{ url: icons.favicon, type: "image/png", sizes: "48x48" }],
+          apple: [{ url: icons.icon, type: "image/png", sizes: "512x512" }],
+        }
+      : { icon: [{ url: "/favicon.ico", sizes: "any" }] },
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

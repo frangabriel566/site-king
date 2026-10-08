@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { uploadImageToStorage } from "@/lib/client-upload";
+import { LOGO_ACCEPT, uploadImageToStorage, uploadLogoToStorage } from "@/lib/client-upload";
 import { deleteMediaAction } from "@/lib/actions/media";
 import type { UploadFolder } from "@/lib/image-url";
 
@@ -14,6 +14,7 @@ export function ImageUploader({
   value,
   onChange,
   folder,
+  kind = "photo",
   aspect = "aspect-video",
   savingRef,
   checkDuplicate,
@@ -22,6 +23,10 @@ export function ImageUploader({
   value: string | null;
   onChange: (url: string | null) => void;
   folder: UploadFolder;
+  /** "logo": the store logo — PNG, SVG or WebP, kept as a transparent PNG
+   * with its icons (uploadLogoToStorage), previewed whole on black, the
+   * background it is shown on. */
+  kind?: "photo" | "logo";
   aspect?: string;
   /** Set to true by the parent form right before a real submit — skips
    * the unmount cleanup so a just-saved image isn't deleted out from
@@ -70,12 +75,16 @@ export function ImageUploader({
 
     setProgress(0);
     const previous = value;
-    const result = await uploadImageToStorage(file, folder, {
+    const options = {
       onProgress: setProgress,
-      registerCancel: (cancel) => {
+      registerCancel: (cancel: () => void) => {
         cancelRef.current = cancel;
       },
-    });
+    };
+    const result =
+      kind === "logo"
+        ? await uploadLogoToStorage(file, options)
+        : await uploadImageToStorage(file, folder, options);
     setProgress(null);
 
     if (!result.ok) {
@@ -103,7 +112,9 @@ export function ImageUploader({
     <div>
       <p className="text-label mb-3">{label}</p>
       <div
-        className={`relative ${aspect} w-full overflow-hidden rounded-lg border border-dashed border-line bg-field`}
+        className={`relative ${aspect} w-full overflow-hidden rounded-lg border border-dashed border-line ${
+          kind === "logo" ? "bg-black" : "bg-field"
+        }`}
       >
         {progress !== null ? (
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -129,7 +140,13 @@ export function ImageUploader({
                 in the browser, so the optimizer adds nothing here but a
                 dependency on the Vercel image quota — when it ran out,
                 every new upload showed as a broken image. */}
-            <Image src={value} alt="" fill unoptimized className="object-cover" />
+            <Image
+              src={value}
+              alt=""
+              fill
+              unoptimized
+              className={kind === "logo" ? "object-contain p-4" : "object-cover"}
+            />
             <button
               type="button"
               onClick={handleRemove}
@@ -146,23 +163,36 @@ export function ImageUploader({
             className="flex size-full flex-col items-center justify-center gap-2 text-ink-muted hover:text-fg"
           >
             <Upload className="size-5" />
-            <span className="text-xs">Enviar imagem</span>
+            <span className="text-xs">
+              {kind === "logo" ? "Enviar logo (PNG transparente, SVG ou WebP)" : "Enviar imagem"}
+            </span>
           </button>
         )}
       </div>
       {value && progress === null && (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="mt-2 text-xs text-ink-muted underline underline-offset-4 hover:text-fg"
-        >
-          Trocar imagem
-        </button>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="text-xs text-ink-muted underline underline-offset-4 hover:text-fg"
+          >
+            {kind === "logo" ? "Trocar logo" : "Trocar imagem"}
+          </button>
+          {kind === "logo" && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="text-xs text-ink-muted underline underline-offset-4 hover:text-fg"
+            >
+              Remover logo (volta ao nome em texto)
+            </button>
+          )}
+        </div>
       )}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={kind === "logo" ? LOGO_ACCEPT : "image/*"}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { updateSiteSettingsAction, type ActionResult } from "@/lib/actions/settings";
 import { formatCep, formatCurrency } from "@/lib/format";
+import { storeLogoIconUrls } from "@/lib/image-url";
 import { ANNOUNCEMENT_MAX_LENGTH, ANNOUNCEMENT_MAX_MESSAGES } from "@/lib/shop-config";
 import type { SiteSettings } from "@/lib/data/settings";
 
@@ -18,6 +19,7 @@ const initialState: ActionResult = { status: "idle" };
 export function SettingsForm({ settings }: { settings: SiteSettings }) {
   const [state, formAction, pending] = useActionState(updateSiteSettingsAction, initialState);
   const [logoUrl, setLogoUrl] = useState<string | null>(settings.logo_url);
+  const logoIcons = storeLogoIconUrls(logoUrl);
   const [announcementActive, setAnnouncementActive] = useState(settings.announcement_active);
   // Flipped right before a real submit so navigating away after saving
   // does not delete the logo this form just wrote — see ImageUploader.
@@ -51,15 +53,35 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               defaultValue={settings.store_name}
             />
           </div>
-          <div className="w-40">
+          <div className="max-w-sm">
             <ImageUploader
               label="Logo"
               value={logoUrl}
               onChange={setLogoUrl}
               folder="brand"
-              aspect="aspect-square"
+              kind="logo"
+              aspect="aspect-[3/1]"
               savingRef={savingRef}
             />
+            <p className="mt-2 text-xs text-ink-muted">
+              Aparece no lugar do nome no cabeçalho, no menu do celular, no
+              rodapé e no painel — todos com fundo escuro, então use uma logo
+              clara ou colorida. Sem logo, o nome da loja aparece em texto.
+            </p>
+            {logoIcons && (
+              <div className="mt-4 flex items-center gap-4">
+                {/* Generated from the logo when it was sent
+                    (lib/client-upload.ts); they go live with the save. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoIcons.favicon} alt="" width={24} height={24} className="rounded-sm" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoIcons.icon} alt="" width={56} height={56} className="rounded-xl" />
+                <p className="text-xs text-ink-muted">
+                  Ícone da aba do navegador e de &ldquo;adicionar à tela
+                  inicial&rdquo;, gerados a partir da logo.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -25,6 +25,11 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { adminLogoutAction } from "@/lib/actions/admin-auth";
+import { StoreLogo } from "@/components/store-logo";
+
+/** The store's logo and name (Configurações), shown where the panel names
+ * the store. */
+type StoreBrand = { logoUrl: string | null; name: string };
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -46,9 +51,11 @@ const NAV_ITEMS = [
 export function AdminSidebar({
   email,
   pendingWhatsApp,
+  brand,
 }: {
   email: string | null;
   pendingWhatsApp: number;
+  brand: StoreBrand;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,13 +74,23 @@ export function AdminSidebar({
         >
           <Menu className="size-5" aria-hidden="true" />
         </button>
-        <p className="text-sm font-extrabold uppercase tracking-[0.1em] text-fg">
-          King Store
-        </p>
+        <Link href="/admin" className="select-none">
+          <StoreLogo
+            logoUrl={brand.logoUrl}
+            name={brand.name}
+            imageClassName="h-7 max-w-[160px]"
+            textClassName="text-sm font-extrabold uppercase tracking-[0.1em] text-fg"
+          />
+        </Link>
       </header>
 
       <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-sidebar md:flex print:hidden">
-        <SidebarPanel pathname={pathname} email={email} pendingWhatsApp={pendingWhatsApp} />
+        <SidebarPanel
+          pathname={pathname}
+          email={email}
+          pendingWhatsApp={pendingWhatsApp}
+          brand={brand}
+        />
       </aside>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -87,6 +104,7 @@ export function AdminSidebar({
             pathname={pathname}
             pendingWhatsApp={pendingWhatsApp}
             email={email}
+            brand={brand}
             onNavigate={() => setMobileOpen(false)}
           />
         </SheetContent>
@@ -101,20 +119,27 @@ function SidebarPanel({
   pathname,
   email,
   pendingWhatsApp,
+  brand,
   onNavigate,
 }: {
   pathname: string;
   email: string | null;
   pendingWhatsApp: number;
+  brand: StoreBrand;
   onNavigate?: () => void;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-6">
         <div>
-          <p className="text-sm font-extrabold uppercase tracking-[0.1em] text-fg">
-            King Store
-          </p>
+          <Link href="/admin" onClick={onNavigate} className="inline-block select-none">
+            <StoreLogo
+              logoUrl={brand.logoUrl}
+              name={brand.name}
+              imageClassName="h-8 max-w-[180px]"
+              textClassName="text-sm font-extrabold uppercase tracking-[0.1em] text-fg"
+            />
+          </Link>
           <p className="text-label mt-1">Painel administrativo</p>
         </div>
         {onNavigate && (

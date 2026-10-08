@@ -203,6 +203,240 @@ export async function uploadImageToStorage(
   }
 }
 
+// ------------------------------------------------------------------
+// Store logo (Configurações)
+// ------------------------------------------------------------------
+
+/** The logo shows at most 48px tall (the header); 240px keeps it sharp on
+ * a 3x phone screen. PNG, not WebP: lossless, so the edges of the letters
+ * stay clean, and transparent. */
+const LOGO_HEIGHT = 240;
+const LOGO_MAX_WIDTH = 1200;
+/** An SVG is drawn this tall before trimming, so the trim loses nothing. */
+const SVG_DRAW_HEIGHT = 2 * LOGO_HEIGHT;
+const LOGO_TYPES = new Set(["image/png", "image/webp", "image/svg+xml"]);
+/** Icons sit on black, like every place the logo appears (header, footer,
+ * menu, panel) — a logo made for a dark background stays legible. */
+const ICON_BACKGROUND = "#000000";
+const ICON_PADDING = 0.12;
+const ICON_SIZE = 512;
+const FAVICON_SIZE = 48;
+
+export const LOGO_ACCEPT = "image/png,image/webp,image/svg+xml,.svg";
+
+function isSvg(file: File): boolean {
+  return file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
+}
+
+function svgLength(value: string | null): number {
+  return value && /^\s*[\d.]+(px)?\s*$/.test(value) ? Number.parseFloat(value) : Number.NaN;
+}
+
+/** An SVG has no pixels of its own: its root gets a pixel size (keeping its
+ * viewBox, so the drawing scales) and the browser draws it at that size.
+ * Loaded as an image, its scripts never run. */
+async function drawSvg(file: File): Promise<HTMLCanvasElement> {
+  const doc = new DOMParser().parseFromString(await file.text(), "image/svg+xml");
+  const svg = doc.documentElement;
+  if (svg.nodeName.toLowerCase() !== "svg" || doc.getElementsByTagName("parsererror").length) {
+    throw new Error("Este SVG não pôde ser lido.");
+  }
+  const box = (svg.getAttribute("viewBox") ?? "").trim().split(/[\s,]+/).map(Number);
+  let width = svgLength(svg.getAttribute("width"));
+  let height = svgLength(svg.getAttribute("height"));
+  if (!(width > 0 && height > 0) && box.length === 4 && box[2] > 0 && box[3] > 0) {
+    [width, height] = [box[2], box[3]];
+  }
+  if (!(width > 0 && height > 0)) throw new Error("O SVG não informa o tamanho (viewBox).");
+  if (box.length !== 4) svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const drawWidth = Math.round((width * SVG_DRAW_HEIGHT) / height);
+  svg.setAttribute("width", String(drawWidth));
+  svg.setAttribute("height", String(SVG_DRAW_HEIGHT));
+
+  const url = URL.createObjectURL(
+    new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }),
+  );
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = drawWidth;
+    canvas.height = SVG_DRAW_HEIGHT;
+    canvas.getContext("2d")?.drawImage(image, 0, 0, drawWidth, SVG_DRAW_HEIGHT);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** The logo without the transparent margin around it — a file exported
+ * with a wide empty border would otherwise show up tiny in the header. */
+function trimTransparent(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let top = height;
+  let left = width;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] > 8) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+  }
+  if (right < 0) throw new Error("A imagem está toda transparente.");
+  const trimmed = document.createElement("canvas");
+  trimmed.width = right - left + 1;
+  trimmed.height = bottom - top + 1;
+  trimmed.getContext("2d")?.drawImage(canvas, -left, -top);
+  return trimmed;
+}
+
+function scaled(source: CanvasImageSource, width: number, height: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Este navegador não suporta processar imagens no cliente.");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, width, height);
+  return canvas;
+}
+
+function squareIcon(logo: HTMLCanvasElement, size: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Este navegador não suporta processar imagens no cliente.");
+  ctx.fillStyle = ICON_BACKGROUND;
+  ctx.fillRect(0, 0, size, size);
+  const inner = size * (1 - 2 * ICON_PADDING);
+  const scale = Math.min(inner / logo.width, inner / logo.height);
+  const width = logo.width * scale;
+  const height = logo.height * scale;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(logo, (size - width) / 2, (size - height) / 2, width, height);
+  return canvas;
+}
+
+/** The four PNGs of the store logo: the logo (≤240px tall), its thumbnail
+ * (the upload route stores one with every image), and the two icons. */
+async function processLogo(file: File): Promise<{
+  logo: CompressedImage;
+  thumb: Blob;
+  icon: Blob;
+  favicon: Blob;
+}> {
+  let source: HTMLCanvasElement;
+  if (isSvg(file)) {
+    source = await drawSvg(file);
+  } else {
+    const bitmap = await createImageBitmap(file);
+    try {
+      source = scaled(bitmap, bitmap.width, bitmap.height);
+    } finally {
+      bitmap.close();
+    }
+  }
+  const trimmed = trimTransparent(source);
+
+  let height = Math.min(LOGO_HEIGHT, trimmed.height);
+  let width = Math.round((trimmed.width * height) / trimmed.height);
+  if (width > LOGO_MAX_WIDTH) {
+    height = Math.max(1, Math.round((height * LOGO_MAX_WIDTH) / width));
+    width = LOGO_MAX_WIDTH;
+  }
+  const logoCanvas = scaled(trimmed, width, height);
+  const logo = await encode(logoCanvas, "image/png", 1);
+  const thumb =
+    width > THUMBNAIL_WIDTH
+      ? await encode(
+          scaled(trimmed, THUMBNAIL_WIDTH, Math.max(1, Math.round((height * THUMBNAIL_WIDTH) / width))),
+          "image/png",
+          1,
+        )
+      : logo;
+
+  return {
+    logo: { blob: logo, width, height },
+    thumb,
+    icon: await encode(squareIcon(trimmed, ICON_SIZE), "image/png", 1),
+    favicon: await encode(squareIcon(trimmed, FAVICON_SIZE), "image/png", 1),
+  };
+}
+
+/** The store logo: PNG with a transparent background, SVG or WebP in;
+ * stored as PNG with its icons (lib/image-url.ts). */
+export async function uploadLogoToStorage(
+  file: File,
+  options: {
+    onProgress?: (percent: number) => void;
+    registerCancel?: (cancel: () => void) => void;
+  } = {},
+): Promise<UploadResult> {
+  if (!LOGO_TYPES.has(file.type) && !isSvg(file)) {
+    return { ok: false, error: "Envie a logo em PNG (fundo transparente), SVG ou WebP." };
+  }
+  if (file.size > MAX_SOURCE_FILE_BYTES) {
+    return { ok: false, error: "Arquivo maior que 10MB." };
+  }
+
+  let processed: Awaited<ReturnType<typeof processLogo>>;
+  try {
+    processed = await processLogo(file);
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error && !(error instanceof DOMException)
+          ? error.message
+          : "Não foi possível processar essa logo. Tente PNG.",
+    };
+  }
+
+  const xhrHandle: { current: XMLHttpRequest | null } = { current: null };
+  let cancelled = false;
+  options.registerCancel?.(() => {
+    cancelled = true;
+    xhrHandle.current?.abort();
+  });
+
+  const body = new FormData();
+  body.set("folder", "brand");
+  body.set("logo", "1");
+  body.set("file", processed.logo.blob, "logo.png");
+  body.set("thumb", processed.thumb, "thumb.png");
+  body.set("icon", processed.icon, "icon.png");
+  body.set("favicon", processed.favicon, "favicon.png");
+
+  try {
+    const { status, json } = await send(body, (p) => options.onProgress?.(p), xhrHandle);
+    if (status < 200 || status >= 300 || !json.url || !json.key) {
+      return { ok: false, error: json.error ?? "Não foi possível enviar a logo." };
+    }
+    return {
+      ok: true,
+      url: json.url,
+      path: json.key,
+      width: processed.logo.width,
+      height: processed.logo.height,
+      sizeBytes: processed.logo.blob.size,
+    };
+  } catch (error) {
+    if (cancelled) return { ok: false, error: "Upload cancelado.", cancelled: true };
+    return { ok: false, error: error instanceof Error ? error.message : "Falha no upload." };
+  }
+}
+
 /**
  * SHA-256 of the raw file the operator picked, before compression —
  * compression is deterministic for a given source, but hashing the

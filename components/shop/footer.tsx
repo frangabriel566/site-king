@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SafeImage } from "@/components/shop/safe-image";
+import { StoreLogo } from "@/components/store-logo";
 import { CreditCard, ShieldCheck, Lock, Camera, Music2, Mail } from "lucide-react";
 import { FooterNewsletter } from "./footer-newsletter";
 import { FooterAccordionSection } from "./footer-accordion-section";
@@ -30,20 +30,14 @@ export function Footer({
       <div className="mx-auto max-w-[1400px] px-4 pt-10 pb-6 sm:pt-14 sm:pb-8 md:px-8">
         <div className="divide-y divide-white/10 pb-2 lg:grid lg:grid-cols-5 lg:gap-10 lg:divide-y-0 lg:pb-12">
           <div className="pb-5 lg:col-span-2 lg:pb-0">
-            {settings.logo_url ? (
-              <SafeImage
-                src={settings.logo_url}
-                alt={settings.store_name}
-                width={140}
-                height={40}
-                className="h-9 w-auto object-contain"
-                fallbackLabel={settings.store_name}
+            <Link href="/" className="inline-block select-none">
+              <StoreLogo
+                logoUrl={settings.logo_url}
+                name={settings.store_name}
+                imageClassName="h-9 max-w-[200px]"
+                textClassName="text-sm font-extrabold uppercase tracking-[0.08em] text-gold"
               />
-            ) : (
-              <p className="text-sm font-extrabold uppercase tracking-[0.08em] text-gold">
-                {settings.store_name}
-              </p>
-            )}
+            </Link>
             <p className="mt-3 max-w-xs text-sm text-bg/70">
               {settings.shipping_note ?? "Vestuário masculino."}
             </p>

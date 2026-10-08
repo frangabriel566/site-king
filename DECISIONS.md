@@ -1699,3 +1699,77 @@ token era coisa de deploy.
     peso, modo de venda e reserva.
   - `tests/shop-config.unit.test.ts`: escolha dos textos.
 - Worker: ~2.473 KiB comprimidos (+~40 KiB: a tela e as ações do painel).
+
+## Bloco 36 — Imagens no KV (Etapa 4)
+
+Só as fotos recém-enviadas e nunca salvas saíam do KV. Uma foto removida de
+um produto salvo, um banner trocado ou um produto excluído deixava os
+arquivos para sempre (a faxina achou 9 assim no banco local, entre elas duas
+logos antigas). A Etapa 3 (cotação e checkout) ficou para quando a loja for
+integrar Mercado Pago e Melhor Envio; por isso esta migration é a 0010.
+
+- **Função única** `releaseImages(urls)` (`lib/media/images.ts`), usada
+  por produtos, variações, banners, categorias, marcas, logo, feedbacks e
+  pelo `deleteMediaAction` dos formulários:
+  - só considera uploads do próprio site (`/img/<pasta>/<uuid>`);
+  - antes de apagar, confere todas as colunas que guardam imagem
+    (`IMAGE_COLUMNS`, uma consulta em lote). Produto duplicado divide as
+    fotos com o original, então "este registro parou de usar" não basta;
+  - uma URL absoluta do próprio site, ou com `?v=…`, também conta como uso;
+  - apaga foto, miniatura e, na logo, os dois ícones (`storedKeysFor`);
+  - roda depois do banco e nunca lança erro: se a conferência falhar, não
+    apaga nada; se o KV falhar, registra no log e o arquivo fica para a
+    faxina.
+- **`instr`, não `LIKE`:** o D1 recusa padrões de `LIKE` com mais de 50
+  bytes ("LIKE or GLOB pattern too complex"), e `%/img/products/<uuid>.webp%`
+  tem 57. O teste pegou isso; em produção, toda conferência teria falhado
+  e nada seria apagado.
+- **Salvar formulários:** o servidor lê as imagens antes, salva, e libera
+  as que saíram (`removedUrls`). No produto, a lista inclui galeria,
+  variações (arquivadas também, que guardam a foto para os pedidos) e o
+  campo de vídeo.
+- **Excluir produto** (`lib/products/delete.ts`):
+  - nunca vendido (nenhuma linha de pedido aponta para ele ou para uma
+    variação dele): `DELETE` com `NOT EXISTS` no mesmo comando, para um
+    pedido criado no meio do caminho não perder a linha; depois as fotos
+    são liberadas;
+  - vendido: `products.deleted_at` (migration `0010_product_soft_delete`),
+    status `archived`, slug com `--excluido-<id>` (libera o endereço),
+    variações arquivadas com SKU limpo (libera os SKUs), e sai das
+    vitrines, banners e feedbacks, como uma exclusão real faria pelas
+    chaves estrangeiras. As fotos ficam (decisão 7): a linha ainda aponta
+    para elas e uma restauração manual continua possível. As variações
+    arquivadas nessa hora têm `archived_at` igual ao `deleted_at`;
+  - o painel nunca mostra produto excluído (lista, edição, seletores,
+    contagem por marca, avaliações) e a loja também não (`isActive` checa
+    o `deleted_at` além do status). Uma aba aberta num produto excluído não
+    consegue salvá-lo de volta;
+  - a confirmação mostra quantos pedidos o produto tem e diz se ele vai
+    ser apagado ou arquivado; o aviso depois diz o que aconteceu.
+- **Faxina** (`/admin/faxina`, `lib/media/cleanup.ts`):
+  - "Analisar" só lê: lista o KV inteiro (até 20 páginas de 1.000 chaves),
+    agrupa os arquivos por upload e compara com todas as colunas de
+    imagem. Chaves que não são uploads do site nunca são tocadas;
+  - uploads com menos de 24h ficam de fora (formulário ainda aberto);
+  - tamanho: uploads novos gravam `uploadedAt` e `size` nos metadados do
+    KV (vêm no `list`, sem ler o arquivo); os antigos são medidos lendo o
+    arquivo, até 60 por análise, para não pesar na requisição;
+  - "Apagar" pede confirmação, manda lotes de 25 uploads e o servidor
+    confere cada um no banco de novo. A idade não é conferida de novo: só
+    aumenta desde a análise, e um upload novo tem chave nova;
+  - limite do plano Free: 1.000 exclusões por dia no KV. Se o KV recusar,
+    o lote para e a tela explica.
+- **Cache da borda:** apagar do KV não limpa o cache da Cloudflare, que
+  guarda cada foto por até um ano (a URL nunca muda de conteúdo). Como
+  nada aponta para ela, ninguém a pede.
+- **Testes** (`tests/images.d1.test.ts`, com o D1 e o KV em memória do
+  wrangler; `tests/image-url.unit.test.ts`):
+  - imagem compartilhada preservada; logo com ícones; URL absoluta conta
+    como uso;
+  - remover foto e trocar a foto da cor no produto, trocar o banner;
+  - excluir nunca vendido; arquivar vendido (pedidos ligados, fotos
+    guardadas, slug e SKU livres, some do painel e da loja);
+  - faxina: lista, tamanho medido, 24h, chave estranha ignorada, conferência
+    de novo antes de apagar.
+- Worker: ~2.509 KiB comprimidos (+~36 KiB: a página da faxina e as
+  ações).

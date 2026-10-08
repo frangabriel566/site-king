@@ -10,10 +10,16 @@ const ROOT = path.resolve(__dirname, "../..");
 /**
  * A fresh, in-memory D1 — the same engine production runs on — with every
  * migration in drizzle/migrations applied in order. Nothing is written to
- * .wrangler/state, so the dev database is never touched.
+ * .wrangler/state, so the dev database is never touched. `kv` is the photo
+ * store (IMAGES_KV), just as empty and in memory.
  */
-export async function createTestDb(): Promise<{ db: Db; d1: D1Database; dispose: () => Promise<void> }> {
-  const proxy = await getPlatformProxy<{ DB: D1Database }>({
+export async function createTestDb(): Promise<{
+  db: Db;
+  d1: D1Database;
+  kv: KVNamespace;
+  dispose: () => Promise<void>;
+}> {
+  const proxy = await getPlatformProxy<{ DB: D1Database; IMAGES_KV: KVNamespace }>({
     configPath: path.join(ROOT, "wrangler.jsonc"),
     persist: false,
   });
@@ -34,5 +40,10 @@ export async function createTestDb(): Promise<{ db: Db; d1: D1Database; dispose:
     }
   }
 
-  return { db: drizzle(d1, { schema }) as unknown as Db, d1, dispose: proxy.dispose };
+  return {
+    db: drizzle(d1, { schema }) as unknown as Db,
+    d1,
+    kv: proxy.env.IMAGES_KV,
+    dispose: proxy.dispose,
+  };
 }

@@ -32,6 +32,7 @@ import {
 import { buildGallerySlides, getProductColors } from "@/lib/product-gallery";
 import { normalizeSearchText } from "@/lib/search-text";
 import { safeQuery } from "./safe";
+import { orderCountsByProduct } from "@/lib/products/delete";
 
 export type ProductImage = Tables<"product_images">;
 export type ProductVariant = Tables<"product_variants">;
@@ -120,7 +121,12 @@ const DETAIL_WITH = {
   brand: { columns: { id: true, name: true, slug: true, logo_url: true } },
 } as const;
 
-const isActive = eq(products.status, "active");
+/** Published and not deleted. A deleted product is also "archived"
+ * (lib/products/delete.ts); the second check is the belt to those braces. */
+const isActive: SQL = and(eq(products.status, "active"), isNull(products.deleted_at))!;
+
+/** Deleted products (kept for their orders) never reach the panel. */
+const notDeleted = isNull(products.deleted_at);
 
 function toListItem(row: {
   id: string;
@@ -484,21 +490,30 @@ export type AdminProductListItem = Tables<"products"> & {
   product_images: Pick<ProductImage, "url">[];
   product_variants: Pick<ProductVariant, "id" | "stock" | "image_url">[];
   product_sections: ProductSectionPick[];
+  /** Orders (any status) with this product — the delete confirmation
+   * says it will be archived rather than deleted. */
+  orderCount: number;
 };
 
-/** Admin listing — every status. */
+/** Admin listing — every status, never a deleted product. */
 export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
   await requireAdminPage();
-  return getDb().query.products.findMany({
-    orderBy: asc(products.position),
-    with: {
-      category: { columns: { id: true, name: true } },
-      brand: { columns: { id: true, name: true } },
-      product_images: { columns: { url: true } },
-      product_variants: { columns: { id: true, stock: true, image_url: true }, where: liveVariant },
-      product_sections: { columns: { section: true, position: true } },
-    },
-  });
+  const db = getDb();
+  const [rows, orderCounts] = await Promise.all([
+    db.query.products.findMany({
+      where: notDeleted,
+      orderBy: asc(products.position),
+      with: {
+        category: { columns: { id: true, name: true } },
+        brand: { columns: { id: true, name: true } },
+        product_images: { columns: { url: true } },
+        product_variants: { columns: { id: true, stock: true, image_url: true }, where: liveVariant },
+        product_sections: { columns: { section: true, position: true } },
+      },
+    }),
+    orderCountsByProduct(db),
+  ]);
+  return rows.map((row) => ({ ...row, orderCount: orderCounts.get(row.id) ?? 0 }));
 }
 
 /** Every slug already taken, so the form can settle on a free one while
@@ -549,6 +564,7 @@ export async function getProductOptions(): Promise<ProductOption[]> {
       price: products.price,
     })
     .from(products)
+    .where(notDeleted)
     .orderBy(asc(products.name));
 }
 
@@ -562,7 +578,7 @@ export async function getProductByIdAdmin(
 ): Promise<AdminProductDetail | null> {
   await requireAdminPage();
   const row = await getDb().query.products.findFirst({
-    where: eq(products.id, id),
+    where: and(eq(products.id, id), notDeleted),
     with: { ...DETAIL_WITH, product_sections: { columns: { section: true, position: true } } },
   });
   return row ?? null;

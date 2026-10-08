@@ -8,6 +8,7 @@ import { bannerSchema } from "@/lib/validations/banner";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
+import { releaseImages, removedUrls } from "@/lib/media/images";
 
 type BannerInput = z.infer<typeof bannerSchema>;
 
@@ -84,11 +85,24 @@ export async function updateBannerAction(
   }
 
   await requireAdmin();
+  const db = getDb();
+  const [before] = await db
+    .select({ image_url: banners.image_url, cutout_url: banners.cutout_url })
+    .from(banners)
+    .where(eq(banners.id, id));
+  const row = toRow(parsed.data);
   try {
-    await getDb().update(banners).set(toRow(parsed.data)).where(eq(banners.id, id));
+    await db.update(banners).set(row).where(eq(banners.id, id));
   } catch (error) {
     console.error("[updateBannerAction]", error);
     return { status: "error", message: "Não foi possível salvar o banner." };
+  }
+
+  // A swapped or removed background/cutout leaves KV (if nothing else uses it).
+  if (before) {
+    await releaseImages(
+      removedUrls([before.image_url, before.cutout_url], [row.image_url, row.cutout_url]),
+    );
   }
 
   revalidateStorefront();
@@ -97,7 +111,11 @@ export async function updateBannerAction(
 
 export async function deleteBannerAction(id: string): Promise<{ ok: boolean; message?: string }> {
   await requireAdmin();
-  await getDb().delete(banners).where(eq(banners.id, id));
+  const [removed] = await getDb()
+    .delete(banners)
+    .where(eq(banners.id, id))
+    .returning({ image_url: banners.image_url, cutout_url: banners.cutout_url });
+  if (removed) await releaseImages([removed.image_url, removed.cutout_url]);
   revalidateStorefront();
   return { ok: true };
 }

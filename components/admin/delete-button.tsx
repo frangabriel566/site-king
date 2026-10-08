@@ -34,7 +34,9 @@ export function DeleteButton({
     startTransition(async () => {
       const result = await action();
       if (result.ok) {
-        toast.success(`${itemLabel} excluído.`);
+        // The action may say what actually happened (a sold product is
+        // archived, not deleted).
+        toast.success(result.message ?? `${itemLabel} excluído.`);
         setOpen(false);
         onDeleted?.();
       } else {

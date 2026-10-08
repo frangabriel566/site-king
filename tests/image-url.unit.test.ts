@@ -4,6 +4,8 @@ import {
   keyFromImageUrl,
   storeLogoIconUrls,
   storedKeysFor,
+  uploadKeyFor,
+  uploadKeysIn,
 } from "@/lib/image-url";
 
 const LOGO = "brand/0f8fad5b-d9cb-469f-a165-70867728950e.png";
@@ -47,5 +49,20 @@ describe("storedKeysFor", () => {
       "brand/0f8fad5b-d9cb-469f-a165-70867728950e.icon.png",
       "brand/0f8fad5b-d9cb-469f-a165-70867728950e.favicon.png",
     ]);
+  });
+});
+
+describe("which upload a stored file or a saved URL belongs to", () => {
+  it("maps thumbnails and logo icons back to the upload", () => {
+    expect(uploadKeyFor("products/7c9e6679-7425-40de-944b-e07fc1f90ae7.sm.webp")).toBe(PHOTO);
+    expect(uploadKeyFor("brand/0f8fad5b-d9cb-469f-a165-70867728950e.favicon.png")).toBe(LOGO);
+    expect(uploadKeyFor(PHOTO)).toBe(PHOTO);
+  });
+
+  it("finds uploads in relative, absolute and query-string URLs, and nothing else", () => {
+    expect(uploadKeysIn(`/img/${PHOTO}`)).toEqual([PHOTO]);
+    expect(uploadKeysIn(`https://sitekingstore.com.br/img/${PHOTO}?v=sm`)).toEqual([PHOTO]);
+    expect(uploadKeysIn("https://picsum.photos/seed/x/800/800")).toEqual([]);
+    expect(uploadKeysIn("/img/outra/7c9e6679-7425-40de-944b-e07fc1f90ae7.webp")).toEqual([]);
   });
 });

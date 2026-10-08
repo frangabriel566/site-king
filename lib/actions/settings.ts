@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { siteSettingsSchema } from "@/lib/validations/settings";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
+import { releaseImages, removedUrls } from "@/lib/media/images";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -79,10 +80,14 @@ export async function updateSiteSettingsAction(
     origin_state: parsed.data.origin_state || null,
   };
 
+  const db = getDb();
+  const [before] = await db
+    .select({ logo_url: schema.site_settings.logo_url })
+    .from(schema.site_settings);
   try {
     // Single row, id = 1. An upsert, so a fresh database without the seed
     // row still saves on the first try.
-    await getDb()
+    await db
       .insert(schema.site_settings)
       .values({ id: 1, ...values })
       .onConflictDoUpdate({ target: schema.site_settings.id, set: values });
@@ -90,6 +95,9 @@ export async function updateSiteSettingsAction(
     console.error("[updateSiteSettingsAction]", error);
     return { status: "error", message: "Não foi possível salvar as configurações." };
   }
+
+  // A replaced or removed logo leaves KV with its icons.
+  if (before) await releaseImages(removedUrls([before.logo_url], [values.logo_url]));
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/configuracoes");

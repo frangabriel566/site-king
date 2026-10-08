@@ -71,6 +71,13 @@
       "when": 1791474818323,
       "tag": "0009_integrations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791476650664,
+      "tag": "0010_product_soft_delete",
+      "breakpoints": true
     }
   ]
 }

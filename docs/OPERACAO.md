@@ -57,7 +57,9 @@ usar a posição para decidir qual aparece primeiro.
 
 Editar um produto depois substitui completamente as imagens e variações
 pelas que estiverem no formulário no momento de salvar — se você removeu
-uma variação sem querer, é só adicionar de volta antes de salvar.
+uma variação sem querer, é só adicionar de volta antes de salvar. As fotos
+removidas são apagadas do armazenamento ao salvar (veja "Excluir produto e
+fotos guardadas").
 
 ## Variações e pedidos
 
@@ -81,6 +83,52 @@ religados com `scripts/sql/relink-order-items.sql` (produto + cor +
 tamanho), **só depois do deploy da correção**. O script não mexe em
 estoque: pedidos confirmados que pularam a baixa são conferidos à mão em
 `/admin/estoque`.
+
+## Excluir produto e fotos guardadas
+
+O botão de lixeira em `/admin/produtos` pede confirmação, e a confirmação
+diz o que vai acontecer:
+
+- **Nunca vendido** (nenhum pedido, de qualquer status): o produto é
+  apagado de vez, com variações e fotos. Não tem como desfazer.
+- **Já vendido** ("Este produto está em N pedidos"): o produto é
+  **arquivado**:
+  - some do site e do painel (lista, estoque, busca, avaliações e os
+    seletores de banner e feedback);
+  - os pedidos continuam ligados a ele, sem perder nada do histórico;
+  - as fotos ficam guardadas;
+  - o endereço (slug) e os SKUs ficam livres para um produto novo.
+
+  Se precisar trazer de volta um produto arquivado assim, peça ao
+  desenvolvedor: os dados continuam no banco.
+
+**Fotos que saem do site saem do armazenamento.** Ao salvar um produto,
+banner, categoria, marca, a logo ou um feedback, as fotos que você tirou ou
+trocou são apagadas, junto com a miniatura (e, na logo, os ícones). A
+exceção é uma foto que outro registro ainda usa, como a de um produto
+duplicado; essa fica.
+
+## Faxina de imagens
+
+`/admin/faxina` encontra fotos guardadas que nada no site usa mais: de
+produtos excluídos antes desta versão, de trocas antigas de imagem ou de
+formulários que não foram salvos.
+
+1. **Analisar imagens:** só mostra. Lista cada foto sem uso, com miniatura,
+   tipo (produto, banner, logo…), tamanho e data de envio ("envio antigo"
+   para fotos de antes desta versão), e o tamanho total. Fotos enviadas nas
+   últimas 24 horas ficam de fora, porque podem estar num formulário ainda
+   aberto.
+2. **Apagar N imagens:** pede confirmação e apaga em lotes, mostrando o
+   andamento. Cada foto é conferida de novo antes de apagar; se alguém
+   passou a usar uma depois da análise, ela fica e o resultado avisa.
+
+O plano gratuito da Cloudflare permite **1.000 exclusões por dia** no
+armazenamento de fotos, e cada foto usa duas (foto e miniatura). Numa
+faxina muito grande, se o limite acabar, a tela avisa; é só repetir no dia
+seguinte. A análise mede o tamanho de até 60 arquivos antigos por vez; se
+houver mais, o total aparece com "+ N sem tamanho medido", e a lista vale
+do mesmo jeito.
 
 ## Frete e pedidos pelo WhatsApp
 

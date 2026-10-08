@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, eq, getTableColumns } from "drizzle-orm";
+import { and, asc, count, eq, getTableColumns, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
@@ -39,7 +39,8 @@ export async function getAllBrandsAdmin(): Promise<AdminBrandListItem[]> {
   return getDb()
     .select({ ...getTableColumns(brands), productCount: count(products.id) })
     .from(brands)
-    .leftJoin(products, eq(products.brand_id, brands.id))
+    // Deleted products (kept for their orders) don't count.
+    .leftJoin(products, and(eq(products.brand_id, brands.id), isNull(products.deleted_at)))
     .groupBy(brands.id)
     .orderBy(asc(brands.position));
 }

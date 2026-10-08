@@ -267,6 +267,11 @@ export const products = sqliteTable(
      * search box matches against (lib/search-text.ts). Rewritten on every
      * product save and whenever its brand or category is renamed. */
     search_text: text("search_text").notNull().default(""),
+    /** Deleted in the panel after it was sold: kept because orders point
+     * at it (lib/products/delete.ts). Status "archived", slug moved aside,
+     * variants archived — invisible in the store and the panel, photos
+     * kept. Null for every product still in the catalogue. */
+    deleted_at: text("deleted_at"),
     created_at: createdAt(),
     updated_at: updatedAt(),
   },

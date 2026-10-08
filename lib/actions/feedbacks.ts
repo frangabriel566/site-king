@@ -6,8 +6,7 @@ import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
-import { deleteObject } from "@/lib/storage";
-import { keyFromImageUrl, thumbnailKey } from "@/lib/image-url";
+import { releaseImages, removedUrls } from "@/lib/media/images";
 import { feedbackSchema, type FeedbackInput } from "@/lib/validations/feedback";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
@@ -50,16 +49,6 @@ function imageRows(feedbackId: string, data: FeedbackInput) {
     width: image.width ?? null,
     height: image.height ?? null,
   }));
-}
-
-/** Our uploads among `urls` (photo + thumbnail), out of Workers KV. Best
- * effort: a file left behind is wasted space, never a broken page. */
-async function deleteUploads(urls: string[]) {
-  const keys = urls.flatMap((url) => {
-    const key = keyFromImageUrl(url);
-    return key ? [key, thumbnailKey(key)] : [];
-  });
-  await Promise.allSettled(keys.map((key) => deleteObject(key)));
 }
 
 function revalidateFeedbacks() {
@@ -120,8 +109,12 @@ export async function updateFeedbackAction(
   }
 
   // Files the feedback no longer uses (removed in the form).
-  const kept = new Set(parsed.data.images.map((image) => image.url));
-  await deleteUploads(before.map((row) => row.url).filter((url) => !kept.has(url)));
+  await releaseImages(
+    removedUrls(
+      before.map((row) => row.url),
+      parsed.data.images.map((image) => image.url),
+    ),
+  );
 
   revalidateFeedbacks();
   redirect("/admin/feedbacks");
@@ -151,7 +144,7 @@ export async function deleteFeedbackAction(id: string): Promise<{ ok: boolean; m
     .where(eq(feedback_images.feedback_id, id));
   // feedback_images go with it (ON DELETE CASCADE); then their files.
   await db.delete(feedbacks).where(eq(feedbacks.id, id));
-  await deleteUploads(images.map((image) => image.url));
+  await releaseImages(images.map((image) => image.url));
   revalidateFeedbacks();
   return { ok: true };
 }

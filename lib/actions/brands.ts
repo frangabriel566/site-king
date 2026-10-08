@@ -10,6 +10,7 @@ import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { productIdsLinkedTo, refreshSearchText } from "@/lib/catalog/search-index";
+import { releaseImages, removedUrls } from "@/lib/media/images";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -102,12 +103,15 @@ export async function updateBrandAction(
   }
 
   await requireAdmin();
+  const db = getDb();
+  const [before] = await db.select({ logo_url: brands.logo_url }).from(brands).where(eq(brands.id, id));
   try {
-    await getDb().update(brands).set(parsed.data).where(eq(brands.id, id));
+    await db.update(brands).set(parsed.data).where(eq(brands.id, id));
   } catch (error) {
     return { status: "error", message: saveError(error, "Já existe uma marca com esse slug.") };
   }
 
+  if (before) await releaseImages(removedUrls([before.logo_url], [parsed.data.logo_url]));
   // The brand name is part of every one of its products' search text.
   await refreshSearchText({ brandId: id });
 
@@ -120,7 +124,11 @@ export async function deleteBrandAction(id: string): Promise<{ ok: boolean; mess
   const affected = await productIdsLinkedTo({ brandId: id });
   // brand_id is ON DELETE SET NULL — this only ever clears products.brand_id,
   // it never touches the products themselves.
-  await getDb().delete(brands).where(eq(brands.id, id));
+  const [removed] = await getDb()
+    .delete(brands)
+    .where(eq(brands.id, id))
+    .returning({ logo_url: brands.logo_url });
+  if (removed) await releaseImages([removed.logo_url]);
   await refreshSearchText({ productIds: affected });
   revalidateStorefront();
   return { ok: true };

@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNotNull, notInArray } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
@@ -13,7 +13,7 @@ export type AdminReview = Review & {
   product: { name: string; slug: string } | null;
 };
 
-const { reviews } = schema;
+const { reviews, products } = schema;
 
 /** Public read. `customer_id` is the reviewer's user id; the display name
  * comes from their customers row, and a reviewer without one (an admin,
@@ -36,7 +36,13 @@ export async function getProductReviews(productId: string): Promise<Review[]> {
  * list at /admin/avaliacoes. */
 export async function getAllReviewsAdmin(): Promise<AdminReview[]> {
   await requireAdminPage();
-  return getDb().query.reviews.findMany({
+  const db = getDb();
+  return db.query.reviews.findMany({
+    // A deleted product's reviews leave the panel with it.
+    where: notInArray(
+      reviews.product_id,
+      db.select({ id: products.id }).from(products).where(isNotNull(products.deleted_at)),
+    ),
     orderBy: desc(reviews.created_at),
     with: {
       customer: { columns: { name: true } },

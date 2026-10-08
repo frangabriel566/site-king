@@ -10,6 +10,7 @@ import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { productIdsLinkedTo, refreshSearchText } from "@/lib/catalog/search-index";
+import { releaseImages, removedUrls } from "@/lib/media/images";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -102,12 +103,18 @@ export async function updateCategoryAction(
   }
 
   await requireAdmin();
+  const db = getDb();
+  const [before] = await db
+    .select({ image_url: categories.image_url })
+    .from(categories)
+    .where(eq(categories.id, id));
   try {
-    await getDb().update(categories).set(parsed.data).where(eq(categories.id, id));
+    await db.update(categories).set(parsed.data).where(eq(categories.id, id));
   } catch (error) {
     return { status: "error", message: saveError(error, "Já existe uma categoria com esse slug.") };
   }
 
+  if (before) await releaseImages(removedUrls([before.image_url], [parsed.data.image_url]));
   // The category name is part of every one of its products' search text.
   await refreshSearchText({ categoryId: id });
 
@@ -120,7 +127,11 @@ export async function deleteCategoryAction(id: string): Promise<{ ok: boolean; m
   const affected = await productIdsLinkedTo({ categoryId: id });
   // category_id is ON DELETE SET NULL — this only ever clears the link on
   // its products, never the products themselves.
-  await getDb().delete(categories).where(eq(categories.id, id));
+  const [removed] = await getDb()
+    .delete(categories)
+    .where(eq(categories.id, id))
+    .returning({ image_url: categories.image_url });
+  if (removed) await releaseImages([removed.image_url]);
   await refreshSearchText({ productIds: affected });
   revalidateStorefront();
   return { ok: true };

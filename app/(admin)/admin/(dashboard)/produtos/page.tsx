@@ -186,6 +186,13 @@ export default async function AdminProductsPage({
                 <DeleteButton
                   itemLabel="produto"
                   action={deleteProductAction.bind(null, product.id)}
+                  description={
+                    product.orderCount > 0
+                      ? `Este produto está em ${product.orderCount} ${
+                          product.orderCount === 1 ? "pedido" : "pedidos"
+                        }, então será arquivado: sai do site e do painel, os pedidos continuam ligados a ele e as fotos ficam guardadas.`
+                      : "Este produto nunca foi vendido: será apagado de vez, junto com as fotos. Esta ação não pode ser desfeita."
+                  }
                 />
               </div>
             );

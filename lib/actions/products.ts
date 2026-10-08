@@ -11,6 +11,8 @@ import { variantSyncStatements } from "@/lib/products/variant-sync";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { roundMoney } from "@/lib/money";
 import { searchTextFor } from "@/lib/catalog/search-index";
+import { releaseImages, removedUrls } from "@/lib/media/images";
+import { deleteProduct, productImageUrls } from "@/lib/products/delete";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
@@ -303,10 +305,19 @@ export async function updateProductAction(
   await requireAdmin();
   const db = getDb();
 
+  // A tab left open on a product deleted since must not bring it back.
+  const current = await db.query.products.findFirst({
+    columns: { id: true },
+    where: and(eq(products.id, id), isNull(products.deleted_at)),
+  });
+  if (!current) return { status: "error", message: "Este produto foi excluído." };
+
   const conflict = await findConflict(db, data, id);
   if (conflict) return { status: "error", message: conflict };
 
   const { images, sections } = childRows(id, data);
+  // What the product points at now, to let go of what this save drops.
+  const imagesBefore = await productImageUrls(db, id);
   // Variants are carried over in place — same ids for the same variants —
   // never deleted and re-created: orders and bags point at those ids
   // (lib/products/variant-sync.ts).
@@ -340,17 +351,29 @@ export async function updateProductAction(
     return { status: "error", message: friendlyDbError(error) };
   }
 
+  // After the save, never before: photos removed in the form, a variant's
+  // photo swapped, a deleted variant's photo — unless another row (a
+  // duplicated product, an archived variant) still uses them.
+  await releaseImages(removedUrls(imagesBefore, await productImageUrls(db, id)));
+
   revalidateStorefront(data.slug);
   redirectAfterSave(formData, data.category_id, data.brand_id);
 }
 
+/** Never sold: deleted with its photos. Sold: archived, orders keep it
+ * (lib/products/delete.ts). The panel's confirmation says which. */
 export async function deleteProductAction(id: string): Promise<{ ok: boolean; message?: string }> {
   await requireAdmin();
-  // Photos and variants go with it (ON DELETE CASCADE); past orders keep
-  // their snapshot and lose only the link.
-  await getDb().delete(products).where(eq(products.id, id));
+  const outcome = await deleteProduct(id);
   revalidateStorefront();
-  return { ok: true };
+  if (outcome === "not_found") return { ok: false, message: "Produto não encontrado." };
+  return {
+    ok: true,
+    message:
+      outcome === "archived"
+        ? "Produto arquivado: saiu do site e do painel, e os pedidos continuam com ele."
+        : "Produto excluído, com as fotos.",
+  };
 }
 
 export type DuplicateProductResult =
@@ -362,7 +385,7 @@ export async function duplicateProductAction(id: string): Promise<DuplicateProdu
   const db = getDb();
 
   const original = await db.query.products.findFirst({
-    where: eq(products.id, id),
+    where: and(eq(products.id, id), isNull(products.deleted_at)),
     // Archived variants left the original; the copy starts without them.
     with: { product_images: true, product_variants: { where: isNull(product_variants.archived_at) } },
   });

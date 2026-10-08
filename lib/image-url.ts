@@ -67,3 +67,20 @@ export function storedKeysFor(key: string): string[] {
   if (icons) keys.push(keyFromImageUrl(icons.icon)!, keyFromImageUrl(icons.favicon)!);
   return keys;
 }
+
+/** The upload a stored file belongs to — the key the database points at:
+ * `products/<uuid>.sm.webp` → `products/<uuid>.webp`. */
+export function uploadKeyFor(storedKey: string): string {
+  return storedKey.replace(/\.(sm|icon|favicon)\.(webp|jpg|png)$/, ".$2");
+}
+
+const IMAGE_URL_IN_TEXT = /\/img\/([a-z]+\/[0-9a-f-]{36}(?:\.sm|\.icon|\.favicon)?\.(?:webp|jpg|png))/g;
+
+/** Every upload a stored value points at — relative (`/img/…`), absolute
+ * (`https://…/img/…`) or with a query string. Generous on purpose: what
+ * this finds is never deleted. */
+export function uploadKeysIn(value: string): string[] {
+  return Array.from(value.matchAll(IMAGE_URL_IN_TEXT), (match) => match[1])
+    .filter(isImageKey)
+    .map(uploadKeyFor);
+}

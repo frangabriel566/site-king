@@ -1,4 +1,5 @@
 import type { ProductListFilters, ProductSort } from "@/lib/data/products";
+import { isProductSection } from "@/lib/sections";
 
 const SORT_MAP: Record<string, ProductSort> = {
   novidades: "newest",
@@ -21,6 +22,8 @@ export type CollectionSearchParams = {
   preco_min?: string;
   preco_max?: string;
   promocao?: string;
+  /** A home shelf (lib/sections.ts) — its "Ver tudo". */
+  secao?: string;
   ordenar?: string;
   pagina?: string;
   densidade?: string;
@@ -37,6 +40,7 @@ export function parseCollectionParams(
     minPrice: params.preco_min ? Number(params.preco_min) : undefined,
     maxPrice: params.preco_max ? Number(params.preco_max) : undefined,
     onSale: params.promocao === "1" || undefined,
+    section: isProductSection(params.secao) ? params.secao : undefined,
     sort: params.ordenar ? SORT_MAP[params.ordenar] : undefined,
     page: params.pagina ? Number(params.pagina) : 1,
   };

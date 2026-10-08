@@ -1366,3 +1366,37 @@ não chegava ao pedido pelo WhatsApp nem ao Mercado Pago.
   anterior, 7 de 150 carregamentos (em /, /sacola, /checkout, /conta); com
   o cupom, 4 de 60. Espalhado pelas páginas, aponta para algo comum a
   todas — continua como investigação separada.
+
+## Bloco 29 — Vitrines escolhidas no painel
+
+Desde a Etapa 2 as vitrines da home eram calculadas: Novidades pelos 24
+cadastrados por último, Ofertas por preço "de" maior que o preço, Mais
+vendidos pelas vendas. A etiqueta "Lançamento" só rotulava o card, e não
+havia vitrine de Lançamentos — um produto novo com preço promocional e
+vendas caía em três vitrines sem ninguém ter escolhido.
+
+- **Tabela `product_sections`** (produto, vitrine, ordem), não colunas
+  booleanas: a ordem é por vitrine (booleanas exigiriam uma coluna de
+  ordem para cada uma), a vitrine é uma busca indexada, e uma vitrine nova
+  é um valor a mais na lista. A lista mora em `lib/sections.ts`, sem
+  dependências, porque o navegador também a usa; o schema a importa de lá.
+- **Migration `0004_product_sections`** tira o retrato de onde cada produto
+  aparece no momento em que é aplicada (mesmas regras de antes): os 24 de
+  Novidades sem número (a ordem "sem número" já é a do mais novo), Ofertas
+  numeradas pelo desconto, e Lançamentos com os produtos de etiqueta
+  "Lançamento". Mais vendidos não recebe ninguém.
+- **Cada vitrine mostra só os marcados**, ativos e com estoque, na ordem
+  escolhida (numerados primeiro; sem número, mais novos primeiro). A
+  exceção pedida: **Mais vendidos** põe os marcados na frente e completa
+  com as vendas reais, sem repetir. O "até X% off" de Ofertas é calculado
+  sobre os marcados que têm desconto.
+- **Produto novo** vem com Novidades marcada; o duplicado também (só ela).
+  Na edição vale o que está salvo, e o salvamento troca a lista inteira no
+  mesmo batch do produto.
+- **Ofertas sem preço promocional**: aviso no formulário e na lista, nunca
+  bloqueio.
+- "Ver tudo" leva a `/colecao?secao=…`, só com a vitrine, na mesma ordem e
+  com chip removível. O filtro "Em promoção" do catálogo continua por
+  preço: é filtro, não vitrine.
+- "Você também pode gostar" segue automático (mesma categoria): é
+  sugestão ligada ao produto aberto, não vitrine.

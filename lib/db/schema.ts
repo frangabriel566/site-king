@@ -22,11 +22,13 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   real,
   sqliteTable,
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { PRODUCT_SECTIONS } from "../sections";
 
 export type Json =
   | string
@@ -38,6 +40,10 @@ export type Json =
 
 export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const;
 export const PRODUCT_BADGES = ["lancamento", "oferta", "mais_vendido"] as const;
+// The storefront's product shelves live in lib/sections.ts (relative
+// import: drizzle-kit reads this file too), so the browser can use the
+// list without pulling the database schema into its bundle.
+export { PRODUCT_SECTIONS, type ProductSection } from "../sections";
 export const USER_ROLES = ["customer", "admin"] as const;
 export const ORDER_STATUSES = [
   "pending",
@@ -296,6 +302,38 @@ export const product_images = sqliteTable(
     position: integer("position").notNull().default(0),
   },
   (t) => [index("product_images_product_id_idx").on(t.product_id, t.position)],
+);
+
+/**
+ * Which storefront shelves a product is on — chosen in the panel, never
+ * worked out from dates or prices. A row per (product, shelf): none, one
+ * or several. `position` orders the shelf (1 first; null after the
+ * numbered ones, newest first).
+ *
+ * A table rather than a boolean per shelf on products: the order is per
+ * shelf (booleans would need a position column each, eight columns), a
+ * shelf's products are one indexed lookup, and a new shelf is a value in
+ * the list instead of two more columns.
+ */
+export const product_sections = sqliteTable(
+  "product_sections",
+  {
+    product_id: text("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    section: text("section", { enum: PRODUCT_SECTIONS }).notNull(),
+    position: integer("position"),
+    created_at: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.product_id, t.section] }),
+    index("product_sections_section_idx").on(t.section, t.position),
+    check(
+      "product_sections_section_check",
+      sql`${t.section} in ('lancamentos', 'novidades', 'ofertas', 'mais_vendidos')`,
+    ),
+    check("product_sections_position_check", sql`${t.position} is null or ${t.position} >= 1`),
+  ],
 );
 
 export const product_variants = sqliteTable(
@@ -595,7 +633,12 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   brand: one(brands, { fields: [products.brand_id], references: [brands.id] }),
   product_images: many(product_images),
   product_variants: many(product_variants),
+  product_sections: many(product_sections),
   reviews: many(reviews),
+}));
+
+export const productSectionsRelations = relations(product_sections, ({ one }) => ({
+  product: one(products, { fields: [product_sections.product_id], references: [products.id] }),
 }));
 
 export const productImagesRelations = relations(product_images, ({ one }) => ({

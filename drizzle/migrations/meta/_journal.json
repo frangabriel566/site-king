@@ -29,6 +29,13 @@
       "when": 1791400249483,
       "tag": "0003_coupons_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791422277588,
+      "tag": "0004_product_sections",
+      "breakpoints": true
     }
   ]
 }

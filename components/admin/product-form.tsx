@@ -8,7 +8,10 @@ import { ProductFormSection } from "@/components/admin/product-form-section";
 import { ProductBasicInfo } from "@/components/admin/product-basic-info";
 import { MultiImageUploader, type ProductImageDraft } from "@/components/admin/multi-image-uploader";
 import { ProductVariantsEditor } from "@/components/admin/product-variants-editor";
-import { ProductDisplaySettings } from "@/components/admin/product-display-settings";
+import {
+  ProductDisplaySettings,
+  type SectionDraft,
+} from "@/components/admin/product-display-settings";
 import { ProductAdvancedSettings } from "@/components/admin/product-advanced-settings";
 import {
   ProductPackageFields,
@@ -39,7 +42,7 @@ import { duplicateProductAction, type ActionResult } from "@/lib/actions/product
 import type { Category } from "@/lib/data/categories";
 import type { AdminBrandListItem } from "@/lib/data/brands";
 import type { ProductStatus, ProductBadge } from "@/lib/database.types";
-import type { ProductWithRelations } from "@/lib/data/products";
+import type { AdminProductDetail } from "@/lib/data/products";
 
 const initialState: ActionResult = { status: "idle" };
 
@@ -90,6 +93,7 @@ type DraftSnapshot = {
   brandId: string;
   manufacturerRef: string;
   badge: string;
+  sections: SectionDraft[];
   attributeRows: AttributeRow[];
   status: ProductStatus;
   featured: boolean;
@@ -112,7 +116,7 @@ export function ProductForm({
   existingSkus = [],
   existingSlugs = [],
 }: {
-  product?: ProductWithRelations;
+  product?: AdminProductDetail;
   categories: Category[];
   brands: AdminBrandListItem[];
   action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
@@ -212,6 +216,13 @@ export function ProductForm({
   const [brandId, setBrandId] = useState(product?.brand_id ?? initialBrandId ?? "");
   const [manufacturerRef, setManufacturerRef] = useState(product?.manufacturer_ref ?? "");
   const [badge, setBadge] = useState<string>(product?.badge ?? "");
+  // "Onde exibir no site": what is saved when editing; a new product
+  // starts on Novidades.
+  const [sections, setSections] = useState<SectionDraft[]>(() =>
+    product
+      ? product.product_sections.map(({ section, position }) => ({ section, position }))
+      : [{ section: "novidades", position: null }],
+  );
   const [attributeRows, setAttributeRows] = useState<AttributeRow[]>(
     attributesToRows(product?.attributes),
   );
@@ -316,6 +327,7 @@ export function ProductForm({
     brandId,
     manufacturerRef,
     badge,
+    sections,
     attributeRows,
     status,
     featured,
@@ -363,6 +375,8 @@ export function ProductForm({
           setBrandId(v.brandId ?? "");
           setManufacturerRef(v.manufacturerRef ?? "");
           setBadge(v.badge ?? "");
+          // A draft saved before shelves existed keeps what the form had.
+          if (Array.isArray(v.sections)) setSections(v.sections);
           setAttributeRows(v.attributeRows ?? []);
           setStatus(v.status);
           setFeatured(v.featured);
@@ -438,6 +452,7 @@ export function ProductForm({
       height_cm: pkgNumber(pkg.heightCm),
       attributes: rowsToAttributes(attributeRows),
       badge: (badge || null) as ProductBadge | null,
+      sections,
       status,
       featured,
       position,
@@ -647,6 +662,9 @@ export function ProductForm({
         description="Defina onde o produto será exibido na loja."
       >
         <ProductDisplaySettings
+          sections={sections}
+          onSectionsChange={setSections}
+          hasPromoPrice={promoEnabled && compareAtPrice.trim() !== ""}
           badge={badge}
           onBadgeChange={setBadge}
           featured={featured}

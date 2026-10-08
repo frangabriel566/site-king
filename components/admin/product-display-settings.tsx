@@ -1,22 +1,34 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PRODUCT_SECTIONS, SECTION_LABEL, type ProductSection } from "@/lib/sections";
 
-/** products.badge — the label on the product's card and page. It used to
- * pick the home shelf too; the home's rails are worked out from the data
- * now (lib/data/products.ts), so it is only the label. Empty is stored as
- * null. */
+/** One shelf the product is on, as the form holds it. */
+export type SectionDraft = { section: ProductSection; position: number | null };
+
+const SECTION_HINT: Partial<Record<ProductSection, string>> = {
+  mais_vendidos: "Aparece primeiro; o resto da vitrine vem das vendas reais.",
+};
+
+/** products.badge — only the label on the product's card and page; it
+ * does not decide any shelf (that's "Onde exibir no site"). Empty is
+ * stored as null. */
 const NO_BADGE_VALUE = "__no_badge__";
-const PLACEMENT_OPTIONS = [
-  { value: NO_BADGE_VALUE, label: "Sem selo" },
+const BADGE_OPTIONS = [
+  { value: NO_BADGE_VALUE, label: "Sem etiqueta" },
   { value: "lancamento", label: "Lançamento" },
   { value: "mais_vendido", label: "Mais vendido" },
   { value: "oferta", label: "Oferta" },
 ];
 
 export function ProductDisplaySettings({
+  sections,
+  onSectionsChange,
+  hasPromoPrice,
   badge,
   onBadgeChange,
   featured,
@@ -24,6 +36,11 @@ export function ProductDisplaySettings({
   collection,
   onCollectionChange,
 }: {
+  sections: SectionDraft[];
+  onSectionsChange: (sections: SectionDraft[]) => void;
+  /** The "Preço promocional" is on and filled — Ofertas without one gets a
+   * warning (never a block). */
+  hasPromoPrice: boolean;
   badge: string;
   onBadgeChange: (badge: string) => void;
   featured: boolean;
@@ -31,14 +48,95 @@ export function ProductDisplaySettings({
   collection: string;
   onCollectionChange: (collection: string) => void;
 }) {
+  const entryFor = (section: ProductSection) => sections.find((entry) => entry.section === section);
+
+  function toggle(section: ProductSection, checked: boolean) {
+    const rest = sections.filter((entry) => entry.section !== section);
+    // Kept in the home's order, so the saved list reads like the site.
+    const next = checked ? [...rest, { section, position: null }] : rest;
+    onSectionsChange(
+      [...next].sort((a, b) => PRODUCT_SECTIONS.indexOf(a.section) - PRODUCT_SECTIONS.indexOf(b.section)),
+    );
+  }
+
+  function setPosition(section: ProductSection, raw: string) {
+    const value = raw.trim() === "" ? null : Math.max(1, Math.trunc(Number(raw)) || 1);
+    onSectionsChange(
+      sections.map((entry) => (entry.section === section ? { ...entry, position: value } : entry)),
+    );
+  }
+
+  const offersWithoutPromo = Boolean(entryFor("ofertas")) && !hasPromoPrice;
+
   return (
     <>
+      <input type="hidden" name="sections_json" value={JSON.stringify(sections)} />
       <input type="hidden" name="badge" value={badge} />
 
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-sm font-medium text-fg">Onde exibir no site</legend>
+        <p className="-mt-1 text-xs text-ink-muted">
+          Cada vitrine da home mostra só os produtos marcados para ela. Marque nenhuma,
+          uma ou várias. Na ordem, 1 aparece primeiro; em branco, depois dos numerados
+          (os mais novos primeiro).
+        </p>
+        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
+          {PRODUCT_SECTIONS.map((section) => {
+            const entry = entryFor(section);
+            const id = `section-${section}`;
+            return (
+              <li key={section} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5">
+                <label htmlFor={id} className="flex min-h-9 flex-1 cursor-pointer items-center gap-3">
+                  <Checkbox
+                    id={id}
+                    checked={Boolean(entry)}
+                    onCheckedChange={(checked) => toggle(section, checked === true)}
+                  />
+                  <span className="text-sm text-fg">
+                    {SECTION_LABEL[section]}
+                    {SECTION_HINT[section] && (
+                      <span className="block text-xs text-ink-muted">{SECTION_HINT[section]}</span>
+                    )}
+                  </span>
+                </label>
+                {entry && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={`${id}-position`} className="text-xs text-ink-muted">
+                      Ordem
+                    </Label>
+                    <Input
+                      id={`${id}-position`}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      step={1}
+                      placeholder="—"
+                      value={entry.position ?? ""}
+                      onChange={(event) => setPosition(section, event.target.value)}
+                      className="h-9 w-20"
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {offersWithoutPromo && (
+          <p
+            role="status"
+            className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-fg"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+            Marcado em Ofertas sem preço promocional: ele aparece na vitrine com o preço
+            normal, sem desconto. Dá para salvar assim mesmo.
+          </p>
+        )}
+      </fieldset>
+
       <div className="flex flex-col gap-2">
-        <Label>Selo no produto</Label>
+        <Label>Etiqueta no card</Label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {PLACEMENT_OPTIONS.map((option) => {
+          {BADGE_OPTIONS.map((option) => {
             const isActive = (badge || NO_BADGE_VALUE) === option.value;
             return (
               <button
@@ -58,10 +156,9 @@ export function ProductDisplaySettings({
           })}
         </div>
         <p className="text-xs text-ink-muted">
-          Aparece no card e na página do produto, quando não há um selo automático
-          (Esgotado, Últimas unidades, Novo). As vitrines da home se montam sozinhas:
-          Novidades (cadastrados por último), Ofertas (com preço &quot;de&quot; maior que o
-          preço) e Mais vendidos (vendas confirmadas).
+          Só a etiqueta no card e na página do produto (quando não há uma automática:
+          Esgotado, Últimas unidades, Novo). <strong>Não muda onde o produto aparece</strong>{" "}
+          — isso é a lista acima.
         </p>
       </div>
 

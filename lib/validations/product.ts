@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { imageUrlSchema } from "./image-url";
+import { PRODUCT_SECTIONS } from "@/lib/sections";
 
 const slugRegex = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -34,6 +35,19 @@ export const productImageSchema = z.object({
   url: imageUrlSchema(),
   alt: z.string().trim().max(200).optional().or(z.literal("")),
   position: z.coerce.number().int().min(0).default(0),
+});
+
+/** "Onde exibir no site": one entry per shelf the product is on, with its
+ * optional place in that shelf (1 first; empty = after the numbered ones). */
+export const productSectionSchema = z.object({
+  section: z.enum(PRODUCT_SECTIONS),
+  position: z.coerce
+    .number({ error: "Ordem inválida" })
+    .int("A ordem é um número inteiro")
+    .min(1, "A ordem começa em 1")
+    .max(9999)
+    .nullable()
+    .default(null),
 });
 
 export const productSchema = z
@@ -73,6 +87,11 @@ export const productSchema = z
     featured: z.boolean().default(false),
     position: z.coerce.number().int().min(0).default(0),
     images: z.array(productImageSchema).default([]),
+    sections: z
+      .array(productSectionSchema)
+      .default([])
+      // One entry per shelf: the last one wins if the form ever sends two.
+      .transform((list) => [...new Map(list.map((entry) => [entry.section, entry])).values()]),
     variants: z.array(productVariantSchema).default([]),
   })
   .refine(

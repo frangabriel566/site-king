@@ -12,6 +12,7 @@ export type {
   Json,
   OrderStatus,
   ProductBadge,
+  ProductSection,
   ProductStatus,
   ShippingAddressSnapshot,
   UserRole as ProfileRole,
@@ -23,6 +24,7 @@ type TableMap = {
   products: typeof schema.products;
   product_images: typeof schema.product_images;
   product_variants: typeof schema.product_variants;
+  product_sections: typeof schema.product_sections;
   banners: typeof schema.banners;
   site_settings: typeof schema.site_settings;
   customers: typeof schema.customers;

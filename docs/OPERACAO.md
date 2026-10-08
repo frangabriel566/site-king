@@ -155,20 +155,28 @@ mesmo valor da seção Vitrine — é ele que o checkout aplica.
 
 ### Vitrines da home
 
-As vitrines da home se montam sozinhas, só com produtos ativos e com
-estoque:
+Cada vitrine mostra **só os produtos marcados para ela** no cadastro do
+produto → Exibição → **Onde exibir no site**: Lançamentos, Novidades,
+Ofertas e Mais vendidos. O produto pode estar em nenhuma, uma ou várias.
 
-- **Novidades** — os cadastrados por último.
-- **Ofertas** — os que têm preço "de" maior que o preço, maior desconto
-  primeiro.
-- **Mais vendidos** — soma das peças vendidas em pedidos confirmados
-  (pago, em preparação, enviado, entregue). Fica escondida até a primeira
-  venda confirmada.
+- **Ordem**: ao marcar uma vitrine, aparece um campo de ordem. 1 vem
+  primeiro; em branco, depois dos numerados, os mais novos primeiro.
+- **Produto novo** já vem com **Novidades** marcada (dá para desmarcar).
+- **Mais vendidos**: os marcados aparecem primeiro, na ordem escolhida, e
+  o resto da vitrine é completado pelos que mais venderam de verdade
+  (pedidos confirmados).
+- **Ofertas** sem preço promocional: o painel avisa, mas salva — o
+  produto aparece com o preço normal.
+- Produto **esgotado** sai da vitrine até voltar o estoque (continua
+  marcado e no catálogo). Rascunho e arquivado nunca aparecem.
+- O **"Ver tudo"** de cada vitrine abre o catálogo só com os produtos
+  dela, na mesma ordem.
 
-O **selo no produto** (cadastro do produto → Exibição) só põe a etiqueta
-"Lançamento", "Mais vendido" ou "Oferta" no card e na página do produto; ele
-não escolhe mais a vitrine. O interruptor **Aparecer primeiro no catálogo**
-põe o produto na frente na ordem "Relevância" de /colecao.
+Na lista de produtos do painel, cada produto mostra suas vitrines (com o
+número da ordem) e dá para filtrar por vitrine ou ver os "Sem seção". A
+**Etiqueta no card** (Lançamento, Mais vendido, Oferta) é só o selo do
+card: não coloca o produto em vitrine nenhuma. **Aparecer primeiro no
+catálogo** muda só a ordem "Relevância" de /colecao.
 
 ### Rodapé
 

@@ -22,6 +22,7 @@ import { Breadcrumbs } from "@/components/shop/breadcrumbs";
 import { ProductGridSkeleton, SkeletonBlock } from "@/components/shop/skeletons";
 import type { CategoryLink } from "@/lib/data/categories";
 import type { Brand } from "@/lib/data/brands";
+import { SECTION_LABEL } from "@/lib/sections";
 
 export const metadata: Metadata = {
   title: "Coleção",
@@ -45,6 +46,9 @@ export default async function CollectionPage({
   ]);
 
   const activeCategory = categories.find((c) => c.slug === filters.category);
+  // A shelf's "Ver tudo" lands here titled with the shelf.
+  const sectionLabel = filters.section ? SECTION_LABEL[filters.section] : null;
+  const heading = sectionLabel ?? activeCategory?.name ?? "Todos os produtos";
   const density = params.densidade === "confortavel" ? "comfortable" : "compact";
 
   return (
@@ -52,13 +56,13 @@ export default async function CollectionPage({
       <Breadcrumbs
         items={[
           { label: "Início", href: "/" },
-          { label: "Coleção", href: activeCategory ? "/colecao" : undefined },
-          ...(activeCategory ? [{ label: activeCategory.name }] : []),
+          { label: "Coleção", href: activeCategory || sectionLabel ? "/colecao" : undefined },
+          ...(sectionLabel ? [{ label: sectionLabel }] : activeCategory ? [{ label: activeCategory.name }] : []),
         ]}
       />
 
       <h1 className="mt-4 mb-6 text-2xl font-bold text-fg md:text-3xl">
-        {activeCategory ? activeCategory.name : "Todos os produtos"}
+        {heading}
       </h1>
 
       <div className="flex flex-col gap-8 lg:flex-row">

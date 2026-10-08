@@ -13,7 +13,7 @@ import { searchTextFor } from "@/lib/catalog/search-index";
 
 export type ActionResult = { status: "idle" | "error" | "success"; message?: string };
 
-const { products, product_images, product_variants } = schema;
+const { products, product_images, product_variants, product_sections } = schema;
 
 /**
  * `("/", "layout")` rather than a list of pages, matching what the brand
@@ -63,6 +63,13 @@ function parseFormData(formData: FormData) {
     tags = [];
   }
 
+  let sections: unknown = [];
+  try {
+    sections = JSON.parse(String(formData.get("sections_json") ?? "[]"));
+  } catch {
+    sections = [];
+  }
+
   return productSchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug"),
@@ -90,6 +97,7 @@ function parseFormData(formData: FormData) {
     position: formData.get("position"),
     images,
     variants,
+    sections,
   });
 }
 
@@ -133,6 +141,11 @@ function childRows(productId: string, data: ParsedProduct) {
       url: img.url,
       alt: img.alt || null,
       position: index,
+    })),
+    sections: data.sections.map((entry) => ({
+      product_id: productId,
+      section: entry.section,
+      position: entry.position,
     })),
     variants: data.variants.map((v) => ({
       product_id: productId,
@@ -252,7 +265,7 @@ export async function createProductAction(
   if (conflict) return { status: "error", message: conflict };
 
   const productId = crypto.randomUUID();
-  const { images, variants } = childRows(productId, data);
+  const { images, variants, sections } = childRows(productId, data);
   try {
     // Product, photos and variants in one transaction: a variant that fails
     // no longer leaves a half-saved product behind.
@@ -260,6 +273,7 @@ export async function createProductAction(
       db.insert(products).values({ id: productId, ...toProductRow(data, await searchTextFor(db, data)) }),
       ...insertChunks(db, product_images, images),
       ...insertChunks(db, product_variants, variants),
+      ...insertChunks(db, product_sections, sections),
     ]);
   } catch (error) {
     return { status: "error", message: friendlyDbError(error) };
@@ -291,7 +305,7 @@ export async function updateProductAction(
   const conflict = await findConflict(db, data, id);
   if (conflict) return { status: "error", message: conflict };
 
-  const { images, variants } = childRows(id, data);
+  const { images, variants, sections } = childRows(id, data);
   try {
     // Photos and variants are replaced wholesale, as before — now in the
     // same transaction as the product row.
@@ -301,6 +315,10 @@ export async function updateProductAction(
       ...insertChunks(db, product_images, images),
       db.delete(product_variants).where(eq(product_variants.product_id, id)),
       ...insertChunks(db, product_variants, variants),
+      // Shelves replaced with the form's list, in the same batch as the
+      // product: what the panel shows checked is exactly what is saved.
+      db.delete(product_sections).where(eq(product_sections.product_id, id)),
+      ...insertChunks(db, product_sections, sections),
     ]);
   } catch (error) {
     return { status: "error", message: friendlyDbError(error) };
@@ -391,6 +409,9 @@ export async function duplicateProductAction(id: string): Promise<DuplicateProdu
           image_url: v.image_url,
         })),
       ),
+      // Like a product created in the form: on Novidades by default, and
+      // only there — the original's other shelves are not copied.
+      db.insert(product_sections).values({ product_id: newId, section: "novidades" }),
     ]);
   } catch (error) {
     return { ok: false, message: friendlyDbError(error) };

@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import type { CategoryLink } from "@/lib/data/categories";
+import { SECTION_LABEL, isProductSection } from "@/lib/sections";
 import type { Brand } from "@/lib/data/brands";
 
 export function ActiveFilterChips({
@@ -22,6 +23,7 @@ export function ActiveFilterChips({
   const onSale = searchParams.get("promocao") === "1";
   const priceMin = searchParams.get("preco_min");
   const priceMax = searchParams.get("preco_max");
+  const section = searchParams.get("secao");
 
   function remove(mutate: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString());
@@ -31,6 +33,14 @@ export function ActiveFilterChips({
   }
 
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+  if (isProductSection(section)) {
+    chips.push({
+      key: "secao",
+      label: SECTION_LABEL[section],
+      onRemove: () => remove((p) => p.delete("secao")),
+    });
+  }
 
   if (category) {
     const name = categories.find((c) => c.slug === category)?.name ?? category;

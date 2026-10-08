@@ -19,7 +19,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
-import type { Tables, ProductBadge } from "@/lib/database.types";
+import type { Tables, ProductBadge, ProductSection } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
 import {
   COLLECTION_PAGE_SIZE,
@@ -36,6 +36,8 @@ export type ProductImage = Tables<"product_images">;
 export type ProductVariant = Tables<"product_variants">;
 export type Category = Tables<"categories">;
 export type Brand = Tables<"brands">;
+/** A product's place on one storefront shelf. */
+export type ProductSectionPick = Pick<Tables<"product_sections">, "section" | "position">;
 
 type ProductBrandRef = Pick<Brand, "id" | "name" | "slug" | "logo_url">;
 
@@ -177,11 +179,12 @@ function toListItem(row: {
 }
 
 /*
- * The home rails are worked out from the data, not placed by hand: what
- * is newest, what is marked down, what has sold. A product registered in
- * the panel is on "Novidades" the moment it is published, and an empty
- * rail renders nothing (ProductRail returns null), so the home closes the
- * gap. products.badge is only the card's label now.
+ * The home's shelves are picked in the panel (product_sections): each one
+ * shows only the products marked for it, in the order chosen there — no
+ * date, price or other rule adds anything. "Mais vendidos" is the one
+ * exception the store asked for: its marked products lead, and real sales
+ * fill the rest. An empty shelf renders nothing (ProductRail returns null).
+ * products.badge is only the card's label.
  */
 
 /** A real markdown: a "de" price above the selling price. A "de" price at
@@ -203,35 +206,59 @@ const hasStock = sql`exists (
   where "in_stock"."product_id" = ${products.id} and "in_stock"."stock" > 0
 )`;
 
-/** "Novidades": the most recently registered active products in stock. */
-export async function getNewestProducts(limit = 8): Promise<ProductListItem[]> {
+/** On shelf `section` (product_sections). Written out by hand for the
+ * same reason as hasStock: inside a findMany, only `products.id` may be a
+ * column object. */
+function inSection(section: ProductSection) {
+  return sql`exists (
+    select 1 from "product_sections" "on_shelf"
+    where "on_shelf"."product_id" = ${products.id} and "on_shelf"."section" = ${section}
+  )`;
+}
+
+/** The shelf order: numbered first (1, 2, 3…), then the unnumbered ones,
+ * newest first. */
+function sectionOrder(section: ProductSection): SQL[] {
+  const position = sql`(
+    select "on_shelf"."position" from "product_sections" "on_shelf"
+    where "on_shelf"."product_id" = ${products.id} and "on_shelf"."section" = ${section}
+  )`;
+  return [sql`${position} is null`, sql`${position}`, desc(products.created_at)];
+}
+
+/**
+ * A home shelf: the products marked for it, published and in stock, in the
+ * order chosen in the panel. A marked product that sells out leaves the
+ * shelf until it is restocked — it stays marked, and in the catalog.
+ */
+export async function getSectionProducts(
+  section: ProductSection,
+  limit = 8,
+): Promise<ProductListItem[]> {
   return safeQuery(async () => {
     const rows = await getDb().query.products.findMany({
       columns: LIST_COLUMNS,
       with: LIST_WITH,
-      where: and(isActive, hasStock),
-      orderBy: desc(products.created_at),
+      where: and(isActive, hasStock, inSection(section)),
+      orderBy: sectionOrder(section),
       limit,
     });
     return rows.map(toListItem);
   }, []);
 }
 
-/** "Ofertas": every active product with a real discount, biggest first. */
-export async function getDiscountedProducts(limit = 8): Promise<ProductListItem[]> {
-  return safeQuery(async () => {
-    const rows = await getDb().query.products.findMany({
-      columns: LIST_COLUMNS,
-      with: LIST_WITH,
-      where: and(isActive, hasStock, isDiscounted),
-      orderBy: [
-        desc(sql`1.0 - ${products.price} / ${products.compare_at_price}`),
-        desc(products.created_at),
-      ],
-      limit,
-    });
-    return rows.map(toListItem);
-  }, []);
+/**
+ * "Mais vendidos": the products marked for it first, in their order, then
+ * the real best sellers (getBestSellers) fill the shelf up to `limit`,
+ * without repeating anyone.
+ */
+export async function getBestSellersShelf(limit = 8): Promise<ProductListItem[]> {
+  const [marked, sold] = await Promise.all([
+    getSectionProducts("mais_vendidos", limit),
+    getBestSellers(limit),
+  ]);
+  const seen = new Set(marked.map((product) => product.id));
+  return [...marked, ...sold.filter((product) => !seen.has(product.id))].slice(0, limit);
 }
 
 /**
@@ -286,6 +313,9 @@ export type ProductListFilters = {
   minPrice?: number;
   maxPrice?: number;
   onSale?: boolean;
+  /** A home shelf's "Ver tudo": only the products marked for it, in its
+   * order (unless the shopper picks another sort). */
+  section?: ProductSection;
   sort?: ProductSort;
   page?: number;
 };
@@ -307,6 +337,7 @@ function listOrder(filters: ProductListFilters): SQL[] {
     case "price-desc":
       return [desc(products.price)];
     default:
+      if (filters.section) return sectionOrder(filters.section);
       // "Relevância" is the store's own order: the products switched to
       // "Aparecer primeiro no catálogo" in the panel lead it. A sort the
       // shopper picks (above) is the only thing ordering the list.
@@ -373,6 +404,7 @@ export async function listProducts(
     if (filters.minPrice !== undefined) conditions.push(gte(products.price, filters.minPrice));
     if (filters.maxPrice !== undefined) conditions.push(lte(products.price, filters.maxPrice));
     if (filters.onSale) conditions.push(isDiscounted);
+    if (filters.section) conditions.push(inSection(filters.section));
 
     const where = and(...conditions);
     // One round trip for the page and its total.
@@ -443,6 +475,7 @@ export type AdminProductListItem = Tables<"products"> & {
   brand: Pick<Brand, "id" | "name"> | null;
   product_images: Pick<ProductImage, "url">[];
   product_variants: Pick<ProductVariant, "id" | "stock" | "image_url">[];
+  product_sections: ProductSectionPick[];
 };
 
 /** Admin listing — every status. */
@@ -455,6 +488,7 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
       brand: { columns: { id: true, name: true } },
       product_images: { columns: { url: true } },
       product_variants: { columns: { id: true, stock: true, image_url: true } },
+      product_sections: { columns: { section: true, position: true } },
     },
   });
 }
@@ -510,13 +544,18 @@ export async function getProductOptions(): Promise<ProductOption[]> {
     .orderBy(asc(products.name));
 }
 
+/** The edit form's product: everything the page shows, plus its shelves. */
+export type AdminProductDetail = ProductWithRelations & {
+  product_sections: ProductSectionPick[];
+};
+
 export async function getProductByIdAdmin(
   id: string,
-): Promise<ProductWithRelations | null> {
+): Promise<AdminProductDetail | null> {
   await requireAdminPage();
   const row = await getDb().query.products.findFirst({
     where: eq(products.id, id),
-    with: DETAIL_WITH,
+    with: { ...DETAIL_WITH, product_sections: { columns: { section: true, position: true } } },
   });
   return row ?? null;
 }

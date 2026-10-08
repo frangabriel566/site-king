@@ -17,9 +17,9 @@ export const COLLECTION_PAGE_SIZE = 12;
  *
  * Deliberately generous: the rails drag sideways now, so a long one costs
  * nothing but a swipe, while a short one silently hides stock the store
- * just published. "Novidades" is newest-first, which is what makes
- * "cadastrou, aparece na home" true whether or not the catalogue has
- * outgrown this number.
+ * just published. A new product comes marked for "Novidades", and that
+ * shelf lists its unnumbered products newest first — which keeps
+ * "cadastrou, aparece na home" true however long the shelf gets.
  */
 export const HOME_RAIL_LIMIT = 24;
 

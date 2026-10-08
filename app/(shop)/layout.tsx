@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ShopConfigProvider } from "@/components/shop/shop-config-provider";
 import { shopConfigFromSettings } from "@/lib/shop-config";
 import { getSalesMode } from "@/lib/sales-mode";
+import { CouponFromLink } from "@/components/shop/coupon-from-link";
 
 /**
  * Records which header control was pressed before the page was able to
@@ -96,6 +97,8 @@ export default async function ShopLayout({
         {/* Renders nothing at all unless the URL carries ?debug=1 — it is
             a field probe for the iOS header problem, not a feature. */}
         <HeaderDebug />
+        {/* Renders nothing: applies a ?cupom=CODIGO link on any page. */}
+        <CouponFromLink />
         <Toaster theme="light" position="bottom-right" />
       </div>
     </CartProvider>

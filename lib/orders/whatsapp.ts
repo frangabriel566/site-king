@@ -1,13 +1,15 @@
 import "server-only";
-import { and, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, ne, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
 import { isCheckViolation } from "@/lib/db/errors";
 import { WHATSAPP_CODE_COUNTER, currentWhatsAppCode, nextOrderNumber } from "@/lib/db/sequences";
 import { roundMoney } from "@/lib/money";
 import type { CustomerSnapshot } from "@/lib/db/schema";
-import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
+import { countCouponUse, isCouponLimitError } from "@/lib/coupons/usage";
+import { getSiteSettings } from "@/lib/data/settings";
 import { priceOrder } from "@/lib/orders/pricing";
+import { orderTotal, shippingModeFor } from "@/lib/orders/summary";
 import type { ShippingMode } from "@/lib/shipping-mode";
 
 /**
@@ -18,6 +20,9 @@ import type { ShippingMode } from "@/lib/shipping-mode";
  */
 
 const { orders, order_items, product_variants, customers, user, counters, coupons } = schema;
+
+/** A customer's name as typed before opening WhatsApp. */
+export const CUSTOMER_NAME_MAX = 80;
 
 const PENDING = "aguardando_whatsapp";
 const EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -31,14 +36,20 @@ export type WhatsAppOrderErrorCode =
   | "EXPIRED"
   | "OUT_OF_STOCK"
   /** detail: why, in Portuguese (lib/coupons/rules.ts). */
-  | "COUPON";
+  | "COUPON"
+  /** Confirming: the coupon reached its limit with other confirmed sales.
+   * detail: the coupon's code. */
+  | "COUPON_LIMIT";
 
 export class WhatsAppOrderError extends Error {
   constructor(
     readonly code: WhatsAppOrderErrorCode,
     /** For OUT_OF_STOCK: the name of the piece that ran out. For COUPON:
-     * the reason, ready for the shopper. */
+     * the reason, ready for the shopper. For COUPON_LIMIT: the code. */
     readonly detail?: string,
+    /** For COUPON: what the order comes to without the coupon, so the
+     * shopper sees the new total before going on. */
+    readonly totalWithoutCoupon?: number,
   ) {
     super(detail ? `${code}:${detail}` : code);
   }
@@ -58,19 +69,14 @@ export async function expireWhatsAppOrders(): Promise<number> {
     isNotNull(orders.expires_at),
     lte(orders.expires_at, new Date().toISOString()),
   );
-  // The coupon uses these orders held go back, in the same transaction as
-  // the expiry itself (lib/coupons/usage.ts) — first, while the orders
-  // still read as pending.
-  const [, expired] = await runBatch(db, [
-    db
-      .update(coupons)
-      .set({
-        used_count: sql`max(${coupons.used_count} - (select count(*) from ${orders} where ${orders.coupon_code} = ${coupons.code} and ${due}), 0)`,
-      })
-      .where(sql`${coupons.code} in (select ${orders.coupon_code} from ${orders} where ${due})`),
-    db.update(orders).set({ status: "expirado" }).where(due).returning({ id: orders.id }),
-  ]);
-  return (expired as { id: string }[]).length;
+  // No coupon to give back: a use only counts once the sale is confirmed
+  // (lib/coupons/usage.ts), and these never were.
+  const expired = await db
+    .update(orders)
+    .set({ status: "expirado" })
+    .where(due)
+    .returning({ id: orders.id });
+  return expired.length;
 }
 
 export type CreatedWhatsAppOrder = {
@@ -92,6 +98,8 @@ export type CreatedWhatsAppOrder = {
   coupon_code: string | null;
   /** Free (the store's rule or the coupon) or agreed in the conversation. */
   shipping_mode: ShippingMode;
+  /** As typed before opening WhatsApp, or the account's; null when none. */
+  customer_name: string | null;
   adjusted: boolean;
 };
 
@@ -108,6 +116,7 @@ export async function createWhatsAppOrder(
   requested: { variantId: string; qty: number }[],
   userId: string | null,
   couponCode: string | null = null,
+  customerName: string | null = null,
 ): Promise<CreatedWhatsAppOrder> {
   if (requested.length === 0) throw new WhatsAppOrderError("EMPTY_CART");
   // Teto grosseiro: uma sacola real não passa disso, e sem ele um POST
@@ -173,9 +182,12 @@ export async function createWhatsAppOrder(
   if (lines.length === 0) throw new WhatsAppOrderError("NO_AVAILABLE_ITEMS");
 
   // Só quem tem cadastro de cliente completo fica amarrado ao pedido;
-  // os outros seguem como visitante, identificados na própria conversa.
+  // os outros seguem como visitante, com o nome que digitaram antes de
+  // abrir a conversa. O nome digitado vale também para quem tem conta: é
+  // como o cliente quer ser chamado.
+  const typedName = customerName?.trim().slice(0, CUSTOMER_NAME_MAX) || null;
   let customerId: string | null = null;
-  let snapshot: CustomerSnapshot | null = null;
+  let snapshot: CustomerSnapshot | null = typedName ? { name: typedName } : null;
   if (userId) {
     const [row] = await db
       .select({ name: customers.name, phone: customers.phone, email: user.email })
@@ -184,7 +196,7 @@ export async function createWhatsAppOrder(
       .where(eq(customers.id, userId));
     if (row) {
       customerId = userId;
-      snapshot = { name: row.name, email: row.email, phone: row.phone };
+      snapshot = { name: typedName ?? row.name, email: row.email, phone: row.phone };
     }
   }
 
@@ -194,14 +206,21 @@ export async function createWhatsAppOrder(
   // subtotal do banco: o que a sacola mostrou foi só a prévia.
   const subtotal = roundMoney(lines.reduce((sum, l) => sum + l.unit_price * l.qty, 0));
   const priced = await priceOrder(subtotal, couponCode);
-  if (!priced.ok) throw new WhatsAppOrderError("COUPON", priced.message);
+  if (!priced.ok) {
+    const without = await priceOrder(subtotal, null);
+    throw new WhatsAppOrderError(
+      "COUPON",
+      priced.message,
+      without.ok ? without.pricing.total : undefined,
+    );
+  }
   const { discount, couponCode: appliedCoupon, shippingMode, total } = priced.pricing;
   const orderId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + EXPIRY_MS).toISOString();
 
-  let results;
-  try {
-    results = await runBatch(db, [
+  // Sem uso de cupom aqui: ele só conta quando a venda é confirmada
+  // (lib/coupons/usage.ts) — um pedido que expira não gasta o limite.
+  const results = await runBatch(db, [
     db
       .insert(counters)
       .values({ name: WHATSAPP_CODE_COUNTER, value: 1 })
@@ -239,15 +258,7 @@ export async function createWhatsAppOrder(
         qty: line.qty,
       })),
     ),
-    // Same batch: past the coupon's limit, no order and no code burned.
-    ...(appliedCoupon ? [takeCouponUse(db, appliedCoupon)] : []),
   ]);
-  } catch (error) {
-    if (isCouponLimitError(error)) {
-      throw new WhatsAppOrderError("COUPON", "Este cupom acabou de atingir o limite de usos.");
-    }
-    throw error;
-  }
 
   const [{ code }] = results[1] as { code: string | null }[];
 
@@ -259,6 +270,7 @@ export async function createWhatsAppOrder(
     discount,
     coupon_code: appliedCoupon,
     shipping_mode: shippingMode,
+    customer_name: snapshot?.name ?? null,
     total,
     items: lines.map(({ name, slug, color, size, qty, unit_price }) => ({
       name,
@@ -281,10 +293,15 @@ export async function createWhatsAppOrder(
  * ninguém pagou ainda, e o admin precisa saber que não pode vender antes
  * de responder ao cliente.
  */
-export async function confirmWhatsAppOrder(orderId: string): Promise<void> {
+export async function confirmWhatsAppOrder(
+  orderId: string,
+  /** Digits with DDD, typed by the store (optional): kept on the order,
+   * and what "um uso por telefone" compares. */
+  customerPhone: string | null = null,
+): Promise<void> {
   const db = getDb();
   const order = await db.query.orders.findFirst({
-    columns: { status: true, expires_at: true },
+    columns: { status: true, expires_at: true, coupon_code: true },
     where: eq(orders.id, orderId),
     with: { order_items: { columns: { variant_id: true, qty: true, name: true } } },
   });
@@ -327,11 +344,16 @@ export async function confirmWhatsAppOrder(orderId: string): Promise<void> {
           .set({ stock: sql`${product_variants.stock} - ${item.qty}` })
           .where(and(eq(product_variants.id, item.variant_id), stillPending)),
       ),
+      // O uso do cupom conta aqui, na venda (lib/coupons/usage.ts) — antes
+      // da troca de status, enquanto o pedido ainda está pendente. Passou
+      // do limite: o lote inteiro volta, estoque inclusive.
+      ...countCouponUse(db, orderId, PENDING),
       db
         .update(orders)
         .set({
           status: "paid",
           expires_at: null,
+          customer_phone: customerPhone,
           // Mesma trava de idempotência do webhook: com ela preenchida,
           // mover o pedido depois para "em preparação"/"enviado" não baixa
           // o estoque de novo.
@@ -344,6 +366,9 @@ export async function confirmWhatsAppOrder(orderId: string): Promise<void> {
     // Stock changed between the check above and the batch.
     if (isCheckViolation(error, "product_variants_stock_check")) {
       throw new WhatsAppOrderError("OUT_OF_STOCK", "uma das peças");
+    }
+    if (isCouponLimitError(error)) {
+      throw new WhatsAppOrderError("COUPON_LIMIT", order.coupon_code ?? undefined);
     }
     throw error;
   }
@@ -360,22 +385,84 @@ export async function confirmWhatsAppOrder(orderId: string): Promise<void> {
  * caso continua no fluxo normal de Pedidos.
  */
 export async function cancelWhatsAppOrder(orderId: string): Promise<void> {
+  // Nenhum uso de cupom a devolver: pendente nunca contou um.
+  const cancelled = await getDb()
+    .update(orders)
+    .set({ status: "canceled", expires_at: null })
+    .where(and(eq(orders.id, orderId), eq(orders.status, PENDING)))
+    .returning({ id: orders.id });
+  if (cancelled.length === 0) throw new WhatsAppOrderError("NOT_PENDING");
+}
+
+/**
+ * "Remover desconto", antes de confirmar: o pedido volta ao preço sem o
+ * cupom. O frete segue a regra da loja (o grátis do cupom sai com ele). Só
+ * em pedido pendente — um confirmado já contou o uso e já foi cobrado.
+ */
+export async function removeWhatsAppOrderDiscount(orderId: string): Promise<void> {
   const db = getDb();
-  const pendingOrder = and(eq(orders.id, orderId), eq(orders.status, PENDING));
-  // The order and its coupon use go back together: the use first, while
-  // the order still reads as pending, in one transaction. A second click
-  // matches nothing in either statement, so the use is never given back
-  // twice.
-  const [, cancelled] = await runBatch(db, [
-    db
-      .update(coupons)
-      .set({ used_count: sql`max(${coupons.used_count} - 1, 0)` })
-      .where(sql`${coupons.code} = (select ${orders.coupon_code} from ${orders} where ${pendingOrder})`),
-    db
-      .update(orders)
-      .set({ status: "canceled", expires_at: null })
-      .where(pendingOrder)
-      .returning({ id: orders.id }),
-  ]);
-  if ((cancelled as { id: string }[]).length === 0) throw new WhatsAppOrderError("NOT_PENDING");
+  const order = await db.query.orders.findFirst({
+    columns: { status: true, subtotal: true, coupon_code: true },
+    where: eq(orders.id, orderId),
+  });
+  if (!order) throw new WhatsAppOrderError("NOT_FOUND");
+  if (order.status !== PENDING) throw new WhatsAppOrderError("NOT_PENDING");
+  if (!order.coupon_code) return;
+
+  const { free_shipping_threshold } = await getSiteSettings();
+  const shippingMode = shippingModeFor(order.subtotal, free_shipping_threshold, false);
+  const updated = await db
+    .update(orders)
+    .set({
+      coupon_code: null,
+      discount: 0,
+      shipping_mode: shippingMode,
+      total: orderTotal({ subtotal: order.subtotal, discount: 0, shippingMode }),
+    })
+    .where(and(eq(orders.id, orderId), eq(orders.status, PENDING)))
+    .returning({ id: orders.id });
+  if (updated.length === 0) throw new WhatsAppOrderError("NOT_PENDING");
+}
+
+export type CouponPhoneCheck = {
+  /** The order's coupon, when it is one-use-per-phone. */
+  couponCode: string | null;
+  /** Other confirmed orders where this phone used that coupon. */
+  previous: { id: string; label: string }[];
+};
+
+/**
+ * "Um uso por telefone": the confirmed orders where `phone` already used
+ * this order's coupon. A warning for the store, never a block — the phone
+ * is typed by hand and may be shared.
+ */
+export async function findCouponPhoneUses(orderId: string, phone: string): Promise<CouponPhoneCheck> {
+  const db = getDb();
+  const order = await db.query.orders.findFirst({
+    columns: { coupon_code: true },
+    where: eq(orders.id, orderId),
+  });
+  if (!order?.coupon_code) return { couponCode: null, previous: [] };
+  const coupon = await db.query.coupons.findFirst({
+    columns: { one_per_phone: true },
+    where: eq(coupons.code, order.coupon_code),
+  });
+  if (!coupon?.one_per_phone) return { couponCode: null, previous: [] };
+
+  const rows = await db
+    .select({ id: orders.id, code: orders.code, number: orders.order_number })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.coupon_code, order.coupon_code),
+        eq(orders.customer_phone, phone),
+        isNotNull(orders.coupon_used_at),
+        ne(orders.id, orderId),
+      ),
+    )
+    .limit(5);
+  return {
+    couponCode: order.coupon_code,
+    previous: rows.map((row) => ({ id: row.id, label: `#${row.code ?? row.number}` })),
+  };
 }

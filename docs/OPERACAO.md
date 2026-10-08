@@ -141,27 +141,60 @@ e clique fora — salva sozinho.
 
 - **Código** — salvo em maiúsculas e sem espaços; o cliente pode digitar
   "teste 10" ou "Teste10" que funciona igual.
-- **Tipo e valor** — percentual (até 100%) ou valor fixo em R$. O desconto
-  é sobre os produtos, nunca sobre o frete, e nunca passa do subtotal.
-- **Também zera o frete** — o cupom dá frete grátis (pode ser só isso, com
-  valor 0).
-- **Pedido mínimo** — sobre o subtotal dos produtos. Se o cliente diminuir
-  a sacola para baixo do mínimo, o cupom sai sozinho com um aviso.
-- **Limite de usos** — em branco, sem limite. Cada pedido criado com o
-  cupom conta um uso; pedido **cancelado ou expirado devolve** o uso. O
-  banco não deixa passar do limite, nem com dois pedidos ao mesmo tempo.
+- **Tipo** — percentual (até 100%), valor fixo em R$ ou **frete grátis**.
+  O desconto é sobre os produtos, nunca sobre o frete, e nunca passa do
+  subtotal. Percentual e valor fixo podem também dar frete grátis
+  ("Também dá frete grátis").
+- **Um uso por telefone** — ao confirmar a venda, se o telefone do cliente
+  já usou o cupom em outra venda confirmada, o painel avisa (sem bloquear)
+  e oferece tirar o desconto.
+- **Pedido mínimo** — sobre o subtotal dos produtos. Abaixo dele, o cupom
+  fica guardado na sacola ("Faltam R$ X para usar o cupom") e entra sozinho
+  quando a sacola chega ao mínimo.
+- **Limite de usos** — em branco, sem limite. O uso **só conta quando a
+  venda é confirmada** (ou paga): pedido esperando, expirado ou abandonado
+  não gasta o limite, e cancelar uma venda confirmada devolve o uso. O
+  banco não deixa passar do limite, nem com duas confirmações ao mesmo
+  tempo.
 - **Começa em / Vale até** — dias inteiros no horário de Brasília (do
   início do primeiro dia até 23:59 do último). Em branco, sem limite.
 - **Ativo** — dá para ligar e desligar direto na lista. Desativar é melhor
   que excluir: a lista continua mostrando quantas vezes ele foi usado.
 
-O cliente aplica o cupom na **sacola**, logo abaixo do CEP (ou no resumo
-do checkout). O cupom segue com a sacola até o checkout e até o
-"Comprar pelo WhatsApp", e a mensagem do WhatsApp sai com o código e o
-valor do desconto. O desconto é sempre calculado no servidor, com os
-preços do banco, e conferido de novo quando o pedido é criado — se o cupom
-deixou de valer no meio do caminho, o pedido não é criado e o cliente vê o
-motivo. A lista de cupons nunca aparece na loja.
+Na lista: **Usos** leva aos pedidos que usaram o cupom (e quais contaram),
+e o ícone de corrente **copia o link do cupom**
+(`https://sitekingstore.com.br/?cupom=CODIGO`).
+
+**Na loja (sem precisar de conta):**
+
+- **Onde aplicar:** o cliente aplica o cupom na página do produto, na
+  sacola ou na sacola lateral, logo abaixo da caixa de frete (ou no lugar
+  dela, enquanto ela estiver escondida).
+- **O que aparece:** aplicado, mostra "Cupom CODIGO aplicado: -10%" com a
+  opção de remover. Aplicado na página do produto, já vem aplicado na
+  sacola.
+- **Link:** quem abre qualquer página com `?cupom=CODIGO` já fica com o
+  cupom e vê o aviso "Cupom CODIGO aplicado".
+- **Erros:** cupom inválido, vencido, esgotado ou abaixo do mínimo mostra
+  o motivo. Depois de 10 códigos errados em um minuto, o site pede para
+  esperar um minuto (proteção contra quem tenta adivinhar códigos).
+- **Finalizar compra:** pede só o nome do cliente (lembrado no navegador)
+  antes de abrir o WhatsApp. A mensagem traz nome, código do pedido, itens,
+  cupom, desconto, frete e total.
+- **Recálculo no servidor:** o desconto é sempre calculado no servidor,
+  com os preços do banco, e conferido de novo quando o pedido é criado. Se
+  o cupom deixou de valer, o cliente vê o motivo e o total sem ele antes
+  de seguir. A lista de cupons nunca aparece na loja.
+
+**Confirmar venda com cupom** (`/admin/pedidos-whatsapp`):
+
+- **Telefone:** a janela tem o campo opcional **Telefone do cliente** (com
+  DDD), que fica guardado no pedido.
+- **Telefone repetido:** se o cupom é de um uso por telefone e o telefone
+  já usou o cupom, aparece o aviso com o pedido anterior e o botão
+  **Remover desconto**.
+- **Limite atingido:** se outras vendas já esgotaram o limite, nada é
+  baixado e aparece **Confirmar sem o desconto**.
 
 ## Feedbacks de clientes
 

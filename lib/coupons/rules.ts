@@ -33,6 +33,16 @@ export type CouponRejection =
   | "BELOW_MINIMUM"
   | "EMPTY_CART";
 
+/** What a coupon gives, whatever the bag: what the product page shows, and
+ * the "Cupom X aplicado: -10%" line everywhere. */
+export type CouponOffer = {
+  code: string;
+  type: Tables<"coupons">["type"];
+  value: number;
+  freeShipping: boolean;
+  minTotal: number;
+};
+
 export type CouponCheck =
   | {
       ok: true;
@@ -40,13 +50,60 @@ export type CouponCheck =
       /** Off the subtotal, never more than it. */
       discount: number;
       freeShipping: boolean;
+      offer: CouponOffer;
     }
-  | { ok: false; reason: CouponRejection; message: string };
+  | {
+      ok: false;
+      reason: CouponRejection;
+      message: string;
+      /** BELOW_MINIMUM only: the coupon is good, the bag is short by
+       * `missing` — the storefront keeps it waiting instead of dropping it. */
+      offer?: CouponOffer;
+      missing?: number;
+    };
 
-/** What POST /api/coupons/validate answers. */
+/** What POST /api/coupons/validate answers. With an empty bag it checks
+ * the coupon alone (`discount` 0) — the product page and the ?cupom= link. */
 export type CouponValidationResponse =
-  | { ok: true; code: string; discount: number; freeShipping: boolean; subtotal: number }
-  | { ok: false; reason: string; message: string };
+  | {
+      ok: true;
+      code: string;
+      discount: number;
+      freeShipping: boolean;
+      subtotal: number;
+      offer: CouponOffer;
+    }
+  | {
+      ok: false;
+      reason: string;
+      message: string;
+      offer?: CouponOffer;
+      missing?: number;
+    };
+
+export function couponOffer(
+  coupon: Pick<CouponRow, "code" | "type" | "value" | "free_shipping" | "min_total">,
+): CouponOffer {
+  return {
+    code: coupon.code,
+    type: coupon.type,
+    value: coupon.value,
+    freeShipping: coupon.free_shipping,
+    minTotal: coupon.min_total,
+  };
+}
+
+/** "-10%", "-R$ 20,00", "frete grátis" or "-10% e frete grátis". */
+export function couponOfferLabel(offer: Pick<CouponOffer, "type" | "value" | "freeShipping">): string {
+  const amount =
+    offer.value > 0
+      ? offer.type === "percent"
+        ? `-${String(offer.value).replace(".", ",")}%`
+        : `-${formatCurrency(offer.value)}`
+      : null;
+  if (amount && offer.freeShipping) return `${amount} e frete grátis`;
+  return amount ?? "frete grátis";
+}
 
 /** "teste 10", " Teste10 " and "TESTE10" are the same coupon. */
 export function normalizeCouponCode(code: string): string {
@@ -75,6 +132,19 @@ export function couponDiscount(
 ): number {
   const raw = coupon.type === "percent" ? (subtotal * coupon.value) / 100 : coupon.value;
   return roundMoney(Math.max(0, Math.min(raw, subtotal)));
+}
+
+/**
+ * The coupon alone, with no bag yet (the product page, the ?cupom= link):
+ * whether it exists and can be used today. The minimum is left for the
+ * bag — it is shown, not checked.
+ */
+export function checkCouponOffer(
+  coupon: CouponRow | null | undefined,
+  now = Date.now(),
+): { ok: true; offer: CouponOffer } | { ok: false; reason: CouponRejection; message: string } {
+  const check = checkCoupon(coupon, Number.POSITIVE_INFINITY, now);
+  return check.ok ? { ok: true, offer: check.offer } : check;
 }
 
 /**
@@ -113,18 +183,23 @@ export function checkCoupon(
     };
   }
   if (subtotal < coupon.min_total) {
+    const missing = roundMoney(coupon.min_total - subtotal);
     return {
       ok: false,
       reason: "BELOW_MINIMUM",
       message: `Este cupom vale para compras a partir de ${formatCurrency(
         coupon.min_total,
-      )}. Faltam ${formatCurrency(roundMoney(coupon.min_total - subtotal))}.`,
+      )}. Faltam ${formatCurrency(missing)}.`,
+      offer: couponOffer(coupon),
+      missing,
     };
   }
   return {
     ok: true,
     code: coupon.code,
-    discount: couponDiscount(coupon, subtotal),
+    // An offer check (subtotal = ∞) has no amount to take off.
+    discount: Number.isFinite(subtotal) ? couponDiscount(coupon, subtotal) : 0,
     freeShipping: coupon.free_shipping,
+    offer: couponOffer(coupon),
   };
 }

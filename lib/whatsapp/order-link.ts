@@ -54,6 +54,7 @@ export type WhatsAppOrderItem = {
 export function buildWhatsAppOrderMessage({
   storeName,
   code,
+  customerName = null,
   items,
   summary,
   expiresAt,
@@ -61,6 +62,8 @@ export function buildWhatsAppOrderMessage({
 }: {
   storeName: string;
   code: string;
+  /** As the shopper typed it before opening WhatsApp. */
+  customerName?: string | null;
   items: WhatsAppOrderItem[];
   /** The order as recorded (lib/orders/whatsapp.ts). */
   summary: OrderSummaryInput;
@@ -71,6 +74,7 @@ export function buildWhatsAppOrderMessage({
     `Olá! Quero fechar este pedido na ${storeName}.`,
     "",
     `Pedido *#${code}*`,
+    ...(customerName ? [`Nome: ${customerName}`] : []),
     "",
   ];
 

@@ -510,6 +510,14 @@ export const orders = sqliteTable(
     /** The coupon this order used (its code, as typed by the store), or
      * null. `discount` holds the amount. */
     coupon_code: text("coupon_code"),
+    /** When this order's coupon use was counted (the sale confirmed or
+     * paid); null while it hasn't been, or after it was given back. Also
+     * what makes counting and giving back idempotent. */
+    coupon_used_at: text("coupon_used_at"),
+    /** The customer's phone, digits only with DDD — typed by the store when
+     * it confirms a WhatsApp sale (optional). What "um uso por telefone"
+     * compares. */
+    customer_phone: text("customer_phone"),
     label_url: text("label_url"),
     created_at: createdAt(),
     updated_at: updatedAt(),
@@ -519,6 +527,7 @@ export const orders = sqliteTable(
     index("orders_status_idx").on(t.status),
     index("orders_payment_id_idx").on(t.payment_id),
     index("orders_created_at_idx").on(t.created_at),
+    index("orders_coupon_phone_idx").on(t.coupon_code, t.customer_phone),
     index("orders_whatsapp_pending_idx")
       .on(t.expires_at)
       .where(sql`${t.status} = 'aguardando_whatsapp'`),
@@ -568,11 +577,16 @@ export const coupons = sqliteTable(
     expires_at: text("expires_at"),
     /** Null: unlimited. */
     max_uses: integer("max_uses"),
-    /** Orders holding a use: counted when the order is created, given back
-     * when it is canceled or expires (lib/coupons/usage.ts). */
+    /** Confirmed orders that used it: counted when the sale is confirmed
+     * (or paid), given back when that order is canceled — an order still
+     * waiting, expired or abandoned never spends a use
+     * (lib/coupons/usage.ts, orders.coupon_used_at). */
     used_count: integer("used_count").notNull().default(0),
     /** Also zeroes the shipping. */
     free_shipping: bool("free_shipping").notNull().default(false),
+    /** One confirmed use per customer phone (typed by the store when it
+     * confirms the sale). Repeats are flagged, not blocked. */
+    one_per_phone: bool("one_per_phone").notNull().default(false),
     created_at: createdAt(),
   },
   (t) => [
@@ -673,6 +687,20 @@ export const newsletter_subscribers = sqliteTable("newsletter_subscribers", {
   email: text("email").notNull().unique(),
   created_at: createdAt(),
 });
+
+/** Failed attempts per client per minute (lib/rate-limit.ts) — today the
+ * coupon check. `key` is a hash, never the raw IP; rows are a few minutes
+ * old at most. */
+export const rate_limits = sqliteTable(
+  "rate_limits",
+  {
+    key: text("key").notNull(),
+    /** Start of the minute, in ms. */
+    window_start: integer("window_start").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.window_start] })],
+);
 
 /** Named sequences (SQLite has none). `whatsapp_order_code` numbers KS0001. */
 export const counters = sqliteTable("counters", {

@@ -5,6 +5,8 @@ export const CART_STORAGE_KEY = "king-store:cart";
  * recomputed by the server (/api/coupons/validate). */
 export const COUPON_STORAGE_KEY = "king-store:coupon";
 export const COOKIE_CONSENT_KEY = "king-store:cookie-consent";
+/** The name typed before opening WhatsApp, offered again next time. */
+export const CUSTOMER_NAME_STORAGE_KEY = "king-store:customer-name";
 /** Fired on `window` the moment cookie consent is accepted, so other
  * already-mounted widgets (e.g. the WhatsApp float, which raises itself
  * to clear the cookie banner) can react in the same tab — a `storage`

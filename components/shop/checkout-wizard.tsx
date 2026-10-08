@@ -108,7 +108,7 @@ export function CheckoutWizard({
     const result = await createOrderAction({
       address,
       method: canPayOnline ? checkoutMethod : "whatsapp",
-      couponCode: coupon.applied?.code ?? coupon.code ?? undefined,
+      couponCode: coupon.applied?.code ?? undefined,
       items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
     });
     setSubmitting(false);

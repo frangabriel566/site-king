@@ -272,7 +272,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           ) : (
             <FinishPurchase
               items={availableItems}
-              couponCode={coupon.code}
+              couponCode={coupon.applied?.code ?? null}
               whatsappEnabled={whatsappEnabled}
               className="mt-6"
             />

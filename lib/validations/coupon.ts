@@ -30,8 +30,13 @@ export const couponSchema = z
           .max(40, "Código muito longo (máximo 40 caracteres)")
           .regex(/^[A-Z0-9_-]+$/, "Use só letras, números, hífen ou sublinhado"),
       ),
-    type: z.enum(["percent", "fixed"], { error: "Escolha o tipo do desconto" }),
-    value: z.preprocess(formNumber, z.number({ error: "Informe o valor do desconto" }).min(0)),
+    // "free_shipping" is a form choice, not a stored type: it is saved as a
+    // fixed R$ 0 coupon that also zeroes the freight (see the transform).
+    type: z.enum(["percent", "fixed", "free_shipping"], { error: "Escolha o tipo do desconto" }),
+    value: z.preprocess(
+      formNumber,
+      z.number({ error: "Informe o valor do desconto" }).min(0).optional(),
+    ),
     min_total: z.preprocess(formNumber, z.number({ error: "Pedido mínimo inválido" }).min(0).default(0)),
     max_uses: z.preprocess(
       formNumber,
@@ -45,7 +50,17 @@ export const couponSchema = z
     starts_at: optionalDate,
     expires_at: optionalDate,
     free_shipping: z.boolean().default(false),
+    one_per_phone: z.boolean().default(false),
     active: z.boolean().default(true),
+  })
+  .transform(({ type, value, free_shipping, ...rest }) =>
+    type === "free_shipping"
+      ? { ...rest, type: "fixed" as const, value: 0, free_shipping: true }
+      : { ...rest, type, value: value ?? Number.NaN, free_shipping },
+  )
+  .refine((data) => Number.isFinite(data.value), {
+    message: "Informe o valor do desconto",
+    path: ["value"],
   })
   .refine((data) => data.type !== "percent" || data.value <= 100, {
     message: "Cupom percentual não pode passar de 100%",

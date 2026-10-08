@@ -23,6 +23,7 @@ function parseFormData(formData: FormData) {
     starts_at: formData.get("starts_at"),
     expires_at: formData.get("expires_at"),
     free_shipping: formData.get("free_shipping") === "on",
+    one_per_phone: formData.get("one_per_phone") === "on",
     active: formData.get("active") === "on",
   });
 }

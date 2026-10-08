@@ -1577,3 +1577,63 @@ em quadrado na prévia).
 - **Testes:** `tests/image-url.unit.test.ts` (chaves derivadas). Teste
   manual na loja local: envio de SVG com margem, prévia, ícones, cabeçalho
   em 1280 px e 390 px, menu do celular, painel, login e remoção.
+
+## Bloco 34 — Cupom para visitante (Etapa 1)
+
+O cupom já funcionava sem login na sacola, mas só ali, o uso contava na
+criação do pedido (um pedido KS abandonado segurava o uso por 48 h) e o
+pedido não guardava quem comprou.
+
+- **Uso conta só na confirmação** (`lib/coupons/usage.ts`). Ele é contado
+  em três momentos: "Confirmar venda", status Pago no painel e o webhook
+  do Mercado Pago. Cancelar uma venda confirmada devolve o uso.
+  `orders.coupon_used_at` deixa contar e devolver idempotentes. A
+  criação, a expiração e o cancelamento de pendentes não tocam mais no
+  contador. A trava de limite continua sendo o CHECK do banco.
+  - **Limite na confirmação:** se outras vendas esgotaram o limite
+    enquanto o pedido esperava, a confirmação falha inteira (estoque
+    inclusive) e o painel oferece "Confirmar sem o desconto".
+  - **Mercado Pago:** um pagamento que já entrou nunca é recusado; o uso
+    acima do limite só vai para o log.
+- **Migration `0008_guest_coupons`:**
+  - `coupons.one_per_phone`, `orders.customer_phone`,
+    `orders.coupon_used_at` e a tabela `rate_limits`.
+  - Preenche `coupon_used_at` nos pedidos já pagos e reconta `used_count`
+    só com eles: os usos presos em pedidos pendentes voltam.
+- **Tipo "Frete grátis"** no cadastro, gravado como valor fixo R$ 0 com
+  frete grátis, sem recriar a tabela `coupons`.
+- **Validação sem sacola** (`/api/coupons/validate` com `items: []`): só o
+  cupom (ativo, datas, limite), respondendo o que ele dá ("-10%"). Serve à
+  página do produto e ao link `?cupom=`.
+- **Abaixo do mínimo**, o cupom fica guardado ("Faltam R$ X") em vez de
+  sair, e entra sozinho ao atingir o mínimo. Só o cupom aplicado vai para o
+  pedido.
+- **Tentativas por IP** (`lib/rate-limit.ts`), no D1: 10 cupons errados por
+  minuto, contando só as falhas. O binding de rate limit da Cloudflare
+  conta toda chamada e não deixa consultar sem contar, então bloquearia a
+  revalidação normal da sacola. A chave é um hash do IP, e as linhas duram
+  cerca de 10 minutos.
+- **Nome antes do WhatsApp:**
+  - Uma janela no botão pede só o nome; ele fica lembrado no navegador, e
+    para quem tem conta vem o nome do cadastro.
+  - O WhatsApp é aberto dentro do clique na janela, por causa do
+    bloqueador de pop-up do celular.
+  - O nome vai para o `customer_snapshot` e para a mensagem ("Nome: …").
+  - Se o servidor recusar o cupom, a janela mostra o motivo e o total sem
+    ele, e oferece "Continuar sem o cupom".
+- **Campo de cupom** na página do produto (no lugar da calculadora, que
+  está escondida) e na sacola lateral (recolhido em "Tem cupom de
+  desconto?"). O botão "Comprar pelo WhatsApp" da página do produto leva o
+  cupom aplicado ali.
+- **Painel:**
+  - **Lista de cupons:** link "copiar link" com o endereço público do site
+    (`NEXT_PUBLIC_SITE_URL`) e os usos levando aos pedidos do cupom.
+  - **Confirmar venda:** telefone opcional, com máscara. Para cupons de um
+    uso por telefone, avisa a venda anterior e oferece "Remover desconto";
+    remover recalcula o total, e o frete volta à regra da loja.
+- **Testes:**
+  - `tests/coupons.d1.test.ts`: contagem na confirmação, expiração,
+    limite, devolução, telefone, recálculo, frete grátis, nome, validação
+    sem sacola, mínimo, limite por IP e a migration.
+  - `tests/coupon-rules.unit.test.ts`.
+- Worker: ~2.433 KiB comprimidos (+~12 KiB).

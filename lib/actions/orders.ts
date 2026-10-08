@@ -7,7 +7,13 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
 import { fulfillOrderStock } from "@/lib/orders/stock";
 import { runBatch } from "@/lib/db/batch";
-import { RELEASED_STATUSES, releaseCouponUse, retakeCouponUse } from "@/lib/coupons/usage";
+import {
+  COUNTED_STATUSES,
+  RELEASED_STATUSES,
+  countCouponUse,
+  isCouponLimitError,
+  releaseCouponUse,
+} from "@/lib/coupons/usage";
 
 export type ActionResult = { ok: boolean; message?: string };
 
@@ -16,7 +22,7 @@ export type ActionResult = { ok: boolean; message?: string };
 // only other place this happens; orders paid through the WhatsApp
 // provider are confirmed manually here instead, so this is the only
 // fulfillment trigger they ever get.
-const FULFILLED_STATUSES = new Set(["paid", "processing", "shipped", "delivered"]);
+const FULFILLED_STATUSES = COUNTED_STATUSES;
 
 export async function updateOrderStatusAction(
   input: unknown,
@@ -35,19 +41,18 @@ export async function updateOrderStatusAction(
     });
     if (!current) return { ok: false, message: "Pedido não encontrado." };
 
-    // A canceled order gives its coupon use back; reopening it takes one
-    // again if there is one left (lib/coupons/usage.ts). Same batch as
-    // the status, so the count never drifts from the orders.
-    const wasHolding = !RELEASED_STATUSES.has(current.status);
-    const willHold = !RELEASED_STATUSES.has(parsed.data.status);
-    const coupon =
-      current.coupon_code && wasHolding !== willHold
-        ? willHold
-          ? retakeCouponUse(db, current.coupon_code)
-          : releaseCouponUse(db, current.coupon_code)
-        : null;
+    // The coupon use follows the sale (lib/coupons/usage.ts): counted when
+    // the order becomes paid, given back when a counted order is canceled.
+    // Both are no-ops when there is nothing to do, and they share the
+    // status's batch, so the count never drifts from the orders.
+    const coupon = COUNTED_STATUSES.has(parsed.data.status)
+      ? countCouponUse(db, parsed.data.order_id)
+      : RELEASED_STATUSES.has(parsed.data.status)
+        ? releaseCouponUse(db, parsed.data.order_id)
+        : [];
 
     await runBatch(db, [
+      ...coupon,
       db
         .update(schema.orders)
         .set({
@@ -55,9 +60,15 @@ export async function updateOrderStatusAction(
           tracking_code: parsed.data.tracking_code || null,
         })
         .where(eq(schema.orders.id, parsed.data.order_id)),
-      ...(coupon ? [coupon] : []),
     ]);
   } catch (error) {
+    if (isCouponLimitError(error)) {
+      return {
+        ok: false,
+        message:
+          "O cupom deste pedido já atingiu o limite de usos. Aumente o limite em Cupons para marcar a venda.",
+      };
+    }
     console.error("[updateOrderStatusAction]", error);
     return { ok: false, message: "Não foi possível atualizar o pedido." };
   }

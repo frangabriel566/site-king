@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getWhatsAppOrdersAdmin } from "@/lib/data/whatsapp-orders";
+import { getOnePerPhoneCodes } from "@/lib/data/coupons";
 import {
   isWhatsAppOrderFilter,
   ORDER_STATUS_LABEL,
@@ -46,6 +47,9 @@ export default async function AdminWhatsAppOrdersPage({
   const { filtro, busca } = await searchParams;
   const filter = isWhatsAppOrderFilter(filtro) ? filtro : "pendentes";
   const orders = await getWhatsAppOrdersAdmin({ filter, search: busca });
+  const onePerPhone = await getOnePerPhoneCodes(
+    orders.flatMap((order) => (order.coupon_code ? [order.coupon_code] : [])),
+  );
   const searching = Boolean(busca?.trim());
 
   return (
@@ -154,6 +158,12 @@ export default async function AdminWhatsAppOrdersPage({
                         frete {shippingText(order.shipping_mode)}
                       </span>
                     )}
+                    {order.coupon_code && (
+                      <span className="mt-0.5 block text-xs text-ink-muted">
+                        cupom {order.coupon_code}
+                        {order.discount > 0 ? ` (-${formatCurrency(order.discount)})` : ""}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     {isPending ? (
@@ -161,6 +171,10 @@ export default async function AdminWhatsAppOrdersPage({
                         orderId={order.id}
                         code={order.code ?? ""}
                         total={formatCurrency(order.total)}
+                        couponCode={order.coupon_code}
+                        discount={order.discount > 0 ? `-${formatCurrency(order.discount)}` : null}
+                        onePerPhone={Boolean(order.coupon_code && onePerPhone.has(order.coupon_code))}
+                        initialPhone={order.customer_phone ?? snapshot?.phone ?? ""}
                       />
                     ) : (
                       <Link

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,16 @@ import type { Coupon } from "@/lib/data/coupons";
 
 const initialState: ActionResult = { status: "idle" };
 
+/** The form's three kinds. "Frete grátis" is stored as a fixed R$ 0 coupon
+ * that zeroes the freight (lib/validations/coupon.ts). */
+type CouponFormType = "percent" | "fixed" | "free_shipping";
+
+function formTypeOf(coupon?: Coupon): CouponFormType {
+  if (!coupon) return "percent";
+  if (coupon.value === 0 && coupon.free_shipping) return "free_shipping";
+  return coupon.type;
+}
+
 export function CouponForm({
   coupon,
   action,
@@ -28,6 +38,7 @@ export function CouponForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
+  const [type, setType] = useState<CouponFormType>(() => formTypeOf(coupon));
 
   useEffect(() => {
     if (state.status === "error" && state.message) toast.error(state.message);
@@ -66,31 +77,47 @@ export function CouponForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="type">Tipo</Label>
-          <Select name="type" defaultValue={coupon?.type ?? "percent"}>
+          <Select name="type" value={type} onValueChange={(next) => setType(next as CouponFormType)}>
             <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="percent">Percentual (%)</SelectItem>
               <SelectItem value="fixed">Valor fixo (R$)</SelectItem>
+              <SelectItem value="free_shipping">Frete grátis</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="value">Valor</Label>
-          <Input
-            id="value"
-            name="value"
-            inputMode="decimal"
-            required
-            placeholder="ex.: 10"
-            defaultValue={coupon?.value}
-          />
-        </div>
+        {type !== "free_shipping" && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="value">Valor</Label>
+            <Input
+              id="value"
+              name="value"
+              inputMode="decimal"
+              required
+              placeholder={type === "percent" ? "ex.: 10" : "ex.: 20,00"}
+              defaultValue={coupon && coupon.value > 0 ? coupon.value : undefined}
+            />
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-3">
-        <Switch id="free_shipping" name="free_shipping" defaultChecked={coupon?.free_shipping ?? false} />
-        <Label htmlFor="free_shipping">Também zera o frete</Label>
+      {type !== "free_shipping" && (
+        <div className="flex items-center gap-3">
+          <Switch id="free_shipping" name="free_shipping" defaultChecked={coupon?.free_shipping ?? false} />
+          <Label htmlFor="free_shipping">Também dá frete grátis</Label>
+        </div>
+      )}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-3">
+          <Switch id="one_per_phone" name="one_per_phone" defaultChecked={coupon?.one_per_phone ?? false} />
+          <Label htmlFor="one_per_phone">Um uso por telefone</Label>
+        </div>
+        <p className="text-xs text-ink-muted">
+          Ao confirmar uma venda, se o telefone do cliente já usou este cupom em
+          outra venda confirmada, o painel avisa (sem bloquear) e oferece tirar o
+          desconto.
+        </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
@@ -118,7 +145,8 @@ export function CouponForm({
           />
           <p className="text-xs text-ink-muted">
             {coupon ? `Usado ${coupon.used_count} ${coupon.used_count === 1 ? "vez" : "vezes"} até agora. ` : ""}
-            Pedido cancelado ou expirado devolve o uso.
+            Conta só quando a venda é confirmada; cancelar uma venda confirmada
+            devolve o uso.
           </p>
         </div>
         <div className="flex flex-col gap-2">

@@ -50,7 +50,34 @@ export function parseWhatsAppItems(input: unknown): {
   return { items, dropped };
 }
 
-/** Os dois botões da aba do painel. */
+/** Os botões da aba do painel. */
 export const whatsappOrderIdSchema = z.object({
   order_id: z.guid(),
 });
+
+/** Telefone com DDD, só dígitos (10 ou 11). Vazio: não informado. */
+export const customerPhoneSchema = z
+  .string()
+  .transform((value) => value.replace(/\D/g, ""))
+  .refine((digits) => digits === "" || digits.length === 10 || digits.length === 11, {
+    message: "Telefone com DDD: 10 ou 11 dígitos.",
+  })
+  .transform((digits) => digits || null);
+
+/** "Confirmar venda", com o telefone opcional digitado pela loja. */
+export const confirmWhatsAppOrderSchema = whatsappOrderIdSchema.extend({
+  phone: customerPhoneSchema.optional().default(""),
+  /** "Confirmar sem o desconto": tira o cupom antes de confirmar. */
+  remove_discount: z.boolean().optional().default(false),
+});
+
+export const couponPhoneCheckSchema = whatsappOrderIdSchema.extend({
+  phone: customerPhoneSchema,
+});
+
+/** O nome pedido antes de abrir o WhatsApp. */
+export const customerNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Digite seu nome.")
+  .max(80, "Nome muito longo.");

@@ -149,7 +149,7 @@ describe.each([
 
     // Bag "Finalizar compra" (checkout closed): a visitor, no login.
     state.userId = null;
-    const viaBag = await createWhatsAppOrderAction({ items, couponCode: coupon });
+    const viaBag = await createWhatsAppOrderAction({ items, couponCode: coupon, customerName: "Ana" });
     expect(viaBag.ok).toBe(true);
     if (!viaBag.ok) return;
     const bagOrder = await recorded(viaBag.orderId);

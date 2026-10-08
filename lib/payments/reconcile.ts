@@ -2,6 +2,8 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { fulfillOrderStock } from "@/lib/orders/stock";
+import { runBatch } from "@/lib/db/batch";
+import { countCouponUse, isCouponLimitError } from "@/lib/coupons/usage";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 
 export type MercadoPagoPayment = {
@@ -52,6 +54,16 @@ export async function reconcileMercadoPagoPayment(
     .update(orders)
     .set({ status: "paid", payment_id: String(payment.id) })
     .where(eq(orders.id, orderId));
+
+  // The coupon use counts with the payment (lib/coupons/usage.ts). The
+  // money is already in, so a coupon that hit its limit meanwhile is only
+  // logged — refusing the paid order would be worse.
+  try {
+    await runBatch(db, [...countCouponUse(db, orderId)]);
+  } catch (error) {
+    if (!isCouponLimitError(error)) throw error;
+    console.error("[mercadopago] cupom acima do limite no pedido", orderId);
+  }
 
   try {
     await fulfillOrderStock(orderId);

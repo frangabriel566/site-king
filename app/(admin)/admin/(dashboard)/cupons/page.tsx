@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteCouponAction } from "@/lib/actions/coupons";
 import { CouponActiveToggle } from "./coupon-active-toggle";
+import { CopyCouponLink } from "./copy-coupon-link";
+import { getRequestOrigin } from "@/lib/site-url";
 import type { Coupon } from "@/lib/data/coupons";
 import {
   Table,
@@ -20,7 +22,10 @@ import {
 export const metadata: Metadata = { title: "Cupons — Painel" };
 
 export default async function AdminCouponsPage() {
-  const coupons = await getAllCouponsAdmin();
+  const [coupons, origin] = await Promise.all([getAllCouponsAdmin(), getRequestOrigin()]);
+  // The store's public address (sitekingstore.com.br in production); the
+  // panel's own address only as a fallback.
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || origin).replace(/\/+$/, "");
 
   return (
     <div>
@@ -65,16 +70,30 @@ export default async function AdminCouponsPage() {
                   {describeValidity(coupon)}
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-ink-muted">
-                  <span className="font-medium text-fg">{coupon.used_count}</span>
-                  {coupon.max_uses !== null ? ` / ${coupon.max_uses}` : ""}
+                  {/* Confirmed sales only; the orders are on the coupon's page. */}
+                  <Link
+                    href={`/admin/cupons/${coupon.id}#pedidos`}
+                    className="hover:text-fg hover:underline"
+                    title="Ver os pedidos com este cupom"
+                  >
+                    <span className="font-medium text-fg">{coupon.used_count}</span>
+                    {coupon.max_uses !== null ? ` / ${coupon.max_uses}` : ""}
+                  </Link>
                   {coupon.max_uses !== null && coupon.used_count >= coupon.max_uses && (
                     <span className="ml-2 text-xs text-warning">esgotado</span>
+                  )}
+                  {coupon.one_per_phone && (
+                    <span className="block text-xs">1 por telefone</span>
                   )}
                 </TableCell>
                 <TableCell>
                   <CouponActiveToggle id={coupon.id} code={coupon.code} active={coupon.active} />
                 </TableCell>
                 <TableCell className="flex justify-end gap-1">
+                  <CopyCouponLink
+                    code={coupon.code}
+                    url={`${siteUrl}/?cupom=${encodeURIComponent(coupon.code)}`}
+                  />
                   <Button variant="ghost" size="icon-sm" asChild>
                     <Link href={`/admin/cupons/${coupon.id}`} aria-label="Editar cupom">
                       <Pencil className="size-4" />

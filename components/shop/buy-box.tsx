@@ -12,6 +12,8 @@ import { discountPercent, installmentText, pixPrice } from "@/lib/shop-config";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import { SizeGuideModal } from "@/components/shop/size-guide-modal";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
+import { CouponField } from "@/components/shop/coupon-field";
+import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
 import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
 import { TrustStrip } from "@/components/shop/trust-strip";
 import { StickyBuyBar } from "@/components/shop/sticky-buy-bar";
@@ -52,6 +54,8 @@ export function BuyBox({
   const { addItem, open } = useCart();
   const router = useRouter();
   const config = useShopConfig();
+  // The coupon alone (no bag to price here); applied, it goes with the bag.
+  const productCoupon = useBagCoupon(true, "offer");
   const discount = discountPercent(product.price, product.compare_at_price);
   const installments = installmentText(product.price, config.installmentsMax);
   const pix = pixPrice(product.price, config.pixDiscountPercent);
@@ -387,6 +391,7 @@ export function BuyBox({
           // validação, e as duas iam divergir na primeira mudança.
           <WhatsAppBuyButton
             disabled={allOutOfStock}
+            couponCode={productCoupon.applied?.code ?? null}
             getItems={() => {
               const item = buildCartItem();
               return item ? [{ variantId: item.variantId, qty: item.qty }] : null;
@@ -403,12 +408,16 @@ export function BuyBox({
           preço nenhum — agora que existe motor de frete de verdade,
           manter o palpite ao lado dele seria mentir na página onde a
           decisão de compra acontece. Sem o Melhor Envio ligado a caixa
-          some: toda cotação daria erro, e o frete é combinado no WhatsApp. */}
-      {config.freightQuotes && (
-        <div className="mt-6 border-t border-line pt-6">
+          some: toda cotação daria erro, e o frete é combinado no WhatsApp.
+          O cupom vem logo abaixo, com o mesmo visual — e no lugar dela
+          quando ela some. Aplicado aqui, ele já vai aplicado para a sacola
+          (o código fica guardado com ela). */}
+      <div className="mt-6 flex flex-col gap-6 border-t border-line pt-6">
+        {config.freightQuotes && (
           <FreightCalculator items={[{ productId: product.id, quantity: 1 }]} />
-        </div>
-      )}
+        )}
+        <CouponField coupon={productCoupon} />
+      </div>
 
       {!allOutOfStock && (
         <StickyBuyBar

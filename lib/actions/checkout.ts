@@ -8,7 +8,6 @@ import {
   type CartVariantOption,
   type ReviseCartResult,
 } from "@/lib/data/checkout";
-import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
 import { getCustomerForUser } from "@/lib/data/customers";
 import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
@@ -185,19 +184,11 @@ export async function createOrderAction(
           qty: item.availableQty,
         })),
       ),
-      // The coupon's use is taken in the same batch: past its limit this
-      // fails and the order is not created either.
-      ...(couponCode ? [takeCouponUse(db, couponCode)] : []),
+      // No coupon use yet: it counts when the order is paid
+      // (lib/coupons/usage.ts), so an abandoned payment spends nothing.
     ]);
     orderNumber = (created as { order_number: number }[])[0].order_number;
   } catch (error) {
-    if (isCouponLimitError(error)) {
-      return {
-        ok: false,
-        couponRejected: true,
-        message: "Cupom removido: este cupom acabou de atingir o limite de usos.",
-      };
-    }
     console.error("[createOrderAction]", error);
     return { ok: false, message: "Não foi possível criar o pedido." };
   }

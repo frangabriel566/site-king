@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FinishPurchase } from "@/components/shop/finish-purchase";
+import { CouponField } from "@/components/shop/coupon-field";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { OrderTotals } from "@/components/shop/order-totals";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
@@ -208,26 +209,17 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                 unlocked={coupon.applied?.freeShipping}
                 className="mb-4"
               />
-              {/* The coupon applied in the bag shows here too; the field
-                  itself is on /sacola, right under the CEP — this footer
-                  can't grow without squeezing the item list on a phone. */}
+              {/* Folded to one "Tem cupom?" line until it's used: this
+                  footer can't grow without squeezing the item list on a
+                  phone. */}
+              <CouponField coupon={coupon} collapsible className="mb-3" />
               <OrderTotals
                 subtotal={subtotal}
                 itemCount={availableCount}
                 coupon={coupon.applied}
                 shippingMode={shippingMode}
-                className="mb-2"
+                className="mb-4"
               />
-              {!coupon.applied && (
-                <p className="mb-4 text-xs text-muted-foreground">
-                  Tem cupom? Aplique em{" "}
-                  <Link href="/sacola" onClick={close} className="font-semibold text-fg underline underline-offset-2">
-                    Ver sacola completa
-                  </Link>
-                  .
-                </p>
-              )}
-              {coupon.applied && <div className="mb-4" />}
               {nothingAvailable ? (
                 <p className="rounded-md border border-alert/30 bg-alert/5 p-3 text-center text-sm font-medium text-alert">
                   Nenhuma peça da sacola está disponível agora.
@@ -235,7 +227,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               ) : (
                 <FinishPurchase
                   items={availableItems}
-                  couponCode={coupon.code}
+                  couponCode={coupon.applied?.code ?? null}
                   whatsappEnabled={whatsappEnabled}
                   onNavigate={close}
                 />

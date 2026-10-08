@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { collectPublishIssues, productSchema } from "@/lib/validations/product";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema, type Db } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
+import { variantSyncStatements } from "@/lib/products/variant-sync";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { roundMoney } from "@/lib/money";
 import { searchTextFor } from "@/lib/catalog/search-index";
@@ -305,16 +306,31 @@ export async function updateProductAction(
   const conflict = await findConflict(db, data, id);
   if (conflict) return { status: "error", message: conflict };
 
-  const { images, variants, sections } = childRows(id, data);
+  const { images, sections } = childRows(id, data);
+  // Variants are carried over in place — same ids for the same variants —
+  // never deleted and re-created: orders and bags point at those ids
+  // (lib/products/variant-sync.ts).
+  const variantStatements = await variantSyncStatements(
+    db,
+    id,
+    data.variants.map((v) => ({
+      id: v.id,
+      color: v.color,
+      color_hex: v.color_hex || null,
+      size: v.size,
+      sku: v.sku || null,
+      stock: v.stock,
+      image_url: v.image_url || null,
+    })),
+  );
   try {
-    // Photos and variants are replaced wholesale, as before — now in the
-    // same transaction as the product row.
+    // Photos are replaced wholesale (nothing points at them); variants go
+    // through the sync above. One transaction with the product row.
     await runBatch(db, [
       db.update(products).set(toProductRow(data, await searchTextFor(db, data))).where(eq(products.id, id)),
       db.delete(product_images).where(eq(product_images.product_id, id)),
       ...insertChunks(db, product_images, images),
-      db.delete(product_variants).where(eq(product_variants.product_id, id)),
-      ...insertChunks(db, product_variants, variants),
+      ...variantStatements,
       // Shelves replaced with the form's list, in the same batch as the
       // product: what the panel shows checked is exactly what is saved.
       db.delete(product_sections).where(eq(product_sections.product_id, id)),
@@ -347,7 +363,8 @@ export async function duplicateProductAction(id: string): Promise<DuplicateProdu
 
   const original = await db.query.products.findFirst({
     where: eq(products.id, id),
-    with: { product_images: true, product_variants: true },
+    // Archived variants left the original; the copy starts without them.
+    with: { product_images: true, product_variants: { where: isNull(product_variants.archived_at) } },
   });
   if (!original) return { ok: false, message: "Produto não encontrado." };
 

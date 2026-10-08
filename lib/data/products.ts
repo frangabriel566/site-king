@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   like,
   lte,
   max,
@@ -102,12 +103,18 @@ const LIST_WITH = {
       stock: true,
       image_url: true,
     },
+    where: isNull(product_variants.archived_at),
   },
 } as const;
 
+/** Archived variants (taken out of a product in the panel, kept for its
+ * orders — lib/products/variant-sync.ts) never reach the store or the
+ * product form. Every variant read below filters them the same way. */
+const liveVariant = isNull(product_variants.archived_at);
+
 const DETAIL_WITH = {
   product_images: true,
-  product_variants: true,
+  product_variants: { where: liveVariant },
   // size_guide: the product page's "Guia de medidas" (Admin → Categorias).
   category: { columns: { id: true, name: true, slug: true, size_guide: true } },
   brand: { columns: { id: true, name: true, slug: true, logo_url: true } },
@@ -204,6 +211,7 @@ const isDiscounted = gt(products.compare_at_price, products.price);
 const hasStock = sql`exists (
   select 1 from "product_variants" "in_stock"
   where "in_stock"."product_id" = ${products.id} and "in_stock"."stock" > 0
+    and "in_stock"."archived_at" is null
 )`;
 
 /** On shelf `section` (product_sections). Written out by hand for the
@@ -387,7 +395,7 @@ export async function listProducts(
     }
 
     if (filters.sizes?.length || filters.colors?.length) {
-      const variantConditions: SQL[] = [];
+      const variantConditions: SQL[] = [liveVariant];
       if (filters.sizes?.length) variantConditions.push(inArray(product_variants.size, filters.sizes));
       if (filters.colors?.length) variantConditions.push(inArray(product_variants.color, filters.colors));
       conditions.push(
@@ -487,7 +495,7 @@ export async function getAllProductsAdmin(): Promise<AdminProductListItem[]> {
       category: { columns: { id: true, name: true } },
       brand: { columns: { id: true, name: true } },
       product_images: { columns: { url: true } },
-      product_variants: { columns: { id: true, stock: true, image_url: true } },
+      product_variants: { columns: { id: true, stock: true, image_url: true }, where: liveVariant },
       product_sections: { columns: { section: true, position: true } },
     },
   });
@@ -561,6 +569,41 @@ export async function getProductByIdAdmin(
 }
 
 /** Products for the /marca/[slug] storefront page. */
+/** Statuses where an order still waits on its stock. */
+const AWAITING_STOCK = ["pending", "aguardando_whatsapp"] as const;
+
+/**
+ * For the edit form: which of this product's variants have orders still
+ * waiting on them, as their labels (KS0012, #35). Taking one of those out
+ * archives it (orders keep their link), and the form warns before saving.
+ */
+export async function getPendingOrdersByVariant(
+  productId: string,
+): Promise<Record<string, string[]>> {
+  await requireAdminPage();
+  const rows = await getDb()
+    .selectDistinct({
+      variantId: order_items.variant_id,
+      code: orders.code,
+      number: orders.order_number,
+    })
+    .from(order_items)
+    .innerJoin(orders, eq(orders.id, order_items.order_id))
+    .where(
+      and(
+        eq(order_items.product_id, productId),
+        isNotNull(order_items.variant_id),
+        inArray(orders.status, [...AWAITING_STOCK]),
+      ),
+    );
+  const byVariant: Record<string, string[]> = {};
+  for (const row of rows) {
+    if (!row.variantId) continue;
+    (byVariant[row.variantId] ??= []).push(row.code ?? `#${row.number}`);
+  }
+  return byVariant;
+}
+
 export async function getProductsByBrand(brandId: string): Promise<ProductListItem[]> {
   return safeQuery(async () => {
     const rows = await getDb().query.products.findMany({
@@ -621,7 +664,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       })
       .from(product_variants)
       .innerJoin(products, eq(products.id, product_variants.product_id))
-      .where(isActive);
+      .where(and(isActive, liveVariant));
 
     const sizeSet = new Set<string>();
     const colorMap = new Map<string, string | null>();

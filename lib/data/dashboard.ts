@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, gte, inArray, lte } from "drizzle-orm";
+import { and, count, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { CONFIRMED_ORDER_STATUSES, LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { requireAdminPage } from "@/lib/auth/guards";
@@ -45,7 +45,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     db
       .select({ lowStock: count() })
       .from(product_variants)
-      .where(lte(product_variants.stock, LOW_STOCK_THRESHOLD)),
+      .where(and(lte(product_variants.stock, LOW_STOCK_THRESHOLD), isNull(product_variants.archived_at))),
   ]);
 
   const monthOrders = paidOrders.filter((o) => new Date(o.created_at) >= monthStart);

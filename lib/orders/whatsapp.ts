@@ -117,7 +117,7 @@ export async function createWhatsAppOrder(
 
   const db = getDb();
   const variants = await db.query.product_variants.findMany({
-    columns: { id: true, color: true, size: true, stock: true },
+    columns: { id: true, color: true, size: true, stock: true, archived_at: true },
     where: inArray(
       product_variants.id,
       requested.map((r) => r.variantId),
@@ -144,8 +144,9 @@ export async function createWhatsAppOrder(
 
     const variant = variants.find((v) => v.id === raw.variantId);
     // Variação sumiu, ou o produto saiu do ar entre o "adicionar à
-    // sacola" e agora: a linha cai fora e a resposta avisa.
-    if (!variant || variant.product.status !== "active") {
+    // sacola" e agora, ou a variação foi retirada do produto (arquivada):
+    // a linha cai fora e a resposta avisa.
+    if (!variant || variant.product.status !== "active" || variant.archived_at) {
       adjusted = true;
       continue;
     }

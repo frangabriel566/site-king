@@ -1,5 +1,5 @@
 import "server-only";
-import { asc } from "drizzle-orm";
+import { asc, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { requireAdminPage } from "@/lib/auth/guards";
 
@@ -17,6 +17,8 @@ export async function getInventoryRows(): Promise<InventoryRow[]> {
 
   const variants = await getDb().query.product_variants.findMany({
     columns: { id: true, product_id: true, color: true, size: true, sku: true, stock: true },
+    // Archived variants left the product; their stock is not for sale.
+    where: isNull(schema.product_variants.archived_at),
     orderBy: asc(schema.product_variants.stock),
     with: {
       product: {

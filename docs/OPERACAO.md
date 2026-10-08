@@ -59,6 +59,29 @@ Editar um produto depois substitui completamente as imagens e variações
 pelas que estiverem no formulário no momento de salvar — se você removeu
 uma variação sem querer, é só adicionar de volta antes de salvar.
 
+## Variações e pedidos
+
+Salvar um produto **mantém as variações** (cor + tamanho) que já existiam:
+mesmo registro, só com os valores novos (estoque, SKU, foto). Pedidos e
+sacolas continuam apontando para elas.
+
+- **Renomear uma cor** (ex.: "Preto" → "Preto Ônix") mantém a variação e os
+  pedidos ligados a ela.
+- **Tirar uma cor ou um tamanho**: se ele já foi vendido alguma vez, fica
+  **arquivado** — some da loja, do formulário e da tela de estoque, mas os
+  pedidos continuam ligados a ele. Se nunca foi vendido, é apagado.
+- **Pedido pendente**: ao tirar uma variação que tem pedido aguardando
+  pagamento ou WhatsApp, o formulário avisa quais pedidos (sem bloquear).
+  Ao confirmar um deles depois, confira o estoque.
+- **Recolocar** uma cor/tamanho que foi tirado reaproveita a variação
+  arquivada, com o mesmo histórico.
+
+Itens de pedidos que perderam a variação antes desta correção são
+religados com `scripts/sql/relink-order-items.sql` (produto + cor +
+tamanho), **só depois do deploy da correção**. O script não mexe em
+estoque: pedidos confirmados que pularam a baixa são conferidos à mão em
+`/admin/estoque`.
+
 ## Dar baixa em pedido / atualizar status
 
 O estoque é baixado **automaticamente** quando o pagamento é confirmado

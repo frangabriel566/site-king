@@ -22,6 +22,7 @@ import { qualifiesForFreeShipping } from "@/lib/shop-config";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { RevisedItem } from "@/lib/data/checkout";
 import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
+import { useCartStock } from "@/lib/hooks/use-cart-stock";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -60,6 +61,10 @@ export function CheckoutWizard({
   // The coupon applied in the bag comes along; it can also be applied or
   // removed here, in the summary.
   const coupon = useBagCoupon();
+  // Not for the numbers: it repoints bag lines saved with a variant id that
+  // no longer exists (same product, color and size) before the order is
+  // priced — see useCartStock.
+  useCartStock(items);
   const [revised, setRevised] = useState<RevisedItem[]>([]);
   const [revising, setRevising] = useState(true);
   const [submitting, setSubmitting] = useState(false);

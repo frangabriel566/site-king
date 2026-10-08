@@ -5,6 +5,7 @@ import { getCartVariantsAction } from "@/lib/actions/checkout";
 import type { CartItem } from "@/lib/cart/types";
 import type { CartVariantOption } from "@/lib/data/checkout";
 import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
+import { useCart } from "@/lib/cart/context";
 
 export type { CartVariantOption };
 
@@ -67,6 +68,7 @@ function sizeRank(size: string): number {
  */
 export function useCartStock(items: CartItem[], enabled = true): CartStock {
   const [variants, setVariants] = useState<Record<string, CartVariantOption[]> | null>(null);
+  const { changeVariant } = useCart();
 
   // Chave estável: ordenada, para que reordenar a sacola não conte como
   // mudança, e em string para não recriar o efeito a cada render.
@@ -97,6 +99,25 @@ export function useCartStock(items: CartItem[], enabled = true): CartStock {
       alive = false;
     };
   }, [key, enabled]);
+
+  // Bags saved before product saves kept variant ids (lib/products/
+  // variant-sync.ts) may point at an id that no longer exists. When the
+  // product still has that same color and size, the line quietly moves to
+  // the current id — the shopper's bag just keeps working. A line whose
+  // color/size is really gone stays as it is and reads as sold out.
+  useEffect(() => {
+    if (!variants) return;
+    for (const item of items) {
+      const options = variants[item.productId];
+      if (!options || options.some((option) => option.id === item.variantId)) continue;
+      const match = options.find(
+        (option) => option.color === item.color && option.size === item.size,
+      );
+      if (match) {
+        changeVariant(item.variantId, { variantId: match.id, color: match.color, size: match.size });
+      }
+    }
+  }, [variants, items, changeVariant]);
 
   return useMemo(() => {
     const stock: Record<string, number> | null = variants

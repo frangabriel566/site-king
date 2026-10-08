@@ -6,6 +6,7 @@ import {
   getProductByIdAdmin,
   getAllVariantSkus,
   getAllProductSlugs,
+  getPendingOrdersByVariant,
 } from "@/lib/data/products";
 import { getAllCategoriesAdmin } from "@/lib/data/categories";
 import { getAllBrandsAdmin } from "@/lib/data/brands";
@@ -26,9 +27,10 @@ export default async function EditProductPage({
 
   if (!product) notFound();
 
-  const [existingSkus, existingSlugs] = await Promise.all([
+  const [existingSkus, existingSlugs, pendingOrdersByVariant] = await Promise.all([
     getAllVariantSkus(product.id),
     getAllProductSlugs(product.id),
+    getPendingOrdersByVariant(product.id),
   ]);
 
   return (
@@ -44,6 +46,7 @@ export default async function EditProductPage({
         brands={brands}
         existingSkus={existingSkus}
         existingSlugs={existingSlugs}
+        pendingOrdersByVariant={pendingOrdersByVariant}
         action={updateProductAction.bind(null, product.id)}
       />
     </div>

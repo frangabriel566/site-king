@@ -47,3 +47,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Backups/exports of the D1 database (wrangler d1 export). They hold
+# customer data and must never be committed. Migrations and seed.sql
+# live in drizzle/ and are not matched by these.
+/backup*.sql
+/backups/

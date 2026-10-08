@@ -19,7 +19,9 @@ import {
 } from "@/components/admin/product-package-fields";
 import { ProductFormActionBar } from "@/components/admin/product-form-action-bar";
 import { type AttributeRow } from "@/components/admin/attributes-editor";
-import { slugify } from "@/lib/format";
+import { formatVariantLabel, slugify } from "@/lib/format";
+import { SIMPLE_VARIANT_COLOR, SIMPLE_VARIANT_SIZE } from "@/lib/constants";
+import { AlertTriangle } from "lucide-react";
 import {
   buildSimpleVariant,
   colorsFromVariants,
@@ -115,6 +117,7 @@ export function ProductForm({
   initialBrandId,
   existingSkus = [],
   existingSlugs = [],
+  pendingOrdersByVariant = {},
 }: {
   product?: AdminProductDetail;
   categories: Category[];
@@ -129,6 +132,9 @@ export function ProductForm({
    * repeat is refused by the database — the form settles on a free one
    * while the operator types instead of failing at save. */
   existingSlugs?: string[];
+  /** Saved variants with orders still waiting on them (KS0012, #35) —
+   * removing one shows a warning before saving. */
+  pendingOrdersByVariant?: Record<string, string[]>;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
@@ -139,7 +145,7 @@ export function ProductForm({
   const restoredRef = useRef(false);
   const { checkAndRegister: checkDuplicatePhoto } = usePhotoDedupRegistry();
 
-  const savedVariants = product?.product_variants ?? [];
+  const savedVariants = useMemo(() => product?.product_variants ?? [], [product]);
   // A new product starts on "só tamanhos": the common case here is one
   // photo and a size run, and starting on "cores" would make that product
   // ask for a colour name it doesn't have. Editing an existing product
@@ -232,6 +238,23 @@ export function ProductForm({
   // The rows the backend actually stores. Generated SKUs are (re)derived
   // here rather than frozen at creation time, so naming the product after
   // picking its colors still yields SLUG-COR-TAMANHO.
+  // Saved variants with pending orders that this edit takes out. Saving
+  // archives them (their orders stay linked); the warning makes sure that
+  // is on purpose, and says to check the stock when confirming.
+  const removedWithPending = useMemo(() => {
+    const keep = new Set<string>();
+    for (const variant of variantsForWarning(mode, colors, sizeOnly)) {
+      if (variant.id) keep.add(variant.id);
+      keep.add(`${variant.color}::${variant.size}`);
+    }
+    return savedVariants.flatMap((saved) => {
+      const orders = pendingOrdersByVariant[saved.id];
+      if (!orders?.length) return [];
+      if (keep.has(saved.id) || keep.has(`${saved.color}::${saved.size}`)) return [];
+      return [{ label: formatVariantLabel(saved.color, saved.size) ?? "Produto", orders }];
+    });
+  }, [mode, colors, sizeOnly, savedVariants, pendingOrdersByVariant]);
+
   const variants = useMemo(() => {
     if (mode === "single") {
       return [buildSimpleVariant(slug, simpleSku, simpleStock, existingSkus)];
@@ -458,6 +481,7 @@ export function ProductForm({
       position,
       images,
       variants: variants.map((v) => ({
+        id: v.id,
         color: v.color,
         color_hex: v.color_hex,
         size: v.size,
@@ -555,6 +579,8 @@ export function ProductForm({
         name="variants_json"
         value={JSON.stringify(
           variants.map((v) => ({
+            // The saved row this came from: the server keeps that id.
+            id: v.id,
             color: v.color,
             color_hex: v.color_hex,
             size: v.size,
@@ -641,6 +667,28 @@ export function ProductForm({
           savingRef={savingRef}
           checkDuplicate={checkDuplicatePhoto}
         />
+        {removedWithPending.length > 0 && (
+          <div
+            role="status"
+            className="mt-4 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5 text-xs text-fg"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">Variação com pedido pendente</p>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {removedWithPending.map((item) => (
+                  <li key={item.label}>
+                    {item.label}: {item.orders.join(", ")}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-ink-muted">
+                Ao salvar, ela sai da loja mas continua ligada a esses pedidos. Ao confirmar
+                um deles, confira o estoque.
+              </p>
+            </div>
+          </div>
+        )}
       </ProductFormSection>
 
       <ProductFormSection
@@ -727,5 +775,18 @@ export function ProductForm({
         duplicating={duplicating}
       />
     </form>
+  );
+}
+
+/** The variants the form would save, for the pending-orders warning —
+ * colors and sizes only, no SKU generation (that needs the slug). */
+function variantsForWarning(
+  mode: VariantMode,
+  colors: ColorDraft[],
+  sizeOnly: ColorDraft,
+): { id?: string; color: string; size: string }[] {
+  if (mode === "single") return [{ color: SIMPLE_VARIANT_COLOR, size: SIMPLE_VARIANT_SIZE }];
+  return (mode === "sizes" ? [sizeOnly] : colors).flatMap((color) =>
+    color.sizes.map((size) => ({ id: size.variantId, color: color.name.trim(), size: size.size })),
   );
 }

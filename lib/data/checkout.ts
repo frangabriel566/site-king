@@ -1,5 +1,5 @@
 import "server-only";
-import { inArray } from "drizzle-orm";
+import { and, inArray, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { roundMoney } from "@/lib/money";
 
@@ -56,7 +56,12 @@ export async function getCartVariants(
 
   const rows = await getDb().query.product_variants.findMany({
     columns: { id: true, product_id: true, color: true, size: true, stock: true },
-    where: inArray(product_variants.product_id, productIds.slice(0, 50)),
+    // Archived variants aren't offered (lib/products/variant-sync.ts); a
+    // bag line still on one reads as sold out.
+    where: and(
+      inArray(product_variants.product_id, productIds.slice(0, 50)),
+      isNull(product_variants.archived_at),
+    ),
     with: { product: { columns: { status: true } } },
   });
 
@@ -86,7 +91,7 @@ export async function reviseCartItems(
   }
 
   const variants = await getDb().query.product_variants.findMany({
-    columns: { id: true, color: true, size: true, stock: true },
+    columns: { id: true, color: true, size: true, stock: true, archived_at: true },
     where: inArray(
       product_variants.id,
       requested.slice(0, 50).map((r) => r.variantId),
@@ -109,7 +114,8 @@ export async function reviseCartItems(
       continue;
     }
     const product = variant.product;
-    if (product.status !== "active") {
+    // An archived variant was taken out of the product: not for sale.
+    if (product.status !== "active" || variant.archived_at) {
       hasChanges = true;
       continue;
     }

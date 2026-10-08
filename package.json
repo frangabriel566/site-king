@@ -18,7 +18,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply king-store-db --remote",
     "db:seed:local": "wrangler d1 execute king-store-db --local --file=drizzle/seed.sql",
     "db:seed:remote": "wrangler d1 execute king-store-db --remote --file=drizzle/seed.sql",
-    "admin:create": "node scripts/create-admin.mjs"
+    "admin:create": "node scripts/create-admin.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -59,6 +60,7 @@
     "eslint-config-next": "15.5.27",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^3.2.7",
     "wrangler": "^4.148.0"
   }
 }

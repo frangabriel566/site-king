@@ -26,6 +26,9 @@ export type VariantMode = "colors" | "sizes" | "single";
  */
 export type VariantDraft = {
   clientId: string;
+  /** The saved variant this row came from — sent with the form so the
+   * server updates that row instead of creating a new one. */
+  id?: string;
   color: string;
   color_hex: string;
   size: string;
@@ -54,6 +57,8 @@ export type ColorDraft = {
 };
 
 export type SizeDraft = {
+  /** Set for sizes loaded from a saved product (see VariantDraft.id). */
+  variantId?: string;
   size: string;
   stock: number;
   /** Empty unless the operator typed one — otherwise it's generated at
@@ -190,6 +195,7 @@ export function deriveVariants(
       }
       rows.push({
         clientId,
+        id: size.variantId,
         color: color.name.trim(),
         color_hex: color.hex,
         size: size.size,
@@ -209,7 +215,15 @@ export function deriveVariants(
  * the ids are positional rather than random: both passes have to agree on
  * them. Colors are grouped by name, so the position is stable. */
 export function colorsFromVariants(
-  variants: { color: string; color_hex: string | null; size: string; sku: string | null; stock: number; image_url: string | null }[],
+  variants: {
+    id?: string;
+    color: string;
+    color_hex: string | null;
+    size: string;
+    sku: string | null;
+    stock: number;
+    image_url: string | null;
+  }[],
 ): ColorDraft[] {
   const byColor = new Map<string, ColorDraft>();
 
@@ -226,6 +240,7 @@ export function colorsFromVariants(
       byColor.set(variant.color, group);
     }
     group.sizes.push({
+      variantId: variant.id,
       size: variant.size,
       stock: variant.stock,
       sku: variant.sku ?? "",

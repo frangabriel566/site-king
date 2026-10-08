@@ -1400,3 +1400,44 @@ vendas caía em três vitrines sem ninguém ter escolhido.
   preço: é filtro, não vitrine.
 - "Você também pode gostar" segue automático (mesma categoria): é
   sugestão ligada ao produto aberto, não vitrine.
+
+## Bloco 30 — Salvar produto não recria mais as variações
+
+`updateProductAction` apagava todas as variações do produto e as inseria
+de novo, com ids novos. Como `order_items.variant_id` é `ON DELETE SET
+NULL`, cada salvamento desligava os pedidos do que venderam, e a baixa de
+estoque (`fulfillOrderStock` e `confirmWhatsAppOrder`) pula linha sem
+variação — confirmar esses pedidos deixava de tirar estoque. Sacolas no
+navegador também guardam o id e viam a peça "sumir".
+
+- **`lib/products/variant-sync.ts`**: cada variação do formulário é casada
+  com a linha de onde veio — pelo id (o formulário agora envia o id de
+  cada variação salva; renomear a cor mantém o id) e, sem id, por cor +
+  tamanho, arquivadas incluídas. Casada → `UPDATE` no lugar; sem par →
+  `INSERT`. Tudo no batch do produto.
+- **Variação retirada** (migration `0005_variant_archive`, coluna
+  `archived_at`): arquivada se algum pedido já apontou para ela, apagada se
+  nunca. A exclusão é re-checada dentro do batch (um pedido criado entre a
+  leitura e a gravação vira arquivamento). Arquivada some de toda leitura
+  da loja e do painel (cards, página, filtros, vitrines, sacola, checkout,
+  WhatsApp, estoque, alerta de estoque baixo, duplicar produto); a baixa de
+  estoque por id continua funcionando nela. Recolocar a mesma cor + tamanho
+  reaproveita a arquivada. Ordem dos comandos no batch pensada para os
+  índices únicos (cor/tamanho por produto, SKU): apaga, arquiva, afasta
+  arquivadas que ocupam uma chave necessária, passa por chave temporária
+  quem muda de chave (troca de cores em um salvamento), grava, insere.
+- **Aviso no formulário** ao tirar variação com pedido pendente (lista os
+  códigos), sem bloquear.
+- **Sacolas antigas**: ao abrir a sacola, a sacola lateral ou o checkout,
+  uma linha com id que não existe mais é apontada para a variação atual de
+  mesma cor e tamanho, sem o cliente perceber. Não dá para contar sacolas
+  pelo servidor — vivem no navegador.
+- **Religar pedidos antigos**: `scripts/sql/relink-order-items.sql`
+  (produto + cor + tamanho, preferindo a ativa), rodado à mão só depois do
+  deploy. Não mexe em estoque.
+- **Testes** (`npm test`, Vitest só em desenvolvimento): unidade do
+  planejador e integração num D1 real em memória (`getPlatformProxy`, todas
+  as migrations aplicadas) rodando os mesmos comandos do salvamento. A
+  integração falha nos 5 casos com o comportamento antigo.
+- **`.gitignore`**: `/backup*.sql` e `/backups/` (exports do D1 têm dados de
+  clientes).

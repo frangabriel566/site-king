@@ -349,6 +349,10 @@ export const product_variants = sqliteTable(
     sku: text("sku").unique(),
     stock: integer("stock").notNull().default(0),
     image_url: text("image_url"),
+    /** Removed from the product in the panel but kept because orders point
+     * at it (lib/products/variant-sync.ts). Invisible everywhere in the
+     * store and the panel; null for every live variant. */
+    archived_at: text("archived_at"),
   },
   (t) => [
     uniqueIndex("product_variants_product_color_size_idx").on(t.product_id, t.color, t.size),

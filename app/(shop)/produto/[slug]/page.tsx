@@ -8,6 +8,8 @@ import {
 import { getSiteSettings } from "@/lib/data/settings";
 import { shopConfigFromSettings } from "@/lib/shop-config";
 import { getProductReviews, summarizeRatings } from "@/lib/data/reviews";
+import { getProductFeedbacks } from "@/lib/data/feedbacks";
+import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
 import { ProductMedia } from "@/components/shop/product-media";
 import { ProductSpecs } from "@/components/shop/product-specs";
 import { ProductInfoTabs } from "@/components/shop/product-info-tabs";
@@ -75,9 +77,10 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [settings, reviews] = await Promise.all([
+  const [settings, reviews, feedbacks] = await Promise.all([
     getSiteSettings(),
     getProductReviews(product.id),
+    getProductFeedbacks(product.id),
   ]);
   const ratingSummary = summarizeRatings(reviews);
 
@@ -110,6 +113,20 @@ export default async function ProductPage({
         : "https://schema.org/OutOfStock",
       url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/produto/${product.slug}`,
     },
+    // Only the reviews customers left themselves (the "Avaliações" section).
+    // The feedbacks published from the panel are picked by the store, so
+    // they never enter structured data; no real review, no rating.
+    ...(ratingSummary.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(ratingSummary.average.toFixed(1)),
+            reviewCount: ratingSummary.count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
   };
 
   const breadcrumbJsonLd = {
@@ -184,6 +201,10 @@ export default async function ProductPage({
           exchangeInfo={product.exchange_info}
           config={shopConfigFromSettings(settings)}
         />
+
+        {feedbacks.length > 0 && (
+          <FeedbackCarousel title="O que nossos clientes dizem" feedbacks={feedbacks} contained={false} />
+        )}
 
         <ProductReviews
           productId={product.id}

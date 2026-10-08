@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { submitReviewAction, type ActionResult } from "@/lib/actions/reviews";
-import { formatDate, formatReviewerName } from "@/lib/format";
+import { formatDate, formatCustomerName } from "@/lib/format";
 import type { Review } from "@/lib/data/reviews";
 
 const initialState: ActionResult = { status: "idle" };
@@ -61,7 +61,7 @@ export function ProductReviews({
                 <div className="flex flex-wrap items-center gap-2">
                   <StarRow value={review.rating} size="sm" />
                   <span className="text-sm font-medium text-fg">
-                    {review.customer ? formatReviewerName(review.customer.name) : "Cliente"}
+                    {review.customer ? formatCustomerName(review.customer.name) : "Cliente"}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(review.created_at)}

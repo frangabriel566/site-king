@@ -15,6 +15,7 @@ import {
   Users,
   Ticket,
   Star,
+  MessageSquareQuote,
   Settings,
   UserCog,
   LogOut,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/cupons", label: "Cupons", icon: Ticket },
   { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
+  { href: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquareQuote },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
   { href: "/admin/conta", label: "Conta", icon: UserCog },
 ];

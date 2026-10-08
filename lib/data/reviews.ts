@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { Tables } from "@/lib/database.types";
 import { requireAdminPage } from "@/lib/auth/guards";
+import { formatCustomerName } from "@/lib/format";
 
 export type Review = Tables<"reviews"> & {
   customer: { name: string } | null;
@@ -18,11 +19,17 @@ const { reviews } = schema;
  * comes from their customers row, and a reviewer without one (an admin,
  * say) shows as anonymous rather than as an error. */
 export async function getProductReviews(productId: string): Promise<Review[]> {
-  return getDb().query.reviews.findMany({
+  const rows = await getDb().query.reviews.findMany({
     where: eq(reviews.product_id, productId),
     orderBy: desc(reviews.created_at),
     with: { customer: { columns: { name: true } } },
   });
+  // Shortened here, on the server ("Carlos M."): the list is rendered by
+  // a client component, and anything handed to it is in the page's HTML.
+  return rows.map((row) => ({
+    ...row,
+    customer: row.customer ? { name: formatCustomerName(row.customer.name) } : null,
+  }));
 }
 
 /** Every review across every product, newest first — the moderation

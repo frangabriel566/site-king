@@ -12,6 +12,8 @@ const TAP_SCALE = 2.5;
 const MAX_SCALE = 4;
 /** Movement under this is still a tap, not a drag. */
 const TAP_SLOP = 8;
+/** A pull down past this (px), released, closes the viewer. */
+const DISMISS_DISTANCE = 110;
 
 type View = { scale: number; x: number; y: number };
 const RESET: View = { scale: 1, x: 0, y: 0 };
@@ -33,11 +35,15 @@ const RESET: View = { scale: 1, x: 0, y: 0 };
 export function ProductLightbox({
   slides,
   productName,
+  title,
   startIndex,
   onClose,
 }: {
-  slides: GallerySlide[];
+  slides: Pick<GallerySlide, "id" | "url" | "alt">[];
+  /** The alt text for slides without one. */
   productName: string;
+  /** For screen readers; defaults to "Fotos de {productName}". */
+  title?: string;
   startIndex: number;
   onClose: () => void;
 }) {
@@ -74,10 +80,10 @@ export function ProductLightbox({
         }}
         className="storefront-theme top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-black p-0 text-white ring-0 sm:max-w-none"
       >
-        <DialogTitle className="sr-only">Fotos de {productName}</DialogTitle>
+        <DialogTitle className="sr-only">{title ?? `Fotos de ${productName}`}</DialogTitle>
         <DialogDescription className="sr-only">
           Deslize ou use as setas para trocar de foto. Toque ou clique na foto para ampliar e
-          arraste para mover.
+          arraste para mover. No celular, deslize para baixo para fechar.
         </DialogDescription>
 
         <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-2 pt-[env(safe-area-inset-top)]">
@@ -111,6 +117,7 @@ export function ProductLightbox({
                   load={near(i)}
                   zoomedRef={zoomedRef}
                   onZoom={() => setHint(false)}
+                  onDismiss={onClose}
                 />
               </div>
             ))}
@@ -155,16 +162,23 @@ function ZoomableSlide({
   load,
   zoomedRef,
   onZoom,
+  onDismiss,
 }: {
-  slide: GallerySlide;
+  slide: Pick<GallerySlide, "url">;
   alt: string;
   active: boolean;
   load: boolean;
   zoomedRef: RefObject<boolean>;
   onZoom: () => void;
+  /** Swiped down far enough (touch, not zoomed): close the viewer. */
+  onDismiss: () => void;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>(RESET);
+  // How far a finger has pulled the (unzoomed) photo down. Past
+  // DISMISS_DISTANCE on release the viewer closes; short of it, it springs
+  // back. The photo follows the finger and fades, so the gesture reads.
+  const [pull, setPull] = useState(0);
   // Eased for a tap's zoom in/out; off while a finger drives it, or the
   // photo would trail behind the finger.
   const [eased, setEased] = useState(true);
@@ -175,6 +189,11 @@ function ZoomableSlide({
     from: View;
     moved: boolean;
     pinch: { distance: number; midX: number; midY: number } | null;
+    touch: boolean;
+    pulling: boolean;
+    /** The pull so far, read on release — state may not have re-rendered
+     * yet when moves arrive faster than frames. */
+    pulled: number;
   } | null>(null);
 
   // Leaving a photo zoomed in as it slides away would bring it back zoomed.
@@ -208,14 +227,25 @@ function ZoomableSlide({
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size === 1) {
-      gesture.current = { startX: event.clientX, startY: event.clientY, from: view, moved: false, pinch: null };
+      gesture.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        from: view,
+        moved: false,
+        pinch: null,
+        touch: event.pointerType !== "mouse",
+        pulling: false,
+        pulled: 0,
+      };
     } else if (pointers.current.size === 2 && gesture.current) {
       const [a, b] = [...pointers.current.values()];
       const mid = fromCenter((a.x + b.x) / 2, (a.y + b.y) / 2);
+      setPull(0);
       gesture.current = {
         ...gesture.current,
         from: view,
         moved: true,
+        pulling: false,
         pinch: { distance: Math.hypot(a.x - b.x, a.y - b.y), midX: mid.x, midY: mid.y },
       };
       zoomedRef.current = true;
@@ -252,6 +282,15 @@ function ZoomableSlide({
     if (g.from.scale > 1 && g.moved) {
       setEased(false);
       setView(clamp({ scale: g.from.scale, x: g.from.x + dx, y: g.from.y + dy }));
+      return;
+    }
+    // Not zoomed, a finger going mostly down: pull to close. Sideways stays
+    // the carousel's (embla only takes horizontal drags).
+    if (g.touch && g.moved && (g.pulling || (dy > 0 && dy > Math.abs(dx) * 1.2))) {
+      g.pulling = true;
+      g.pulled = Math.max(0, dy);
+      setEased(false);
+      setPull(g.pulled);
     }
   }
 
@@ -265,6 +304,11 @@ function ZoomableSlide({
     if (g.pinch) {
       if (view.scale < 1.1) setView(RESET);
       else onZoom();
+      return;
+    }
+    if (g.pulling) {
+      if (g.pulled > DISMISS_DISTANCE) onDismiss();
+      else setPull(0);
       return;
     }
     if (g.moved) return;
@@ -289,8 +333,11 @@ function ZoomableSlide({
       className={`absolute inset-0 select-none ${view.scale > 1 ? "cursor-zoom-out" : "cursor-zoom-in"}`}
     >
       <div
-        className={`absolute inset-0 ${eased ? "transition-transform duration-300 ease-out motion-reduce:transition-none" : ""}`}
-        style={{ transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})` }}
+        className={`absolute inset-0 ${eased ? "transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none" : ""}`}
+        style={{
+          transform: `translate3d(${view.x}px, ${view.y + pull}px, 0) scale(${view.scale})`,
+          opacity: pull > 0 ? Math.max(0.4, 1 - pull / 400) : 1,
+        }}
       >
         {load && (
           <SafeImage

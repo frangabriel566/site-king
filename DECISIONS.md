@@ -1441,3 +1441,43 @@ navegador também guardam o id e viam a peça "sumir".
   integração falha nos 5 casos com o comportamento antigo.
 - **`.gitignore`**: `/backup*.sql` e `/backups/` (exports do D1 têm dados de
   clientes).
+
+## Bloco 31 — Feedbacks de clientes
+
+Depoimentos publicados pelo painel, com texto, fotos e prints de conversa.
+O site não tinha nenhuma seção de depoimentos (nem fixa no código); as
+avaliações de clientes (`reviews`, deixadas por quem está logado) seguem
+como estão, ao lado.
+
+- **Migration `0006_feedbacks`**: `feedbacks` (nome, cidade, texto, nota
+  1–5, produto `ON DELETE SET NULL`, home, ativo, ordem, data) e
+  `feedback_images` (`ON DELETE CASCADE`, tipo `photo`/`chat`, ordem,
+  dimensões). "Texto ou ao menos uma imagem" cruza duas tabelas, então é
+  regra do salvamento (`lib/validations/feedback.ts`), não CHECK.
+- **Imagens** no mesmo KV dos produtos (`/img/feedbacks/`), comprimidas no
+  navegador; a pasta de feedbacks aceita até 2.400 px no lado maior para
+  os prints continuarem legíveis em tela cheia. Excluir o feedback ou
+  tirar uma imagem apaga o arquivo. O tipo é sugerido pela proporção.
+- **Nome**: o servidor entrega à página só "Carlos M."
+  (`formatCustomerName`), nunca o nome completo — vale também para as
+  avaliações, que antes mandavam o nome inteiro ao navegador e só
+  abreviavam na tela.
+- **Carrossel** (`FeedbackCarousel`) com o embla que o banner e a galeria
+  já usam: 1/2/3 por vez, setas, bolinhas, passagem a cada 5 s que pausa
+  com o mouse e para de vez ao toque/foco, nunca com "reduzir movimento".
+  Cada card com mais de uma imagem tem um mini carrossel ("1/3") cujo
+  arrasto não move o de fora (`watchDrag`). Só a primeira imagem de cada
+  card carrega com a página. Print aparece pelo topo da conversa.
+- **Tela cheia** reaproveitada da galeria do produto, com título próprio e
+  o gesto novo de deslizar para baixo para fechar (vale nos dois).
+- **Dados estruturados**: `AggregateRating` só das `reviews` reais e só
+  quando há alguma; feedbacks, escolhidos pela loja, nunca entram.
+- **Painel**: lista com miniatura, nº de imagens, nota, trecho, produto,
+  status e home (os dois ligáveis na linha), filtros, exclusão com
+  confirmação; formulário com busca de produto (cmdk), estrelas, ordem e
+  editor de imagens (arrastar no computador, setas em qualquer tela). O
+  formulário não usa `<form action>` direto, para o React 19 não apagar o
+  que foi digitado quando o servidor recusa algo.
+- **Testes**: `tests/feedbacks.d1.test.ts` (vínculo com produto, cascata
+  das imagens, travas de nota/tipo, regras do formulário) e
+  `tests/format-customer-name.unit.test.ts`.

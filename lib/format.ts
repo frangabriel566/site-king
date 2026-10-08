@@ -78,13 +78,22 @@ export function formatCep(value: string): string {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-/** "Maria Silva" -> "Maria S." — first name plus initials, so a review
- *  credits its author without publishing their full legal name. */
-export function formatReviewerName(name: string): string {
+/** Lowercase words that sit between names and are never the surname. */
+const NAME_PARTICLES = new Set(["da", "das", "de", "do", "dos", "e"]);
+
+/**
+ * "Carlos Eduardo Mendes" -> "Carlos M.": first name plus the initial of
+ * the last surname ("da", "de", "dos"… skipped), however the name was
+ * typed. Used wherever a customer is credited in public — feedbacks and
+ * product reviews — so a full legal name is never published.
+ */
+export function formatCustomerName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts[0]} ${parts
+  if (parts.length === 0) return "";
+  const first = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  const surname = parts
     .slice(1)
-    .map((p) => `${p.charAt(0).toUpperCase()}.`)
-    .join(" ")}`;
+    .filter((part) => !NAME_PARTICLES.has(part.toLowerCase()))
+    .at(-1);
+  return surname ? `${first} ${surname.charAt(0).toUpperCase()}.` : first;
 }

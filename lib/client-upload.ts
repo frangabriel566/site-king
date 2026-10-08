@@ -60,8 +60,13 @@ async function encodeSmallest(
   return encode(canvas, "image/jpeg", quality);
 }
 
-async function compressFull(bitmap: ImageBitmap): Promise<CompressedImage> {
-  let scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+/** Feedback screenshots (WhatsApp prints) are tall and full of small text:
+ * 2400px on the long side keeps a 1080x2400 print at full size, so it stays
+ * readable full screen. Same byte cap as everything else. */
+const MAX_DIMENSION_BY_FOLDER: Partial<Record<UploadFolder, number>> = { feedbacks: 2400 };
+
+async function compressFull(bitmap: ImageBitmap, maxDimension = MAX_DIMENSION): Promise<CompressedImage> {
+  let scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
 
   for (let shrink = 0; shrink <= MAX_SHRINKS; shrink++) {
     const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -91,10 +96,11 @@ async function compressThumbnail(bitmap: ImageBitmap, type: string): Promise<Com
  */
 export async function compressImage(
   file: File,
+  maxDimension = MAX_DIMENSION,
 ): Promise<{ full: CompressedImage; thumbnail: CompressedImage }> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
-    const full = await compressFull(bitmap);
+    const full = await compressFull(bitmap, maxDimension);
     const thumbnail = await compressThumbnail(bitmap, full.blob.type);
     return { full, thumbnail };
   } finally {
@@ -161,7 +167,7 @@ export async function uploadImageToStorage(
 
   let compressed: { full: CompressedImage; thumbnail: CompressedImage };
   try {
-    compressed = await compressImage(file);
+    compressed = await compressImage(file, MAX_DIMENSION_BY_FOLDER[folder] ?? MAX_DIMENSION);
   } catch {
     return { ok: false, error: "Não foi possível processar essa imagem." };
   }

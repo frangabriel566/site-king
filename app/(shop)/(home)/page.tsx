@@ -4,6 +4,8 @@ import { getCategoriesWithImages } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/settings";
 import { getBestSellersShelf, getSectionProducts } from "@/lib/data/products";
 import { sectionHref } from "@/lib/sections";
+import { getHomeFeedbacks } from "@/lib/data/feedbacks";
+import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
 import { HOME_RAIL_LIMIT } from "@/lib/constants";
 import { discountPercent } from "@/lib/shop-config";
 import { BannerCarousel } from "@/components/shop/banner-carousel";
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [settings, banners, categories, launches, newest, onSale, bestSellers] =
+  const [settings, banners, categories, launches, newest, onSale, bestSellers, feedbacks] =
     await Promise.all([
       getSiteSettings(),
       getActiveBanners(),
@@ -29,6 +31,7 @@ export default async function HomePage() {
       getSectionProducts("novidades", HOME_RAIL_LIMIT),
       getSectionProducts("ofertas", HOME_RAIL_LIMIT),
       getBestSellersShelf(HOME_RAIL_LIMIT),
+      getHomeFeedbacks(),
     ]);
 
   // Over the products marked for Ofertas only — one marked without a
@@ -59,6 +62,10 @@ export default async function HomePage() {
         seeAllHref={sectionHref("ofertas")}
       />
       <ProductRail title="Mais vendidos" products={bestSellers} />
+      {/* Feedbacks marked "Exibir na home" in the panel; none, no section. */}
+      {feedbacks.length > 0 && (
+        <FeedbackCarousel title="O que nossos clientes dizem" feedbacks={feedbacks} />
+      )}
       {/* No dedicated data source for this slot yet — the `banners` table
           has no field marking a row for it, and adding one is a schema
           change out of scope for this pass. Passing `null` keeps the

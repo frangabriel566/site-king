@@ -604,6 +604,64 @@ export const reviews = sqliteTable(
   ],
 );
 
+/** What a feedback image is: the customer's own photo, or a screenshot of
+ * the conversation (shown top-aligned in the card, readable full screen). */
+export const FEEDBACK_IMAGE_KINDS = ["photo", "chat"] as const;
+export type FeedbackImageKind = (typeof FEEDBACK_IMAGE_KINDS)[number];
+
+/**
+ * Customer feedback the store publishes from the panel (Admin → Feedbacks):
+ * a quote, photos/screenshots, or both. Picked by the store, so it never
+ * feeds structured data — the product's AggregateRating comes from
+ * `reviews` only. "At least text or one image" spans two tables, so it is
+ * enforced when saving (lib/validations/feedback.ts), not by a CHECK.
+ */
+export const feedbacks = sqliteTable(
+  "feedbacks",
+  {
+    id: uuid(),
+    /** Full name as typed; the site shows "Carlos M." (formatCustomerName). */
+    customer_name: text("customer_name").notNull(),
+    customer_location: text("customer_location"),
+    text: text("text"),
+    rating: integer("rating"),
+    product_id: text("product_id").references(() => products.id, { onDelete: "set null" }),
+    show_on_home: bool("show_on_home").notNull().default(false),
+    active: bool("active").notNull().default(true),
+    /** 1 first; null after the numbered ones, most recent first. */
+    position: integer("position"),
+    /** YYYY-MM-DD — when the customer sent it. */
+    feedback_date: text("feedback_date"),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (t) => [
+    index("feedbacks_home_idx").on(t.active, t.show_on_home, t.position),
+    index("feedbacks_product_idx").on(t.product_id, t.active),
+    check("feedbacks_rating_check", sql`${t.rating} is null or ${t.rating} between 1 and 5`),
+    check("feedbacks_position_check", sql`${t.position} is null or ${t.position} >= 1`),
+  ],
+);
+
+export const feedback_images = sqliteTable(
+  "feedback_images",
+  {
+    id: uuid(),
+    feedback_id: text("feedback_id")
+      .notNull()
+      .references(() => feedbacks.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    kind: text("kind", { enum: FEEDBACK_IMAGE_KINDS }).notNull().default("photo"),
+    position: integer("position").notNull().default(0),
+    width: integer("width"),
+    height: integer("height"),
+  },
+  (t) => [
+    index("feedback_images_feedback_idx").on(t.feedback_id, t.position),
+    check("feedback_images_kind_check", sql`${t.kind} in ('photo', 'chat')`),
+  ],
+);
+
 export const newsletter_subscribers = sqliteTable("newsletter_subscribers", {
   id: uuid(),
   email: text("email").notNull().unique(),
@@ -677,6 +735,15 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 
 export const orderItemsRelations = relations(order_items, ({ one }) => ({
   order: one(orders, { fields: [order_items.order_id], references: [orders.id] }),
+}));
+
+export const feedbacksRelations = relations(feedbacks, ({ one, many }) => ({
+  product: one(products, { fields: [feedbacks.product_id], references: [products.id] }),
+  feedback_images: many(feedback_images),
+}));
+
+export const feedbackImagesRelations = relations(feedback_images, ({ one }) => ({
+  feedback: one(feedbacks, { fields: [feedback_images.feedback_id], references: [feedbacks.id] }),
 }));
 
 export const reviewsRelations = relations(reviews, ({ one }) => ({

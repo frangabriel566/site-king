@@ -13,6 +13,7 @@ export type {
   OrderStatus,
   ProductBadge,
   ProductSection,
+  FeedbackImageKind,
   ProductStatus,
   ShippingAddressSnapshot,
   UserRole as ProfileRole,
@@ -25,6 +26,8 @@ type TableMap = {
   product_images: typeof schema.product_images;
   product_variants: typeof schema.product_variants;
   product_sections: typeof schema.product_sections;
+  feedbacks: typeof schema.feedbacks;
+  feedback_images: typeof schema.feedback_images;
   banners: typeof schema.banners;
   site_settings: typeof schema.site_settings;
   customers: typeof schema.customers;

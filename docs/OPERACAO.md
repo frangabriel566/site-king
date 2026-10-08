@@ -135,6 +135,42 @@ preços do banco, e conferido de novo quando o pedido é criado — se o cupom
 deixou de valer no meio do caminho, o pedido não é criado e o cliente vê o
 motivo. A lista de cupons nunca aparece na loja.
 
+## Feedbacks de clientes
+
+`/admin/feedbacks` → **Novo feedback**. Só a loja cadastra (não há
+formulário público).
+
+- **Nome** completo como quiser — o site mostra sempre "Primeiro nome +
+  inicial do sobrenome" (ex.: Carlos M.). O formulário mostra a prévia. O
+  mesmo vale para as avaliações de clientes na página do produto.
+- **Cidade/UF**, **data**, **nota** (estrelas, opcional) e **texto**
+  (opcional se houver imagem). Precisa ter texto ou pelo menos uma imagem.
+- **Imagens**: até 10, várias de uma vez. São reduzidas antes de enviar
+  (prints de conversa ficam com até 2.400 px para continuar legíveis).
+  Cada uma é marcada como **Foto** ou **Print** — o painel já sugere pelo
+  formato (print é comprido) — e a ordem muda arrastando ou pelas setas. A
+  primeira é a principal do card.
+- **Produto relacionado** (busca pelo nome): o feedback também aparece na
+  página desse produto. Se o produto for excluído, o feedback continua,
+  só sem o vínculo.
+- **Ordem** (1 aparece primeiro; sem número, depois, os mais recentes
+  primeiro), **Ativo** e **Exibir na home**.
+
+Na lista, ative/desative e ligue/desligue a home direto na linha, e filtre
+por ativos/inativos e por home. Excluir pede confirmação e apaga também as
+imagens.
+
+No site, "O que nossos clientes dizem" aparece na home (ativos marcados
+para a home) e na página do produto (ativos vinculados a ele), em
+carrossel: 1 card por vez no celular, 3 no computador, passando sozinho a
+cada ~5 s até o cliente tocar ou passar o mouse. Seção vazia não aparece.
+Tocar numa imagem abre a tela cheia com todas as imagens daquele feedback
+(zoom no toque; no celular, deslize para baixo para fechar).
+
+Os feedbacks **não** entram nos dados estruturados do Google: o
+`AggregateRating` da página do produto usa só as avaliações deixadas pelos
+próprios clientes (seção "Avaliações"), e só quando existe alguma.
+
 ## Configurações gerais
 
 `/admin/configuracoes` reúne o que aparece em vários lugares do site ao

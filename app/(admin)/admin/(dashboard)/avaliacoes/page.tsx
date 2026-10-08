@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { getAllReviewsAdmin } from "@/lib/data/reviews";
 import { deleteReviewAdminAction } from "@/lib/actions/reviews";
-import { formatDate, formatReviewerName } from "@/lib/format";
+import { formatDate, formatCustomerName } from "@/lib/format";
 import { DeleteButton } from "@/components/admin/delete-button";
 import {
   Table,
@@ -57,7 +57,7 @@ export default async function AdminReviewsPage() {
                   )}
                 </TableCell>
                 <TableCell className="text-ink-muted">
-                  {review.customer ? formatReviewerName(review.customer.name) : "Cliente"}
+                  {review.customer ? formatCustomerName(review.customer.name) : "Cliente"}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-0.5">

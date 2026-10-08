@@ -1,6 +1,7 @@
 import "server-only";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { getSiteSettings } from "@/lib/data/settings";
+import { orderSummaryText, type OrderSummaryInput } from "@/lib/orders/summary";
 
 /**
  * O número da loja, só dígitos, como o wa.me exige.
@@ -43,6 +44,10 @@ export type WhatsAppOrderItem = {
  * atendente conferir a peça (e ao cliente mostrar a outra pessoa) sem
  * ninguém ter de descrever "o moletom preto, aquele".
  *
+ * As contas no fim são as mesmas linhas, com as mesmas palavras, que a
+ * sacola mostrou (lib/orders/summary.ts): "Frete: a combinar" e "Total
+ * dos produtos" lá e aqui.
+ *
  * O `*` do WhatsApp deixa código e total em negrito. Nada aqui é
  * codificado para URL: quem faz isso é buildWhatsAppOrderLink().
  */
@@ -50,17 +55,15 @@ export function buildWhatsAppOrderMessage({
   storeName,
   code,
   items,
-  total,
-  coupon = null,
+  summary,
   expiresAt,
   origin,
 }: {
   storeName: string;
   code: string;
   items: WhatsAppOrderItem[];
-  total: number;
-  /** Applied and recorded on the order (lib/orders/whatsapp.ts). */
-  coupon?: { code: string; subtotal: number; discount: number; freeShipping: boolean } | null;
+  /** The order as recorded (lib/orders/whatsapp.ts). */
+  summary: OrderSummaryInput;
   expiresAt: string | null;
   origin: string;
 }): string {
@@ -88,16 +91,7 @@ export function buildWhatsAppOrderMessage({
     lines.push("");
   });
 
-  // With a coupon, the arithmetic is spelled out: the store reads the code
-  // and the amount straight off the message, the shopper sees the saving.
-  if (coupon) {
-    lines.push(`Subtotal: ${formatCurrency(coupon.subtotal)}`);
-    if (coupon.discount > 0) {
-      lines.push(`Cupom *${coupon.code}*: -${formatCurrency(coupon.discount)}`);
-    }
-    if (coupon.freeShipping) lines.push(`Frete grátis (cupom ${coupon.code})`);
-  }
-  lines.push(`*Total: ${formatCurrency(total)}*`);
+  lines.push(...orderSummaryText(summary));
 
   if (expiresAt) {
     lines.push("");

@@ -82,6 +82,34 @@ tamanho), **só depois do deploy da correção**. O script não mexe em
 estoque: pedidos confirmados que pularam a baixa são conferidos à mão em
 `/admin/estoque`.
 
+## Frete e pedidos pelo WhatsApp
+
+Enquanto o pagamento online e o Melhor Envio estiverem desligados, a loja
+vende pelo WhatsApp e o **frete é combinado na conversa**:
+
+- **"Finalizar compra"** (sacola e sacola lateral) gera o pedido com
+  código (ex.: KS0021), válido por 48 h, sem login e sem endereço, e abre
+  o WhatsApp com a mensagem pronta. O pedido aparece em
+  `/admin/pedidos-whatsapp`; confirme ou cancele por lá.
+- A sacola, a mensagem e o pedido mostram **"Frete: a combinar"** e
+  **"Total dos produtos"**: o total não inclui o frete. Você informa o
+  valor do frete ao cliente na conversa.
+- **"Frete: grátis"** quando a sacola passa do valor de frete grátis
+  (Configurações → Vitrine) ou o cupom zera o frete — calculado sobre os
+  produtos, antes do desconto do cupom.
+- A caixa **"Calcular frete e prazo"** (produto e sacola) e a etiqueta do
+  Melhor Envio no pedido ficam escondidas. Elas voltam sozinhas quando as
+  três variáveis do Melhor Envio estiverem preenchidas e houver CEP de
+  origem em Configurações — **ligue o Melhor Envio só junto com a tarefa
+  de cotação no checkout**.
+- O **checkout** (`/checkout`) fica fechado e manda para a sacola. Ele
+  volta quando houver pagamento online **e** frete calculado.
+
+Revise em Configurações os textos que falam de pagamento online (ex.:
+"Pagamento processado pelo Mercado Pago" em "compra segura" e "Cartão, Pix
+e boleto" no rodapé): eles aparecem na sacola e no rodapé mesmo com o
+Mercado Pago desligado.
+
 ## Dar baixa em pedido / atualizar status
 
 O estoque é baixado **automaticamente** quando o pagamento é confirmado

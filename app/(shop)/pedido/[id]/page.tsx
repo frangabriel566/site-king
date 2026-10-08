@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getOrderForConfirmation } from "@/lib/data/orders";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
+import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -76,27 +77,24 @@ export default async function OrderConfirmationPage({
           </ul>
         </div>
 
+        {/* The lines the bag and the WhatsApp message showed
+            (lib/orders/summary.ts), from what the order recorded. */}
         <div className="mt-6 flex flex-col gap-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-ink-muted">Subtotal</span>
-            <span>{formatCurrency(order.subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-ink-muted">Frete</span>
-            <span>{order.shipping > 0 ? formatCurrency(order.shipping) : "Grátis"}</span>
-          </div>
-          {order.discount > 0 && (
-            <div className="flex justify-between">
-              <span className="text-ink-muted">
-                    Desconto{order.coupon_code ? ` (cupom ${order.coupon_code})` : ""}
-                  </span>
-              <span>-{formatCurrency(order.discount)}</span>
+          {orderSummaryLines(summaryFromOrder(order)).map((line) => (
+            <div
+              key={line.kind}
+              className={
+                line.kind === "total"
+                  ? "mt-2 flex justify-between border-t border-line pt-2 text-base"
+                  : "flex justify-between"
+              }
+            >
+              <span className={line.kind === "total" ? undefined : "text-ink-muted"}>
+                {line.label}
+              </span>
+              <span>{line.value}</span>
             </div>
-          )}
-          <div className="mt-2 flex justify-between border-t border-line pt-2 text-base">
-            <span>Total</span>
-            <span>{formatCurrency(order.total)}</span>
-          </div>
+          ))}
         </div>
 
         {address && (

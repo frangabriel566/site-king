@@ -6,6 +6,7 @@ import { CouponField } from "@/components/shop/coupon-field";
 import { OrderTotals } from "@/components/shop/order-totals";
 import type { BagCoupon } from "@/lib/hooks/use-bag-coupon";
 import type { RevisedItem } from "@/lib/data/checkout";
+import type { ShippingMode } from "@/lib/shipping-mode";
 
 /**
  * The checkout's summary: what is being bought, the coupon field (the one
@@ -16,16 +17,12 @@ import type { RevisedItem } from "@/lib/data/checkout";
 export function OrderSummary({
   items,
   subtotal,
-  shipping,
-  freeShipping,
+  shippingMode,
   coupon,
 }: {
   items: RevisedItem[];
   subtotal: number;
-  /** Null until the shipping step. */
-  shipping: number | null;
-  /** The store's rule or the coupon's. */
-  freeShipping: boolean;
+  shippingMode: ShippingMode;
   coupon: BagCoupon;
 }) {
   return (
@@ -59,10 +56,9 @@ export function OrderSummary({
 
       <OrderTotals
         subtotal={subtotal}
+        itemCount={items.reduce((sum, item) => sum + item.availableQty, 0)}
         coupon={coupon.applied}
-        shipping={shipping}
-        freeShipping={freeShipping}
-        shippingPending="Na etapa Frete"
+        shippingMode={shippingMode}
         className="border-t border-line pt-5"
       />
     </div>

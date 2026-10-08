@@ -22,7 +22,6 @@ export const checkoutItemSchema = z.object({
 export const checkoutSchema = z.object({
   contact: checkoutContactSchema,
   address: addressSchema,
-  shipping_method: z.enum(["standard", "express"]),
   coupon_code: z.string().trim().max(40).optional().or(z.literal("")),
   items: z.array(checkoutItemSchema).min(1, "Sacola vazia"),
 });

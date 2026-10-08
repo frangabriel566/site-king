@@ -20,6 +20,11 @@ export type ShopConfig = {
   freeShippingNote: string | null;
   exchangeNote: string | null;
   securePurchaseNote: string | null;
+  /** How the store sells right now (lib/sales-mode.ts): whether the CEP
+   * box quotes for real, and whether "Finalizar compra" goes to the
+   * checkout or straight to the WhatsApp order. */
+  freightQuotes: boolean;
+  checkoutOpen: boolean;
   /** Server render time (ms). "Novo" is computed against this on the server
    * and again while hydrating, so the badge can't flip in between. */
   now: number;
@@ -34,11 +39,21 @@ export const EMPTY_SHOP_CONFIG: ShopConfig = {
   freeShippingNote: null,
   exchangeNote: null,
   securePurchaseNote: null,
+  freightQuotes: false,
+  checkoutOpen: false,
   now: 0,
 };
 
-export function shopConfigFromSettings(settings: SiteSettings, now = Date.now()): ShopConfig {
+export function shopConfigFromSettings(
+  settings: SiteSettings,
+  sales: Pick<ShopConfig, "freightQuotes" | "checkoutOpen"> = {
+    freightQuotes: false,
+    checkoutOpen: false,
+  },
+  now = Date.now(),
+): ShopConfig {
   return {
+    ...sales,
     installmentsMax: settings.installments_max,
     pixDiscountPercent: settings.pix_discount_percent,
     freeShippingThreshold: settings.free_shipping_threshold,

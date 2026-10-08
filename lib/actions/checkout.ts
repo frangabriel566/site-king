@@ -8,13 +8,11 @@ import {
   type CartVariantOption,
   type ReviseCartResult,
 } from "@/lib/data/checkout";
-import { evaluateCoupon } from "@/lib/data/coupons";
 import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
 import { getCustomerForUser } from "@/lib/data/customers";
 import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
 import { nextOrderNumber } from "@/lib/db/sequences";
-import { roundMoney } from "@/lib/money";
 import { addressSchema } from "@/lib/validations/address";
 import {
   getPaymentProvider,
@@ -22,13 +20,9 @@ import {
   type PaymentInitResult,
 } from "@/lib/payments";
 import { getSiteSettings } from "@/lib/data/settings";
-import { qualifiesForFreeShipping } from "@/lib/shop-config";
-import {
-  SHIPPING_METHODS,
-  isCheckoutMethod,
-  type CheckoutMethod,
-  type ShippingMethod,
-} from "@/lib/constants";
+import { priceOrder } from "@/lib/orders/pricing";
+import { getSalesMode } from "@/lib/sales-mode";
+import { isCheckoutMethod, type CheckoutMethod } from "@/lib/constants";
 
 export async function reviseCartAction(
   items: { variantId: string; qty: number }[],
@@ -53,7 +47,6 @@ export type CreateOrderInput = {
     city: string;
     state: string;
   };
-  shippingMethod: ShippingMethod;
   /** Where the shopper chose to finish paying. Omitted means "whatever the
    * store is configured for", which is how this behaved before the choice
    * existed. */
@@ -75,6 +68,12 @@ export type CreateOrderResult =
 export async function createOrderAction(
   input: CreateOrderInput,
 ): Promise<CreateOrderResult> {
+  // The page redirects while the checkout is closed (lib/sales-mode.ts);
+  // this is the same rule for a call that skips the page.
+  if (!getSalesMode(await getSiteSettings()).checkoutOpen) {
+    return { ok: false, message: "Finalize a compra pela sacola: o pedido segue pelo WhatsApp." };
+  }
+
   const user = await getCurrentUser();
   if (!user) {
     return { ok: false, message: "Você precisa entrar para finalizar a compra." };
@@ -105,26 +104,16 @@ export async function createOrderAction(
 
   const subtotal = revision.subtotal;
 
-  // Re-checked here against the database subtotal — what the bag showed
-  // was only a preview. A coupon that stopped applying in between is an
-  // error, not a silent discount of zero: the shopper would otherwise pay
-  // more than the total they confirmed.
-  let discount = 0;
-  let couponCode: string | null = null;
-  let couponFreeShipping = false;
-  if (input.couponCode?.trim()) {
-    const coupon = await evaluateCoupon(input.couponCode, subtotal);
-    if (!coupon.ok) {
-      return {
-        ok: false,
-        couponRejected: true,
-        message: `Cupom removido: ${coupon.message}`,
-      };
-    }
-    discount = coupon.discount;
-    couponCode = coupon.code;
-    couponFreeShipping = coupon.freeShipping;
+  // The same pricing as the WhatsApp order (lib/orders/pricing.ts). The
+  // coupon is re-checked against the database subtotal — what the bag
+  // showed was only a preview. A coupon that stopped applying in between
+  // is an error, not a silent discount of zero: the shopper would
+  // otherwise pay more than the total they confirmed.
+  const priced = await priceOrder(subtotal, input.couponCode);
+  if (!priced.ok) {
+    return { ok: false, couponRejected: true, message: `Cupom removido: ${priced.message}` };
   }
+  const { discount, couponCode, shippingMode, shipping, total } = priced.pricing;
 
   // Resolved before the insert so the row records the route the order
   // actually took, not the route that was asked for — the two differ when
@@ -133,14 +122,15 @@ export async function createOrderAction(
     isCheckoutMethod(input.method) ? input.method : undefined,
   );
 
-  const shippingInfo = SHIPPING_METHODS[input.shippingMethod];
-  // Same rule the bag's progress bar shows (Configurações → Vitrine).
-  const { free_shipping_threshold } = await getSiteSettings();
-  const shipping =
-    couponFreeShipping || qualifiesForFreeShipping(subtotal, free_shipping_threshold)
-      ? 0
-      : shippingInfo.price;
-  const total = roundMoney(Math.max(subtotal + shipping - discount, 0));
+  // Online payment takes the whole bill at once, and a freight still to be
+  // agreed isn't in it yet. Until the checkout quotes Melhor Envio, only a
+  // free freight can be paid here.
+  if (paymentMethod === "mercadopago" && shippingMode === "to_agree") {
+    return {
+      ok: false,
+      message: "O frete desta compra é combinado pelo WhatsApp. Escolha finalizar no WhatsApp.",
+    };
+  }
 
   const db = getDb();
   const { addresses, orders, order_items } = schema;
@@ -168,6 +158,7 @@ export async function createOrderAction(
           status: "pending",
           subtotal,
           shipping,
+          shipping_mode: shippingMode,
           discount,
           total,
           coupon_code: couponCode,
@@ -220,6 +211,7 @@ export async function createOrderAction(
       orderNumber,
       subtotal,
       shipping,
+      shippingMode,
       discount,
       couponCode,
       total,

@@ -1,3 +1,5 @@
+import type { ShippingMode } from "@/lib/shipping-mode";
+
 export type PaymentItem = {
   name: string;
   qty: number;
@@ -10,6 +12,8 @@ export type PaymentOrderInput = {
   /** Items at database prices, before the coupon. */
   subtotal: number;
   shipping: number;
+  /** Whether `shipping` was charged, is free or is agreed on WhatsApp. */
+  shippingMode: ShippingMode;
   /** Coupon discount off the subtotal (0 without one). */
   discount: number;
   couponCode: string | null;

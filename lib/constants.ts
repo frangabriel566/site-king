@@ -23,21 +23,6 @@ export const COLLECTION_PAGE_SIZE = 12;
  */
 export const HOME_RAIL_LIMIT = 24;
 
-export const SHIPPING_METHODS = {
-  standard: {
-    label: "Padrão",
-    price: 29.9,
-    etaDays: "5 a 8 dias úteis",
-  },
-  express: {
-    label: "Expressa",
-    price: 49.9,
-    etaDays: "2 a 3 dias úteis",
-  },
-} as const;
-
-export type ShippingMethod = keyof typeof SHIPPING_METHODS;
-
 /**
  * Where the shopper finishes paying. Both paths build the *same* order —
  * same items, same address, same stock rules — so a sale closed over

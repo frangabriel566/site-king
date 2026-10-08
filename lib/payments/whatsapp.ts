@@ -1,6 +1,7 @@
 import "server-only";
 import { formatCurrency } from "@/lib/format";
 import { getStoreWhatsAppNumber } from "@/lib/whatsapp/order-link";
+import { orderSummaryText } from "@/lib/orders/summary";
 import type { PaymentInitResult, PaymentOrderInput, PaymentProvider } from "./types";
 
 export class WhatsAppProvider implements PaymentProvider {
@@ -18,12 +19,16 @@ export class WhatsAppProvider implements PaymentProvider {
         (item) => `• ${item.qty}x ${item.name} — ${formatCurrency(item.unitPrice * item.qty)}`,
       ),
       "",
-      `Subtotal: ${formatCurrency(input.subtotal)}`,
-      ...(input.couponCode && input.discount > 0
-        ? [`Cupom ${input.couponCode}: -${formatCurrency(input.discount)}`]
-        : []),
-      `Frete: ${input.shipping > 0 ? formatCurrency(input.shipping) : "Grátis"}`,
-      `*Total: ${formatCurrency(input.total)}*`,
+      // The same lines as the bag and the WhatsApp order (lib/orders/summary.ts).
+      ...orderSummaryText({
+        subtotal: input.subtotal,
+        itemCount: input.items.reduce((sum, item) => sum + item.qty, 0),
+        discount: input.discount,
+        couponCode: input.couponCode,
+        shippingMode: input.shippingMode,
+        shipping: input.shipping,
+        total: input.total,
+      }),
       `Nome: ${input.customerName}`,
     ];
 

@@ -174,7 +174,9 @@ export function BuyBox({
     if (!item) return;
     addItem(item);
     startTransition(() => {
-      router.push("/checkout");
+      // Checkout closed: the purchase is closed from the bag, whose
+      // "Finalizar compra" creates the WhatsApp order (lib/sales-mode.ts).
+      router.push(config.checkoutOpen ? "/checkout" : "/sacola");
     });
   }
 
@@ -396,14 +398,17 @@ export function BuyBox({
       {/* Frete, trocas e compra segura — right where the shopper decides. */}
       <TrustStrip className="mt-4" />
 
-      <div className="mt-6 border-t border-line pt-6">
-        {/* A mesma cotação da sacola, para uma peça. Antes isto era uma
-            faixa de prazo inventada por região ("2 a 4 dias úteis") com
-            preço nenhum — agora que existe motor de frete de verdade,
-            manter o palpite ao lado dele seria mentir na página onde a
-            decisão de compra acontece. */}
-        <FreightCalculator items={[{ productId: product.id, quantity: 1 }]} />
-      </div>
+      {/* A mesma cotação da sacola, para uma peça. Antes isto era uma
+          faixa de prazo inventada por região ("2 a 4 dias úteis") com
+          preço nenhum — agora que existe motor de frete de verdade,
+          manter o palpite ao lado dele seria mentir na página onde a
+          decisão de compra acontece. Sem o Melhor Envio ligado a caixa
+          some: toda cotação daria erro, e o frete é combinado no WhatsApp. */}
+      {config.freightQuotes && (
+        <div className="mt-6 border-t border-line pt-6">
+          <FreightCalculator items={[{ productId: product.id, quantity: 1 }]} />
+        </div>
+      )}
 
       {!allOutOfStock && (
         <StickyBuyBar

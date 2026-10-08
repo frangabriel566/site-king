@@ -8,6 +8,7 @@ import {
   WHATSAPP_ORDER_TTL_HOURS,
 } from "@/lib/constants";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
+import { shippingText } from "@/lib/orders/summary";
 import { StatusBadge, ORDER_STATUS_TONE } from "@/components/admin/status-badge";
 import {
   Table,
@@ -146,6 +147,13 @@ export default async function AdminWhatsAppOrdersPage({
                   </TableCell>
                   <TableCell className="text-right">
                     {formatCurrency(order.total)}
+                    {/* The products' total: the freight is free or quoted
+                        in the conversation, never in this number. */}
+                    {order.shipping_mode !== "charged" && (
+                      <span className="mt-0.5 block text-xs text-ink-muted">
+                        frete {shippingText(order.shipping_mode)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     {isPending ? (

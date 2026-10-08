@@ -6,8 +6,9 @@ import { isCheckViolation } from "@/lib/db/errors";
 import { WHATSAPP_CODE_COUNTER, currentWhatsAppCode, nextOrderNumber } from "@/lib/db/sequences";
 import { roundMoney } from "@/lib/money";
 import type { CustomerSnapshot } from "@/lib/db/schema";
-import { evaluateCoupon } from "@/lib/data/coupons";
 import { isCouponLimitError, takeCouponUse } from "@/lib/coupons/usage";
+import { priceOrder } from "@/lib/orders/pricing";
+import type { ShippingMode } from "@/lib/shipping-mode";
 
 /**
  * Compra direta pelo WhatsApp — the four Postgres functions of migration
@@ -89,8 +90,8 @@ export type CreatedWhatsAppOrder = {
   subtotal: number;
   discount: number;
   coupon_code: string | null;
-  /** The coupon also covers the shipping (agreed in the conversation). */
-  free_shipping: boolean;
+  /** Free (the store's rule or the coupon) or agreed in the conversation. */
+  shipping_mode: ShippingMode;
   adjusted: boolean;
 };
 
@@ -187,22 +188,14 @@ export async function createWhatsAppOrder(
     }
   }
 
-  // Sem frete de propósito: este caminho não pede endereço, e o frete é
-  // combinado na conversa (um cupom de frete grátis vai escrito na
-  // mensagem). O cupom, sim: aplicado na sacola, é conferido de novo aqui
-  // contra o subtotal do banco — o que a sacola mostrou foi só a prévia.
+  // Sem valor de frete de propósito: este caminho não pede endereço, e o
+  // frete é combinado na conversa — ou é grátis, pela regra da loja ou
+  // pelo cupom. O cupom aplicado na sacola é conferido de novo contra o
+  // subtotal do banco: o que a sacola mostrou foi só a prévia.
   const subtotal = roundMoney(lines.reduce((sum, l) => sum + l.unit_price * l.qty, 0));
-  let discount = 0;
-  let appliedCoupon: string | null = null;
-  let freeShipping = false;
-  if (couponCode?.trim()) {
-    const check = await evaluateCoupon(couponCode, subtotal);
-    if (!check.ok) throw new WhatsAppOrderError("COUPON", check.message);
-    discount = check.discount;
-    appliedCoupon = check.code;
-    freeShipping = check.freeShipping;
-  }
-  const total = roundMoney(Math.max(subtotal - discount, 0));
+  const priced = await priceOrder(subtotal, couponCode);
+  if (!priced.ok) throw new WhatsAppOrderError("COUPON", priced.message);
+  const { discount, couponCode: appliedCoupon, shippingMode, total } = priced.pricing;
   const orderId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + EXPIRY_MS).toISOString();
 
@@ -224,6 +217,7 @@ export async function createWhatsAppOrder(
         expires_at: expiresAt,
         subtotal,
         shipping: 0,
+        shipping_mode: shippingMode,
         discount,
         total,
         coupon_code: appliedCoupon,
@@ -264,7 +258,7 @@ export async function createWhatsAppOrder(
     subtotal,
     discount,
     coupon_code: appliedCoupon,
-    free_shipping: freeShipping,
+    shipping_mode: shippingMode,
     total,
     items: lines.map(({ name, slug, color, size, qty, unit_price }) => ({
       name,

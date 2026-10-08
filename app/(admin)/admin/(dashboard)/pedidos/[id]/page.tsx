@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderByIdAdmin } from "@/lib/data/orders";
+import { getSiteSettings } from "@/lib/data/settings";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
+import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
+import { getSalesMode } from "@/lib/sales-mode";
 import { OrderStatusForm } from "./order-status-form";
 import { ShippingLabel } from "./shipping-label";
 
@@ -14,8 +17,11 @@ export default async function AdminOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const order = await getOrderByIdAdmin(id);
+  const [order, settings] = await Promise.all([getOrderByIdAdmin(id), getSiteSettings()]);
   if (!order) notFound();
+  // Without Melhor Envio every quote and label fails; a label already
+  // bought is still shown.
+  const showLabel = getSalesMode(settings).freightQuotes || Boolean(order.melhorenvio_order_id);
 
   const snapshot = order.customer_snapshot as {
     name?: string;
@@ -67,27 +73,24 @@ export default async function AdminOrderDetailPage({
                 </tbody>
               </table>
             </div>
+            {/* The same lines the shopper saw (lib/orders/summary.ts):
+                "Frete: a combinar" means it is quoted in the conversation. */}
             <div className="mt-4 flex flex-col gap-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Subtotal</span>
-                <span>{formatCurrency(order.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Frete</span>
-                <span>{formatCurrency(order.shipping)}</span>
-              </div>
-              {order.discount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-ink-muted">
-                    Desconto{order.coupon_code ? ` (cupom ${order.coupon_code})` : ""}
+              {orderSummaryLines(summaryFromOrder(order)).map((line) => (
+                <div
+                  key={line.kind}
+                  className={
+                    line.kind === "total"
+                      ? "mt-1 flex justify-between border-t border-line pt-1 font-medium"
+                      : "flex justify-between"
+                  }
+                >
+                  <span className={line.kind === "total" ? undefined : "text-ink-muted"}>
+                    {line.label}
                   </span>
-                  <span>-{formatCurrency(order.discount)}</span>
+                  <span>{line.value}</span>
                 </div>
-              )}
-              <div className="mt-1 flex justify-between border-t border-line pt-1 font-medium">
-                <span>Total</span>
-                <span>{formatCurrency(order.total)}</span>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -152,18 +155,20 @@ export default async function AdminOrderDetailPage({
               currentTrackingCode={order.tracking_code}
             />
           )}
-          <ShippingLabel
-            orderId={order.id}
-            initial={
-              order.melhorenvio_order_id
-                ? {
-                    melhorenvioOrderId: order.melhorenvio_order_id,
-                    labelUrl: order.label_url,
-                    trackingCode: order.tracking_code,
-                  }
-                : null
-            }
-          />
+          {showLabel && (
+            <ShippingLabel
+              orderId={order.id}
+              initial={
+                order.melhorenvio_order_id
+                  ? {
+                      melhorenvioOrderId: order.melhorenvio_order_id,
+                      labelUrl: order.label_url,
+                      trackingCode: order.tracking_code,
+                    }
+                  : null
+              }
+            />
+          )}
         </div>
       </div>
     </div>

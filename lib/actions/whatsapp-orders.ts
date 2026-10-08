@@ -73,7 +73,9 @@ export async function createWhatsAppOrderAction(
   if (!phone) {
     return {
       ok: false,
-      message: "A loja ainda não configurou um WhatsApp. Finalize pelo site.",
+      // Sem "finalize pelo site": com o pagamento online desligado, este é
+      // o único caminho de compra, e não há site para onde mandar.
+      message: "A loja ainda não configurou o WhatsApp que recebe os pedidos.",
     };
   }
 
@@ -114,15 +116,14 @@ export async function createWhatsAppOrderAction(
     storeName: settings.store_name,
     code: order.code,
     items,
-    total: order.total,
-    coupon: order.coupon_code
-      ? {
-          code: order.coupon_code,
-          subtotal: order.subtotal,
-          discount: order.discount,
-          freeShipping: order.free_shipping,
-        }
-      : null,
+    summary: {
+      subtotal: order.subtotal,
+      itemCount: order.items.reduce((sum, item) => sum + item.qty, 0),
+      discount: order.discount,
+      couponCode: order.coupon_code,
+      shippingMode: order.shipping_mode,
+      total: order.total,
+    },
     expiresAt: order.expires_at,
     origin,
   });

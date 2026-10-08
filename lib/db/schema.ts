@@ -29,6 +29,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { PRODUCT_SECTIONS } from "../sections";
+import { SHIPPING_MODES } from "../shipping-mode";
 
 export type Json =
   | string
@@ -44,6 +45,7 @@ export const PRODUCT_BADGES = ["lancamento", "oferta", "mais_vendido"] as const;
 // import: drizzle-kit reads this file too), so the browser can use the
 // list without pulling the database schema into its bundle.
 export { PRODUCT_SECTIONS, type ProductSection } from "../sections";
+export { SHIPPING_MODES, type ShippingMode } from "../shipping-mode";
 export const USER_ROLES = ["customer", "admin"] as const;
 export const ORDER_STATUSES = [
   "pending",
@@ -485,6 +487,10 @@ export const orders = sqliteTable(
     status: text("status", { enum: ORDER_STATUSES }).notNull().default("pending"),
     subtotal: real("subtotal").notNull().default(0),
     shipping: real("shipping").notNull().default(0),
+    /** Whether `shipping` is a charge, free, or still to be agreed on
+     * WhatsApp (lib/shipping-mode.ts). The default keeps the old meaning —
+     * `shipping` is what was charged — for a row written without it. */
+    shipping_mode: text("shipping_mode", { enum: SHIPPING_MODES }).notNull().default("charged"),
     discount: real("discount").notNull().default(0),
     total: real("total").notNull().default(0),
     payment_method: text("payment_method"),

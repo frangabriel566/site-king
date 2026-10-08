@@ -8,16 +8,15 @@ import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
 import { FreightCalculator } from "@/components/shop/freight-calculator";
-import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
+import { FinishPurchase } from "@/components/shop/finish-purchase";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { CouponField } from "@/components/shop/coupon-field";
 import { OrderTotals } from "@/components/shop/order-totals";
 import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
-import { qualifiesForFreeShipping } from "@/lib/shop-config";
+import { shippingModeFor } from "@/lib/orders/summary";
 import { formatCurrency } from "@/lib/format";
 import { BagVariantLine } from "@/components/shop/bag-variant-line";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/shop/empty-state";
 
@@ -26,7 +25,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   const { selectedIds, allSelected, toggleSelect, toggleSelectAll } =
     useBagSelection(items);
   const { limitOf, isSoldOut, sizesFor } = useCartStock(items);
-  const { securePurchaseNote, freeShippingThreshold } = useShopConfig();
+  const { securePurchaseNote, freeShippingThreshold, freightQuotes } = useShopConfig();
   const coupon = useBagCoupon();
 
   const removeSelected = () => {
@@ -57,8 +56,12 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
     [items, isSoldOut],
   );
 
-  const freeShipping =
-    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
+  // A mesma regra com que o servidor grava o pedido (lib/orders/pricing.ts).
+  const shippingMode = shippingModeFor(
+    subtotal,
+    freeShippingThreshold,
+    Boolean(coupon.applied?.freeShipping),
+  );
 
   const soldOutCount = items.filter((item) => isSoldOut(item.variantId)).length;
   const availableItems = items.filter((item) => !isSoldOut(item.variantId));
@@ -240,15 +243,16 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           />
           {/* Frete e cupom no mesmo bloco: o CEP cota as transportadoras de
               verdade para a sacola como está (o cliente não escolhe nada
-              aqui — a escolha é no checkout), e o cupom vem logo abaixo. */}
-          <FreightCalculator items={freightItems} />
-          <CouponField coupon={coupon} className="mt-5" />
+              aqui — a escolha é no checkout), e o cupom vem logo abaixo.
+              Sem o Melhor Envio ligado a caixa some: toda cotação daria
+              erro, e o frete é combinado no WhatsApp. */}
+          {freightQuotes && <FreightCalculator items={freightItems} className="mb-5" />}
+          <CouponField coupon={coupon} />
           <OrderTotals
             subtotal={subtotal}
             itemCount={availableCount}
             coupon={coupon.applied}
-            shipping={null}
-            freeShipping={freeShipping}
+            shippingMode={shippingMode}
             className="mt-5 border-t border-line pt-5"
           />
           {soldOutCount > 0 && (
@@ -259,35 +263,19 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
             </p>
           )}
           {/* Sacola inteiramente esgotada não tem compra a fazer: mandar
-              o cliente ao checkout só para ele ver a sacola ser esvaziada
-              lá seria pior do que dizer isto aqui. */}
+              o cliente adiante só para ver a sacola ser esvaziada seria
+              pior do que dizer isto aqui. */}
           {nothingAvailable ? (
             <p className="mt-6 rounded-md border border-alert/30 bg-alert/5 p-3 text-center text-sm font-medium text-alert">
               Nenhuma peça da sacola está disponível agora.
             </p>
           ) : (
-            <Button asChild size="xl" className="mt-6 w-full bg-buy text-white hover:bg-buy-hover">
-              <Link href="/checkout">Finalizar compra</Link>
-            </Button>
-          )}
-          {whatsappEnabled && !nothingAvailable && (
-            <div className="mt-3">
-              {/* Só o que existe, e não a seleção das caixinhas: aquelas
-                  marcações existem para remover itens em lote, e ninguém
-                  espera que desmarcar uma peça também a tire do pedido. */}
-              <WhatsAppBuyButton
-                couponCode={coupon.code}
-                getItems={() =>
-                  availableItems.map((item) => ({
-                    variantId: item.variantId,
-                    qty: item.qty,
-                  }))
-                }
-              />
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                Geramos um código e você combina frete e pagamento com a loja.
-              </p>
-            </div>
+            <FinishPurchase
+              items={availableItems}
+              couponCode={coupon.code}
+              whatsappEnabled={whatsappEnabled}
+              className="mt-6"
+            />
           )}
           {/* The store's own line (Configurações → Vitrine), not a promise
               written here; nothing when it isn't set. */}

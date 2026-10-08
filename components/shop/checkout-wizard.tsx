@@ -11,14 +11,8 @@ import { OrderSummary } from "@/components/shop/order-summary";
 import { EmptyState } from "@/components/shop/empty-state";
 import { getCheckoutContextAction } from "@/lib/actions/checkout-context";
 import { reviseCartAction, createOrderAction } from "@/lib/actions/checkout";
-import {
-  SHIPPING_METHODS,
-  CHECKOUT_METHODS,
-  type CheckoutMethod,
-  type ShippingMethod,
-} from "@/lib/constants";
-import { formatCurrency } from "@/lib/format";
-import { qualifiesForFreeShipping } from "@/lib/shop-config";
+import { CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/constants";
+import { shippingModeFor } from "@/lib/orders/summary";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { RevisedItem } from "@/lib/data/checkout";
 import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
@@ -56,7 +50,6 @@ export function CheckoutWizard({
   const [authenticated, setAuthenticated] = useState(false);
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [address, setAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
   const [checkoutMethod, setCheckoutMethod] = useState<CheckoutMethod>(initialMethod);
   // The coupon applied in the bag comes along; it can also be applied or
   // removed here, in the summary.
@@ -98,19 +91,23 @@ export function CheckoutWizard({
     [revised],
   );
 
-  // The store's rule or a free-shipping coupon — createOrderAction applies
-  // the same two again.
-  const freeShipping =
-    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
-  const shippingCost =
-    step >= 3 ? (freeShipping ? 0 : SHIPPING_METHODS[shippingMethod].price) : null;
+  // The store's rule or a free-shipping coupon, else agreed on WhatsApp —
+  // createOrderAction prices it the same way (lib/orders/pricing.ts). The
+  // Melhor Envio quote will replace "a combinar" here.
+  const shippingMode = shippingModeFor(
+    subtotal,
+    freeShippingThreshold,
+    Boolean(coupon.applied?.freeShipping),
+  );
+  // Online payment takes the whole bill, and a freight still to be agreed
+  // isn't in it: the server refuses it too.
+  const canPayOnline = onlineAvailable && shippingMode !== "to_agree";
 
   async function handleFinish() {
     setSubmitting(true);
     const result = await createOrderAction({
       address,
-      shippingMethod,
-      method: checkoutMethod,
+      method: canPayOnline ? checkoutMethod : "whatsapp",
       couponCode: coupon.applied?.code ?? coupon.code ?? undefined,
       items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
     });
@@ -236,35 +233,15 @@ export function CheckoutWizard({
         {step === 3 && (
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Frete</h2>
-            <div className="flex flex-col gap-3">
-              {(Object.keys(SHIPPING_METHODS) as ShippingMethod[]).map((method) => {
-                const info = SHIPPING_METHODS[method];
-                const free = freeShipping;
-                return (
-                  <label
-                    key={method}
-                    className={`flex cursor-pointer items-center justify-between rounded-lg border p-4 text-sm transition-colors duration-150 ease-out ${
-                      shippingMethod === method ? "border-fg" : "border-line hover:border-ink-muted"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="shipping"
-                        checked={shippingMethod === method}
-                        onChange={() => setShippingMethod(method)}
-                        className="accent-fg"
-                      />
-                      <span>
-                        {info.label}
-                        <span className="block text-xs text-ink-muted">{info.etaDays}</span>
-                      </span>
-                    </span>
-                    <span>{free ? "Grátis" : formatCurrency(info.price)}</span>
-                  </label>
-                );
-              })}
-            </div>
+            {/* No price and nothing to pick: with no quote, the freight is
+                free (the store's rule or the coupon) or agreed on WhatsApp. */}
+            <p
+              className={`rounded-lg border border-line p-4 text-sm ${
+                shippingMode === "free" ? "font-semibold text-buy" : "text-fg"
+              }`}
+            >
+              {shippingMode === "free" ? "Frete grátis" : "Frete a combinar pelo WhatsApp"}
+            </p>
             <div className="mt-8 flex gap-3">
               <Button variant="outline" size="lg" onClick={() => setStep(2)}>
                 Voltar
@@ -280,7 +257,7 @@ export function CheckoutWizard({
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Pagamento</h2>
 
-            {onlineAvailable ? (
+            {canPayOnline ? (
               <>
                 <p className="mb-4 max-w-sm text-sm text-ink-muted">
                   Escolha como quer finalizar. O pedido é registrado do mesmo
@@ -343,8 +320,7 @@ export function CheckoutWizard({
       <OrderSummary
         items={revised}
         subtotal={subtotal}
-        shipping={shippingCost}
-        freeShipping={freeShipping}
+        shippingMode={shippingMode}
         coupon={coupon}
       />
     </div>

@@ -6,12 +6,12 @@ import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { WhatsAppBuyButton } from "@/components/shop/whatsapp-buy-button";
+import { FinishPurchase } from "@/components/shop/finish-purchase";
 import { FreeShippingProgress } from "@/components/shop/free-shipping-progress";
 import { OrderTotals } from "@/components/shop/order-totals";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
-import { qualifiesForFreeShipping } from "@/lib/shop-config";
+import { shippingModeFor } from "@/lib/orders/summary";
 import { useCart } from "@/lib/cart/context";
 import { useBagSelection } from "@/lib/hooks/use-bag-selection";
 import { atStockLimit, stockNote, useCartStock } from "@/lib/hooks/use-cart-stock";
@@ -33,11 +33,16 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
     (sum, item) => sum + item.price * item.qty,
     0,
   );
+  const availableCount = availableItems.reduce((sum, item) => sum + item.qty, 0);
 
   const coupon = useBagCoupon(isOpen);
   const { freeShippingThreshold } = useShopConfig();
-  const freeShipping =
-    qualifiesForFreeShipping(subtotal, freeShippingThreshold) || Boolean(coupon.applied?.freeShipping);
+  // A mesma regra com que o servidor grava o pedido (lib/orders/pricing.ts).
+  const shippingMode = shippingModeFor(
+    subtotal,
+    freeShippingThreshold,
+    Boolean(coupon.applied?.freeShipping),
+  );
 
   const removeSelected = () => {
     selectedIds.forEach((id) => removeItem(id));
@@ -208,9 +213,9 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                   can't grow without squeezing the item list on a phone. */}
               <OrderTotals
                 subtotal={subtotal}
+                itemCount={availableCount}
                 coupon={coupon.applied}
-                shipping={null}
-                freeShipping={freeShipping}
+                shippingMode={shippingMode}
                 className="mb-2"
               />
               {!coupon.applied && (
@@ -228,27 +233,12 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
                   Nenhuma peça da sacola está disponível agora.
                 </p>
               ) : (
-                <Button
-                  asChild
-                  size="xl"
-                  className="w-full bg-buy text-white hover:bg-buy-hover"
-                  onClick={close}
-                >
-                  <Link href="/checkout">Finalizar compra</Link>
-                </Button>
-              )}
-              {whatsappEnabled && !nothingAvailable && (
-                <div className="mt-3">
-                  <WhatsAppBuyButton
-                    couponCode={coupon.code}
-                    getItems={() =>
-                      availableItems.map((item) => ({
-                        variantId: item.variantId,
-                        qty: item.qty,
-                      }))
-                    }
-                  />
-                </div>
+                <FinishPurchase
+                  items={availableItems}
+                  couponCode={coupon.code}
+                  whatsappEnabled={whatsappEnabled}
+                  onNavigate={close}
+                />
               )}
               <Button asChild variant="outline" size="lg" className="mt-3 w-full" onClick={close}>
                 <Link href="/sacola">Ver sacola completa</Link>

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { CheckoutWizard } from "@/components/shop/checkout-wizard";
+import { getSiteSettings } from "@/lib/data/settings";
 import { isOnlineCheckoutAvailable } from "@/lib/payments";
+import { getSalesMode } from "@/lib/sales-mode";
 import {
   CHECKOUT_METHOD_PARAM,
   isCheckoutMethod,
@@ -14,6 +17,11 @@ export default async function CheckoutPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Closed (lib/sales-mode.ts): the bag closes the sale on WhatsApp, and an
+  // old link or bookmark lands there instead of on a checkout that could
+  // not charge the order. The wizard stays for when it opens again.
+  if (!getSalesMode(await getSiteSettings()).checkoutOpen) redirect("/sacola");
+
   const params = await searchParams;
   const onlineAvailable = isOnlineCheckoutAvailable();
 

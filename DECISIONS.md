@@ -1481,3 +1481,60 @@ como estão, ao lado.
 - **Testes**: `tests/feedbacks.d1.test.ts` (vínculo com produto, cascata
   das imagens, travas de nota/tipo, regras do formulário) e
   `tests/format-customer-name.unit.test.ts`.
+
+## Bloco 32 — Frete a combinar pelo WhatsApp
+
+Sem Melhor Envio configurado e sem Mercado Pago, a loja vende só pelo
+WhatsApp, e o frete é combinado na conversa. Antes, a mesma sacola gerava
+dois pedidos diferentes: o botão do WhatsApp gravava um pedido KS sem
+frete (e ignorava a regra de frete grátis), e o checkout cobrava uma
+tabela fixa (R$ 29,90 / R$ 49,90) num pedido comum, com outra mensagem.
+A calculadora de CEP sempre respondia erro (sem as três variáveis do
+Melhor Envio, `config()` falha antes de qualquer cotação).
+
+- **Modo de venda derivado do que está configurado** (`lib/sales-mode.ts`),
+  sem chave no painel: a calculadora aparece só com as três variáveis do
+  Melhor Envio e um CEP de origem válido; o checkout abre só com pagamento
+  online **e** frete calculável. Com frete a combinar não há total para
+  cobrar online, e um checkout que termina no WhatsApp seria só um caminho
+  mais longo para o pedido que a sacola já cria. Por isso o Melhor Envio
+  só deve ser ligado junto com a tarefa de cotação no checkout.
+- **Checkout fechado:** "Finalizar compra" na sacola e na gaveta cria o
+  pedido KS de 48 h (`createWhatsAppOrder`), sem login e sem endereço, e
+  não há um segundo botão de WhatsApp repetindo o mesmo
+  (`components/shop/finish-purchase.tsx`). "Comprar agora" no produto leva
+  à sacola; `/checkout` redireciona para a sacola. O checkout não foi
+  apagado: só perdeu a tabela fixa (o passo Frete diz "Frete a combinar
+  pelo WhatsApp" ou "Frete grátis"), e o servidor recusa o Mercado Pago
+  enquanto o frete for a combinar.
+- **Um preço só** (`lib/orders/pricing.ts`): cupom conferido de novo no
+  servidor + frete grátis pela regra da loja (sobre o subtotal, antes do
+  cupom) ou pelo cupom, senão "a combinar". O pedido do WhatsApp e o
+  checkout usam a mesma função; o botão da sacola passou a aplicar a regra
+  dos R$ 399, que antes ignorava.
+- **Um texto só** (`lib/orders/summary.ts`): "Subtotal (N itens)",
+  "Desconto (cupom X)", "Frete: a combinar" / "grátis" e "Total dos
+  produtos" (inclusive com frete grátis; "Total" só quando houver frete
+  cobrado). Sacola, gaveta, checkout, mensagem do WhatsApp, página do
+  pedido e painel imprimem as mesmas linhas.
+- **Migration `0007_orders_shipping_mode`**: `orders.shipping_mode`
+  (`to_agree` / `free` / `charged`, padrão `charged`, que é o significado
+  antigo de `shipping`). Pedidos antigos: KS → "grátis" se o cupom zera o
+  frete, senão "a combinar"; checkout com frete 0 → "grátis"; com frete
+  cobrado → "cobrado". Sem CHECK no banco: acrescentar um ao `orders`
+  exigiria recriar a tabela no SQLite; o tipo fica no código.
+- **`lib/payments/whatsapp.ts` continua**: é a opção "Finalizar no
+  WhatsApp" do checkout, que volta com o Mercado Pago. Ganhou as mesmas
+  linhas de totais. Quando o checkout reabrir, essa opção deve passar a
+  criar o pedido por `createWhatsAppOrder` (ou sair), para seguir um
+  caminho só de WhatsApp.
+- **Painel:** a etiqueta do Melhor Envio só aparece com a integração
+  ligada (ou se o pedido já tem etiqueta); a aba de WhatsApp mostra
+  "frete a combinar" / "frete grátis" sob o total.
+- **Cupom sem conta (próxima tarefa):** o pedido do WhatsApp já aceita
+  visitante, e o cupom é só uma entrada de `priceOrder` e da mensagem; o
+  "Finalizar compra" está num componente só, onde entra o pedido do nome.
+- **Testes:** `tests/order-summary.unit.test.ts` (textos e regras) e
+  `tests/order-totals.d1.test.ts` (o mesmo carrinho em cinco cenários dá
+  o mesmo total, modo de frete e texto na sacola, no pedido do WhatsApp,
+  no checkout e nas duas mensagens; e o preenchimento da 0007).

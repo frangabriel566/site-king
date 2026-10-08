@@ -22,6 +22,7 @@ export function WhatsAppBuyButton({
   getItems,
   couponCode = null,
   label = "Comprar pelo WhatsApp",
+  appearance = "whatsapp",
   disabled = false,
   className = "",
   size = "xl",
@@ -31,6 +32,9 @@ export function WhatsAppBuyButton({
    * from the product page is not the bag the coupon was applied to). */
   couponCode?: string | null;
   label?: string;
+  /** "buy": the bag's main button ("Finalizar compra") while the checkout
+   * is closed — same order, dressed as the purchase it now is. */
+  appearance?: "whatsapp" | "buy";
   disabled?: boolean;
   className?: string;
   size?: "lg" | "xl";
@@ -105,10 +109,14 @@ export function WhatsAppBuyButton({
     <Button
       type="button"
       size={size}
-      variant="outline"
+      variant={appearance === "buy" ? "default" : "outline"}
       onClick={handleClick}
       disabled={disabled || pending}
-      className={`w-full border-[#25D366] text-[#0E7A3E] hover:bg-[#25D366]/10 hover:text-[#0E7A3E] ${className}`}
+      className={`w-full ${
+        appearance === "buy"
+          ? "bg-buy text-white hover:bg-buy-hover"
+          : "border-[#25D366] text-[#0E7A3E] hover:bg-[#25D366]/10 hover:text-[#0E7A3E]"
+      } ${className}`}
     >
       <WhatsAppIcon className="size-5" />
       {pending ? "Gerando pedido…" : label}

@@ -55,13 +55,14 @@ export default async function HomePage() {
       />
       <ProductRail title="Novidades" products={newest} seeAllHref={sectionHref("novidades")} />
       <BenefitsStrip settings={settings} />
+      <ProductRail title="Mais vendidos" products={bestSellers} />
+      {/* Ofertas is the last product rail on purpose (store owner's choice). */}
       <ProductRail
         title="Ofertas"
         tag={topDiscount ? `até ${topDiscount}% off` : null}
         products={onSale}
         seeAllHref={sectionHref("ofertas")}
       />
-      <ProductRail title="Mais vendidos" products={bestSellers} />
       {/* Feedbacks marked "Exibir na home" in the panel; none, no section. */}
       {feedbacks.length > 0 && (
         <FeedbackCarousel title="O que nossos clientes dizem" feedbacks={feedbacks} />

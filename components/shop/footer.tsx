@@ -11,16 +11,20 @@ import { freeShippingText } from "@/lib/shop-config";
 export function Footer({
   settings,
   categories,
+  paymentText,
 }: {
   settings: SiteSettings;
   categories: CategoryLink[];
+  /** "Formas de pagamento" for how the store sells now — the online or the
+   * WhatsApp version (Configurações → Rodapé, lib/sales-mode.ts). */
+  paymentText: string | null;
 }) {
   const shippingLine = freeShippingText({
     freeShippingThreshold: settings.free_shipping_threshold,
     freeShippingNote: settings.free_shipping_note,
   });
   const seals = [
-    { key: "payment", text: settings.footer_payment_text, Icon: CreditCard },
+    { key: "payment", text: paymentText, Icon: CreditCard },
     { key: "security", text: settings.footer_security_text, Icon: Lock },
     { key: "privacy", text: settings.footer_privacy_text, Icon: ShieldCheck },
   ].filter((seal): seal is typeof seal & { text: string } => Boolean(seal.text));

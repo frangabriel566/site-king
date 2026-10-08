@@ -262,7 +262,21 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="secure_purchase_note">Frase de compra segura</Label>
+            <Label htmlFor="secure_purchase_note_whatsapp">
+              Frase de compra segura — vendas pelo WhatsApp
+            </Label>
+            <Input
+              id="secure_purchase_note_whatsapp"
+              name="secure_purchase_note_whatsapp"
+              maxLength={80}
+              placeholder="ex.: Pagamento combinado com a loja pelo WhatsApp"
+              defaultValue={settings.secure_purchase_note_whatsapp ?? ""}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="secure_purchase_note">
+              Frase de compra segura — com pagamento online
+            </Label>
             <Input
               id="secure_purchase_note"
               name="secure_purchase_note"
@@ -271,8 +285,10 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               defaultValue={settings.secure_purchase_note ?? ""}
             />
             <p className="text-xs text-ink-muted">
-              As duas frases e a de frete grátis (acima) formam a faixa de confiança
-              embaixo do botão de compra.
+              O site mostra a versão do modo de venda atual (Integrações): a de
+              WhatsApp enquanto não houver pagamento online, a outra quando o
+              checkout estiver ativo. A frase de trocas, esta e a de frete grátis
+              (acima) formam a faixa de confiança embaixo do botão de compra.
             </p>
           </div>
         </div>
@@ -323,9 +339,21 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           Os selos da última linha do rodapé, em todas as páginas da loja. Campo vazio =
           o selo não aparece.
         </p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="mb-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="footer_payment_text">Formas de pagamento</Label>
+            <Label htmlFor="footer_payment_text_whatsapp">
+              Formas de pagamento — vendas pelo WhatsApp
+            </Label>
+            <Input
+              id="footer_payment_text_whatsapp"
+              name="footer_payment_text_whatsapp"
+              maxLength={40}
+              placeholder="ex.: Pix ou cartão, pelo WhatsApp"
+              defaultValue={settings.footer_payment_text_whatsapp ?? ""}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="footer_payment_text">Formas de pagamento — com pagamento online</Label>
             <Input
               id="footer_payment_text"
               name="footer_payment_text"
@@ -334,6 +362,8 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               defaultValue={settings.footer_payment_text ?? ""}
             />
           </div>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="footer_security_text">Segurança</Label>
             <Input

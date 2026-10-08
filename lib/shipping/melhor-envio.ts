@@ -1,17 +1,18 @@
 import "server-only";
+import { getMelhorEnvioCredentials } from "@/lib/integrations";
 
 /**
  * Melhor Envio REST client.
  *
- * Three environment variables, all set in Vercel:
- *   MELHORENVIO_TOKEN  Bearer token for the account.
- *   MELHORENVIO_URL    API root. Sandbox and production are different
- *                      hosts with the same paths, so which one is in
- *                      play is a deploy-time decision, never a code one.
- *   MELHORENVIO_EMAIL  Goes in the User-Agent. Melhor Envio documents
- *                      this as required and answers 403 without it — it
- *                      is how they reach the integrator about a
- *                      misbehaving client, not decoration.
+ * The token, the host (sandbox or production — same paths, different
+ * accounts) and the contact e-mail come from Admin → Integrações, with
+ * the old MELHORENVIO_TOKEN / MELHORENVIO_URL / MELHORENVIO_EMAIL variables
+ * as fallback (lib/integrations). The e-mail goes in the User-Agent:
+ * Melhor Envio documents it as required and answers 403 without it — it
+ * is how they reach the integrator about a misbehaving client.
+ *
+ * Only while the integration is switched on: off in the panel, every call
+ * here fails as "not configured".
  */
 
 export class MelhorEnvioError extends Error {
@@ -28,33 +29,19 @@ export class MelhorEnvioError extends Error {
 
 export class MelhorEnvioNotConfiguredError extends MelhorEnvioError {}
 
-type Config = { baseUrl: string; token: string; email: string };
-
-function config(): Config {
-  const token = process.env.MELHORENVIO_TOKEN;
-  const url = process.env.MELHORENVIO_URL;
-  const email = process.env.MELHORENVIO_EMAIL;
-  if (!token || !url || !email) {
-    throw new MelhorEnvioNotConfiguredError(
-      "Melhor Envio não está configurado (MELHORENVIO_TOKEN, MELHORENVIO_URL, MELHORENVIO_EMAIL).",
-    );
+async function config() {
+  const credentials = await getMelhorEnvioCredentials({ requireActive: true });
+  if (!credentials) {
+    throw new MelhorEnvioNotConfiguredError("Melhor Envio não está ativo (Admin → Integrações).");
   }
-  return { baseUrl: url.replace(/\/+$/, ""), token, email };
-}
-
-export function isMelhorEnvioConfigured(): boolean {
-  return Boolean(
-    process.env.MELHORENVIO_TOKEN &&
-      process.env.MELHORENVIO_URL &&
-      process.env.MELHORENVIO_EMAIL,
-  );
+  return credentials;
 }
 
 async function request<T>(
   path: string,
   init: { method: "GET" | "POST"; body?: unknown } = { method: "GET" },
 ): Promise<T> {
-  const { baseUrl, token, email } = config();
+  const { baseUrl, token, email } = await config();
 
   let response: Response;
   try {

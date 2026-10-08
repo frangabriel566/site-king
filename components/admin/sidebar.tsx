@@ -17,6 +17,7 @@ import {
   Star,
   MessageSquareQuote,
   Settings,
+  Plug,
   UserCog,
   LogOut,
   ExternalLink,
@@ -45,6 +46,7 @@ const NAV_ITEMS = [
   { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
   { href: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquareQuote },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/admin/integracoes", label: "Integrações", icon: Plug },
   { href: "/admin/conta", label: "Conta", icon: UserCog },
 ];
 

@@ -35,7 +35,9 @@ const FALLBACK_SETTINGS: SiteSettings = {
   low_stock_units: null,
   exchange_note: null,
   secure_purchase_note: null,
+  secure_purchase_note_whatsapp: null,
   footer_payment_text: null,
+  footer_payment_text_whatsapp: null,
   footer_security_text: null,
   footer_privacy_text: null,
 };

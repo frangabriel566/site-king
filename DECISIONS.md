@@ -1637,3 +1637,65 @@ pedido não guardava quem comprou.
     sem sacola, mínimo, limite por IP e a migration.
   - `tests/coupon-rules.unit.test.ts`.
 - Worker: ~2.433 KiB comprimidos (+~12 KiB).
+
+## Bloco 35 — Integrações no painel (Etapa 2)
+
+Mercado Pago e Melhor Envio liam só variáveis de ambiente
+(`MERCADOPAGO_ACCESS_TOKEN`, `MELHORENVIO_*`, `PAYMENT_PROVIDER`); trocar um
+token era coisa de deploy.
+
+- **Migration `0009_integrations`:**
+  - `integrations`, uma linha por serviço: ambiente, tokens
+    criptografados, os 4 últimos caracteres de cada token, opções sem
+    segredo (o e-mail do Melhor Envio), ativo, último teste, quem alterou
+    e quando.
+  - `integration_log`: quem fez o quê e quando, nunca os valores.
+  - `site_settings.secure_purchase_note_whatsapp` e
+    `footer_payment_text_whatsapp`: a versão "vendas pelo WhatsApp" dos
+    textos de pagamento.
+- **Criptografia** (`lib/integrations/crypto.ts`): AES-GCM de 256 bits
+  com o Web Crypto do runtime, sem dependência nova. A chave fica no
+  secret `INTEGRATIONS_KEY` (32 bytes em base64), não no banco. O nome do
+  serviço vai como dado adicional, então um texto cifrado copiado para a
+  outra linha não abre. Sem a chave, a tela avisa e não salva nada, e o
+  site segue normal.
+- **Tokens nunca voltam ao navegador:**
+  - A página recebe só os 4 últimos caracteres ("••••3f9a" e
+    "Substituir"); o teste confere que nem o token nem o texto cifrado
+    aparecem no que a página recebe.
+  - As mensagens de teste e o log não levam token.
+- **Painel primeiro, variáveis como reserva** (`lib/integrations`): com
+  credenciais salvas no painel, a linha decide, inclusive "Ativo" —
+  desligar no painel desliga mesmo que as variáveis antigas existam. Sem
+  nada salvo, as variáveis valem como antes (o Mercado Pago agora exige o
+  token, além de `PAYMENT_PROVIDER` diferente de `whatsapp`).
+- **"Ativo" só depois de um teste que passou.** Salvar token, ambiente ou
+  e-mail diferente desliga e limpa o teste; salvar sem mudar nada não
+  mexe. O teste é uma chamada real:
+  - Mercado Pago: `/users/me`. Token `TEST-` ou usuário com a marca
+    `test_user` é de teste, e um ambiente que não bate com o token reprova.
+  - Melhor Envio: `/api/v2/me` no host do ambiente (sandbox ou produção).
+    Um token só funciona no host em que foi gerado.
+- **Melhor Envio só ativa** com CEP de origem válido e nenhum produto ativo
+  sem peso ou medidas; a tela lista os que faltam, com link. É a
+  alternativa ao "pacote padrão", que faria a loja pagar a diferença.
+- **Modo de venda lido do banco** (`getSalesMode`, agora assíncrono, com
+  as duas linhas lidas uma vez por requisição). Desligar uma integração
+  volta o site ao WhatsApp sem deploy. O checkout só abre com a cotação no
+  checkout (`QUOTE_CHECKOUT_READY`, Etapa 3), então ativar os dois agora
+  não abre um checkout sem frete para cobrar, e a tela diz isso.
+- **Mercado Pago em teste** usa o `sandbox_init_point`. O webhook busca as
+  credenciais mesmo com o serviço desligado: um pagamento feito enquanto
+  ele estava ligado ainda precisa chegar ao pedido.
+- **Textos de pagamento:** duas versões em Configurações. A loja mostra a
+  do modo atual e, vazia, não mostra nada (nunca o texto online no modo
+  WhatsApp).
+- **Sem Public Key:** o Checkout Pro redireciona e não usa a Public Key.
+- **Testes:**
+  - `tests/integrations-crypto.unit.test.ts`: ida e volta, IV novo a cada
+    vez, troca de serviço, alteração, outra chave, chave ausente.
+  - `tests/integrations.d1.test.ts`: mascaramento, log, teste exigido,
+    troca de token desliga, aviso de ambiente, bloqueio por produto sem
+    peso, modo de venda e reserva.
+  - `tests/shop-config.unit.test.ts`: escolha dos textos.
+- Worker: ~2.473 KiB comprimidos (+~40 KiB: a tela e as ações do painel).

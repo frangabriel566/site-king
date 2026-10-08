@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyMercadoPagoSignature } from "@/lib/payments/verify-mercadopago-signature";
+import { getMercadoPagoCredentials } from "@/lib/integrations";
 import {
   reconcileMercadoPagoPayment,
   type MercadoPagoPayment,
@@ -7,10 +8,10 @@ import {
 
 export const runtime = "nodejs";
 
-async function fetchPayment(paymentId: string): Promise<MercadoPagoPayment | null> {
-  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!accessToken) return null;
-
+async function fetchPayment(
+  paymentId: string,
+  accessToken: string,
+): Promise<MercadoPagoPayment | null> {
   const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
@@ -20,7 +21,10 @@ async function fetchPayment(paymentId: string): Promise<MercadoPagoPayment | nul
 }
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  // Even with Mercado Pago switched off since: a payment made while it was
+  // on still has to land on its order.
+  const credentials = await getMercadoPagoCredentials({ requireActive: false });
+  const secret = credentials?.webhookSecret ?? null;
   const rawBody = await request.text();
 
   let body: { type?: string; action?: string; data?: { id?: string } } = {};
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest) {
 
   // The notification only says "something happened to payment X"; what
   // happened is read from Mercado Pago itself, never from this body.
-  const payment = await fetchPayment(dataId);
+  const payment = credentials ? await fetchPayment(dataId, credentials.accessToken) : null;
   if (!payment || !payment.external_reference) {
     // Nothing we can reconcile — acknowledge so Mercado Pago stops retrying.
     return NextResponse.json({ received: true });

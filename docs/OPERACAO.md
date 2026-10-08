@@ -97,18 +97,59 @@ vende pelo WhatsApp e o **frete é combinado na conversa**:
 - **"Frete: grátis"** quando a sacola passa do valor de frete grátis
   (Configurações → Vitrine) ou o cupom zera o frete — calculado sobre os
   produtos, antes do desconto do cupom.
-- A caixa **"Calcular frete e prazo"** (produto e sacola) e a etiqueta do
-  Melhor Envio no pedido ficam escondidas. Elas voltam sozinhas quando as
-  três variáveis do Melhor Envio estiverem preenchidas e houver CEP de
-  origem em Configurações — **ligue o Melhor Envio só junto com a tarefa
-  de cotação no checkout**.
+- A caixa **"Calcular frete e prazo"** (produto e sacola) fica escondida, e
+  a etiqueta do Melhor Envio no pedido só aparece com ele ativo em
+  **Integrações**.
 - O **checkout** (`/checkout`) fica fechado e manda para a sacola. Ele
-  volta quando houver pagamento online **e** frete calculado.
+  volta quando o Mercado Pago **e** o Melhor Envio estiverem ativos em
+  Integrações e a cotação de frete no checkout estiver no site (próxima
+  atualização).
 
-Revise em Configurações os textos que falam de pagamento online (ex.:
-"Pagamento processado pelo Mercado Pago" em "compra segura" e "Cartão, Pix
-e boleto" no rodapé): eles aparecem na sacola e no rodapé mesmo com o
-Mercado Pago desligado.
+Os textos de pagamento ("compra segura" e "Formas de pagamento" no rodapé)
+têm duas versões em Configurações: **vendas pelo WhatsApp** e **com
+pagamento online**. O site mostra a do modo de venda atual; vazia, o texto
+não aparece.
+
+## Integrações (Mercado Pago e Melhor Envio)
+
+`/admin/integracoes`, só para administradores. No topo, o **modo de venda
+agora**: "Vendas só pelo WhatsApp" ou "Checkout com pagamento online ativo".
+
+**Uma única vez, antes de usar a tela:** crie a chave que criptografa os
+tokens (sem ela a tela avisa e não salva nada; o site segue normal):
+
+1. Gere um valor: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+2. Guarde-o como secret do Worker: `npx wrangler secret put INTEGRATIONS_KEY`
+   (cole o valor quando pedir) — ou no painel da Cloudflare: Workers →
+   site-king → Configurações → Variáveis e segredos → Adicionar → Secret.
+3. Não troque essa chave depois: com outra chave, os tokens salvos deixam
+   de abrir e precisam ser colados de novo.
+
+**Para cada serviço:**
+
+1. Escolha o ambiente (**Teste/Sandbox** primeiro), cole o token e
+   **Salvar**. Depois de salvo, o token aparece só como `••••3f9a`; para
+   trocar, **Substituir**.
+2. **Testar conexão**: faz uma chamada real e mostra a conta e o ambiente.
+   No Mercado Pago, avisa se o token é de teste e o ambiente é produção
+   (ou o contrário).
+3. **Ativo**: só liga depois de um teste que passou. Salvar outro token ou
+   outro ambiente desliga até um novo teste. Desligar volta o site para o
+   WhatsApp na hora, sem deploy.
+
+- **Mercado Pago:** Access Token e a assinatura secreta do webhook. A URL
+  do webhook aparece pronta para copiar (cole no Mercado Pago, evento
+  Pagamentos).
+- **Melhor Envio:** token, e-mail de contato da conta e o CEP de origem (o
+  de Configurações). Só ativa com o CEP de origem cadastrado e **todos os
+  produtos ativos com peso e medidas**; a tela lista os que faltam, com
+  link para editar.
+- **Histórico:** quem mudou o quê e quando (nunca os valores).
+- As variáveis de ambiente antigas (`MERCADOPAGO_ACCESS_TOKEN`,
+  `MELHORENVIO_*`) continuam como reserva enquanto nada estiver salvo no
+  painel; salvo no painel, ele decide.
+- Até a próxima atualização (cotação no checkout), ativar os dois **não
+  abre o checkout**: as vendas continuam pelo WhatsApp, e a tela avisa.
 
 ## Dar baixa em pedido / atualizar status
 

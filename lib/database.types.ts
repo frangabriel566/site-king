@@ -35,6 +35,8 @@ type TableMap = {
   orders: typeof schema.orders;
   order_items: typeof schema.order_items;
   coupons: typeof schema.coupons;
+  integrations: typeof schema.integrations;
+  integration_log: typeof schema.integration_log;
   reviews: typeof schema.reviews;
   newsletter_subscribers: typeof schema.newsletter_subscribers;
 };

@@ -93,9 +93,11 @@ export const siteSettingsSchema = z.object({
   }),
   exchange_note: z.string().trim().max(80).optional().or(z.literal("")),
   secure_purchase_note: z.string().trim().max(80).optional().or(z.literal("")),
+  secure_purchase_note_whatsapp: z.string().trim().max(80).optional().or(z.literal("")),
 
   // Rodapé — a linha de baixo. Vazio = o item não aparece.
   footer_payment_text: z.string().trim().max(40).optional().or(z.literal("")),
+  footer_payment_text_whatsapp: z.string().trim().max(40).optional().or(z.literal("")),
   footer_security_text: z.string().trim().max(40).optional().or(z.literal("")),
   footer_privacy_text: z.string().trim().max(40).optional().or(z.literal("")),
 

@@ -1,19 +1,21 @@
 import "server-only";
 import { MercadoPagoProvider } from "./mercadopago";
 import { WhatsAppProvider } from "./whatsapp";
+import { integrationState } from "@/lib/integrations";
 import type { CheckoutMethod } from "@/lib/constants";
 import type { PaymentProvider } from "./types";
 
 export type { PaymentInitResult, PaymentItem, PaymentOrderInput, PaymentProvider } from "./types";
 
 /**
- * Whether the store can actually take money online. `PAYMENT_PROVIDER=whatsapp`
- * is how a store says it has no online checkout configured — then WhatsApp
- * isn't one of two options, it's the only way to close a sale, and the
- * storefront must stop offering a choice that would dead-end.
+ * Whether the store can actually take money online: Mercado Pago switched
+ * on in Admin → Integrações (or, with nothing saved there, configured by
+ * the old environment variables). Off, WhatsApp isn't one of two options,
+ * it's the only way to close a sale, and the storefront must stop offering
+ * a choice that would dead-end.
  */
-export function isOnlineCheckoutAvailable(): boolean {
-  return (process.env.PAYMENT_PROVIDER ?? "mercadopago") !== "whatsapp";
+export async function isOnlineCheckoutAvailable(): Promise<boolean> {
+  return (await integrationState("mercadopago")).active;
 }
 
 /**
@@ -23,13 +25,19 @@ export function isOnlineCheckoutAvailable(): boolean {
  * return value is what gets written to `orders.payment_method`, so the
  * panel shows the route the order actually took.
  */
-export function resolvePaymentMethod(method?: CheckoutMethod): "mercadopago" | "whatsapp" {
+export function resolvePaymentMethod(
+  method: CheckoutMethod | undefined,
+  onlineAvailable: boolean,
+): "mercadopago" | "whatsapp" {
   if (method === "whatsapp") return "whatsapp";
-  return isOnlineCheckoutAvailable() ? "mercadopago" : "whatsapp";
+  return onlineAvailable ? "mercadopago" : "whatsapp";
 }
 
-export function getPaymentProvider(method?: CheckoutMethod): PaymentProvider {
-  return resolvePaymentMethod(method) === "whatsapp"
+export function getPaymentProvider(
+  method: CheckoutMethod | undefined,
+  onlineAvailable: boolean,
+): PaymentProvider {
+  return resolvePaymentMethod(method, onlineAvailable) === "whatsapp"
     ? new WhatsAppProvider()
     : new MercadoPagoProvider();
 }

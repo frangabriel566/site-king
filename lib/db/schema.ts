@@ -430,10 +430,15 @@ export const site_settings = sqliteTable(
     low_stock_units: integer("low_stock_units"),
     /** Trust strip under the buy button. */
     exchange_note: text("exchange_note"),
+    /** Shown while the store takes payment online (lib/sales-mode.ts)… */
     secure_purchase_note: text("secure_purchase_note"),
+    /** …and this one while it sells only over WhatsApp. */
+    secure_purchase_note_whatsapp: text("secure_purchase_note_whatsapp"),
     // The footer's bottom line (Configurações → Rodapé). Each one shows
-    // only when filled in.
+    // only when filled in; the payment one has a version per sales mode,
+    // like the purchase note above.
     footer_payment_text: text("footer_payment_text"),
+    footer_payment_text_whatsapp: text("footer_payment_text_whatsapp"),
     footer_security_text: text("footer_security_text"),
     footer_privacy_text: text("footer_privacy_text"),
   },
@@ -687,6 +692,61 @@ export const newsletter_subscribers = sqliteTable("newsletter_subscribers", {
   email: text("email").notNull().unique(),
   created_at: createdAt(),
 });
+
+export const INTEGRATION_PROVIDERS = ["mercadopago", "melhorenvio"] as const;
+export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
+export const INTEGRATION_ENVIRONMENTS = ["test", "production"] as const;
+export type IntegrationEnvironment = (typeof INTEGRATION_ENVIRONMENTS)[number];
+
+/**
+ * Mercado Pago and Melhor Envio, as set up in Admin → Integrações — one
+ * row per service, written only by the panel (lib/integrations). Takes
+ * priority over the old environment variables, which stay as a fallback
+ * while no credentials are saved here.
+ */
+export const integrations = sqliteTable(
+  "integrations",
+  {
+    provider: text("provider", { enum: INTEGRATION_PROVIDERS }).primaryKey(),
+    /** Teste/Produção (Melhor Envio: Sandbox/Produção). */
+    environment: text("environment", { enum: INTEGRATION_ENVIRONMENTS }).notNull().default("test"),
+    /** The tokens, AES-GCM encrypted with the INTEGRATIONS_KEY secret
+     * (lib/integrations/crypto.ts). Never sent to the browser. */
+    secrets: text("secrets"),
+    /** The last 4 characters of each token, for "••••3f9a". */
+    hints: text("hints", { mode: "json" }).$type<Record<string, string>>(),
+    /** What isn't secret (Melhor Envio's contact e-mail). */
+    options: text("options", { mode: "json" }).$type<Record<string, string>>(),
+    /** On only after a passing test of the saved credentials; saving new
+     * ones turns it off again. */
+    active: bool("active").notNull().default(false),
+    test_ok: bool("test_ok").notNull().default(false),
+    tested_at: text("tested_at"),
+    /** What the last test said (account, environment, or the error),
+     * never a token. */
+    test_message: text("test_message"),
+    updated_at: text("updated_at"),
+    /** The admin's e-mail. */
+    updated_by: text("updated_by"),
+  },
+  (t) => [
+    check("integrations_provider_check", sql`${t.provider} in ('mercadopago', 'melhorenvio')`),
+    check("integrations_environment_check", sql`${t.environment} in ('test', 'production')`),
+  ],
+);
+
+/** Who changed an integration, what and when — never the values. */
+export const integration_log = sqliteTable(
+  "integration_log",
+  {
+    id: uuid(),
+    provider: text("provider", { enum: INTEGRATION_PROVIDERS }).notNull(),
+    action: text("action").notNull(),
+    actor_email: text("actor_email"),
+    created_at: createdAt(),
+  },
+  (t) => [index("integration_log_created_at_idx").on(t.created_at)],
+);
 
 /** Failed attempts per client per minute (lib/rate-limit.ts) — today the
  * coupon check. `key` is a hash, never the raw IP; rows are a few minutes

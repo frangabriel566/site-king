@@ -53,7 +53,8 @@ export function shopConfigFromSettings(
   now = Date.now(),
 ): ShopConfig {
   return {
-    ...sales,
+    freightQuotes: sales.freightQuotes,
+    checkoutOpen: sales.checkoutOpen,
     installmentsMax: settings.installments_max,
     pixDiscountPercent: settings.pix_discount_percent,
     freeShippingThreshold: settings.free_shipping_threshold,
@@ -61,7 +62,11 @@ export function shopConfigFromSettings(
     lowStockUnits: settings.low_stock_units,
     freeShippingNote: settings.free_shipping_note,
     exchangeNote: settings.exchange_note,
-    securePurchaseNote: settings.secure_purchase_note,
+    // The version for how the store sells now (lib/sales-mode.ts): the
+    // online one only with the checkout open, else the WhatsApp one.
+    securePurchaseNote: sales.checkoutOpen
+      ? settings.secure_purchase_note
+      : settings.secure_purchase_note_whatsapp,
     now,
   };
 }

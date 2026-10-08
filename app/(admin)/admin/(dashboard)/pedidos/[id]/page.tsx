@@ -21,7 +21,8 @@ export default async function AdminOrderDetailPage({
   if (!order) notFound();
   // Without Melhor Envio every quote and label fails; a label already
   // bought is still shown.
-  const showLabel = getSalesMode(settings).freightQuotes || Boolean(order.melhorenvio_order_id);
+  const showLabel =
+    (await getSalesMode(settings)).melhorEnvioActive || Boolean(order.melhorenvio_order_id);
 
   const snapshot = order.customer_snapshot as {
     name?: string;

@@ -69,7 +69,8 @@ export async function createOrderAction(
 ): Promise<CreateOrderResult> {
   // The page redirects while the checkout is closed (lib/sales-mode.ts);
   // this is the same rule for a call that skips the page.
-  if (!getSalesMode(await getSiteSettings()).checkoutOpen) {
+  const sales = await getSalesMode(await getSiteSettings());
+  if (!sales.checkoutOpen) {
     return { ok: false, message: "Finalize a compra pela sacola: o pedido segue pelo WhatsApp." };
   }
 
@@ -119,6 +120,7 @@ export async function createOrderAction(
   // the store has no online checkout configured.
   const paymentMethod = resolvePaymentMethod(
     isCheckoutMethod(input.method) ? input.method : undefined,
+    sales.mercadoPagoActive,
   );
 
   // Online payment takes the whole bill at once, and a freight still to be
@@ -196,6 +198,7 @@ export async function createOrderAction(
   try {
     const provider = getPaymentProvider(
       isCheckoutMethod(input.method) ? input.method : undefined,
+      sales.mercadoPagoActive,
     );
     const payment = await provider.createPayment({
       orderId,

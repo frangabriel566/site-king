@@ -20,10 +20,10 @@ export default async function CheckoutPage({
   // Closed (lib/sales-mode.ts): the bag closes the sale on WhatsApp, and an
   // old link or bookmark lands there instead of on a checkout that could
   // not charge the order. The wizard stays for when it opens again.
-  if (!getSalesMode(await getSiteSettings()).checkoutOpen) redirect("/sacola");
+  if (!(await getSalesMode(await getSiteSettings())).checkoutOpen) redirect("/sacola");
 
   const params = await searchParams;
-  const onlineAvailable = isOnlineCheckoutAvailable();
+  const onlineAvailable = await isOnlineCheckoutAvailable();
 
   // A store with no online checkout has only one way to close a sale, so a
   // stale `?via=site` link resolves to WhatsApp rather than pre-selecting

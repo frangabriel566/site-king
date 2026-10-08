@@ -54,6 +54,9 @@ export default async function ShopLayout({
     // the home's category circles reuse this same result.
     getCategoriesWithImages(),
   ]);
+  // How the store sells now (Admin → Integrações): the payment texts and
+  // the bag's buttons follow it.
+  const sales = await getSalesMode(settings);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const organizationJsonLd = {
@@ -75,7 +78,7 @@ export default async function ShopLayout({
   };
 
   return (
-    <ShopConfigProvider value={shopConfigFromSettings(settings, getSalesMode(settings))}>
+    <ShopConfigProvider value={shopConfigFromSettings(settings, sales)}>
     <CartProvider>
       <div className="storefront-theme storefront-root flex min-h-full flex-col bg-bg text-fg">
         <script
@@ -87,7 +90,11 @@ export default async function ShopLayout({
         <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>
-        <Footer settings={settings} categories={categories} />
+        <Footer
+          settings={settings}
+          categories={categories}
+          paymentText={sales.checkoutOpen ? settings.footer_payment_text : settings.footer_payment_text_whatsapp}
+        />
         <CartDrawer whatsappEnabled={Boolean(settings.whatsapp)} />
         <WhatsAppFloat phone={settings.whatsapp} />
         <CookieBanner />

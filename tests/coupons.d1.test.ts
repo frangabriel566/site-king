@@ -235,12 +235,12 @@ describe("POST /api/coupons/validate", () => {
         expect((await validate({ code: "CERTO", items: [] })).status).toBe(200);
       }
       for (let i = 0; i < 10; i++) {
-        const body = await (await validate({ code: `ERRADO${i}`, items: [] })).json();
+        const body = (await (await validate({ code: `ERRADO${i}`, items: [] })).json()) as { reason: string };
         expect(body.reason).toBe("NOT_FOUND");
       }
       const blocked = await validate({ code: "CERTO", items: [] });
       expect(blocked.status).toBe(429);
-      expect((await blocked.json()).reason).toBe("RATE_LIMITED");
+      expect(((await blocked.json()) as { reason: string }).reason).toBe("RATE_LIMITED");
       // Another client is not affected.
       expect((await validate({ code: "CERTO", items: [] }, "198.51.100.9")).status).toBe(200);
 

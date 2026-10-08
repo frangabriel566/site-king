@@ -64,6 +64,13 @@
       "when": 1791473098830,
       "tag": "0008_guest_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791474818323,
+      "tag": "0009_integrations",
+      "breakpoints": true
     }
   ]
 }

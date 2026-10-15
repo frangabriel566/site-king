@@ -1773,3 +1773,15 @@ integrar Mercado Pago e Melhor Envio; por isso esta migration é a 0010.
     de novo antes de apagar.
 - Worker: ~2.509 KiB comprimidos (+~36 KiB: a página da faxina e as
   ações).
+
+## Vitrine KITS (out/2026)
+
+- Nova vitrine **KITS** na home, logo abaixo de "Mais vendidos", pedida
+  pelo dono da loja. É mais um valor em `product_sections` (`kits`): o
+  produto entra marcando "Kits" em "Onde exibir no site", com a mesma
+  ordem numerada das outras vitrines. Vazia, não aparece; "Ver tudo" leva
+  a `/colecao?secao=kits`.
+- `PRODUCT_SECTIONS` passou a seguir a ordem real da home (Lançamentos,
+  Novidades, Mais vendidos, Kits, Ofertas por último).
+- Migration `0011` recria `product_sections` para trocar o CHECK (SQLite
+  não altera CHECK no lugar); os dados são copiados.

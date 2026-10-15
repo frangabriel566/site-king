@@ -337,7 +337,7 @@ export const product_sections = sqliteTable(
     index("product_sections_section_idx").on(t.section, t.position),
     check(
       "product_sections_section_check",
-      sql`${t.section} in ('lancamentos', 'novidades', 'ofertas', 'mais_vendidos')`,
+      sql`${t.section} in ('lancamentos', 'novidades', 'ofertas', 'mais_vendidos', 'kits')`,
     ),
     check("product_sections_position_check", sql`${t.position} is null or ${t.position} >= 1`),
   ],

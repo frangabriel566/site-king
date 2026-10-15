@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [settings, banners, categories, launches, newest, onSale, bestSellers, feedbacks] =
+  const [settings, banners, categories, launches, newest, onSale, bestSellers, kits, feedbacks] =
     await Promise.all([
       getSiteSettings(),
       getActiveBanners(),
@@ -31,6 +31,7 @@ export default async function HomePage() {
       getSectionProducts("novidades", HOME_RAIL_LIMIT),
       getSectionProducts("ofertas", HOME_RAIL_LIMIT),
       getBestSellersShelf(HOME_RAIL_LIMIT),
+      getSectionProducts("kits", HOME_RAIL_LIMIT),
       getHomeFeedbacks(),
     ]);
 
@@ -55,6 +56,8 @@ export default async function HomePage() {
       />
       <ProductRail title="Novidades" products={newest} seeAllHref={sectionHref("novidades")} />
       <ProductRail title="Mais vendidos" products={bestSellers} />
+      {/* KITS right below Mais vendidos (store owner's choice). */}
+      <ProductRail title="KITS" products={kits} seeAllHref={sectionHref("kits")} />
       {/* Ofertas is the last product rail on purpose (store owner's choice). */}
       <ProductRail
         title="Ofertas"

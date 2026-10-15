@@ -1,15 +1,16 @@
 /** The storefront's product shelves, picked per product in the panel
  * (product_sections). The order is the order on the home. No imports here:
  * the schema and the browser both read this list. */
-export const PRODUCT_SECTIONS = ["lancamentos", "novidades", "ofertas", "mais_vendidos"] as const;
+export const PRODUCT_SECTIONS = ["lancamentos", "novidades", "mais_vendidos", "kits", "ofertas"] as const;
 export type ProductSection = (typeof PRODUCT_SECTIONS)[number];
 
 /** The storefront shelves as the shopper and the panel see them. */
 export const SECTION_LABEL: Record<ProductSection, string> = {
   lancamentos: "Lançamentos",
   novidades: "Novidades",
-  ofertas: "Ofertas",
   mais_vendidos: "Mais vendidos",
+  kits: "Kits",
+  ofertas: "Ofertas",
 };
 
 export function isProductSection(value: unknown): value is ProductSection {

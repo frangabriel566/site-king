@@ -1,4 +1,4 @@
-import { isColorlessVariant, isSimpleVariant } from "@/lib/constants";
+import { SIMPLE_VARIANT_SIZE, isColorlessVariant, isSimpleVariant } from "@/lib/constants";
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -66,10 +66,12 @@ export function formatVariantLabel(
   size: string | null | undefined,
 ): string | null {
   if (isSimpleVariant(color ?? "", size ?? "")) return null;
-  if (isColorlessVariant(color ?? "")) return size || null;
-  if (!color) return size || null;
-  if (!size) return color;
-  return `${color} · ${size}`;
+  // Tamanho único (bonés etc.): só a cor diz algo ao cliente.
+  const shownSize = size === SIMPLE_VARIANT_SIZE ? "" : size;
+  if (isColorlessVariant(color ?? "")) return shownSize || null;
+  if (!color) return shownSize || null;
+  if (!shownSize) return color;
+  return `${color} · ${shownSize}`;
 }
 
 export function formatCep(value: string): string {

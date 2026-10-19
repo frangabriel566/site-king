@@ -73,6 +73,23 @@ export const NUMERIC_SIZES = ["34", "35", "36", "37", "38", "39", "40", "41", "4
 export const DEFAULT_COLOR_HEX = "#0A0A0A";
 
 /**
+ * Bonés, chapéus, toucas e viseiras são tamanho único (regulagem atrás):
+ * o operador não deveria ter que escolher P/M/G pra eles. Nessas
+ * categorias o editor troca a grade de tamanhos por um estoque só, e cada
+ * linha é gravada com o tamanho sentinela (SIMPLE_VARIANT_SIZE), que a
+ * loja esconde em vez de mostrar como uma opção.
+ *
+ * Sem \b no fim: em JS ele não reconhece "é" como letra.
+ */
+export function isOneSizeCategory(categoryName: string): boolean {
+  return /(^|[^a-z])bon[eé]s?([^a-z]|$)|chap[eé]u|touca|viseira|bucket/i.test(categoryName);
+}
+
+export function oneSizeEntry(stock = 0): SizeDraft {
+  return { size: SIMPLE_VARIANT_SIZE, stock, sku: "", skuManual: false };
+}
+
+/**
  * Only ever called from an event handler — the operator clicking "adicionar
  * outra cor" — never while rendering. An id minted during render differs
  * between the server pass and hydration, and everything downstream of it
@@ -85,8 +102,14 @@ export function newClientId(): string {
     : `tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function makeEmptyColor(): ColorDraft {
-  return { id: newClientId(), name: "", hex: DEFAULT_COLOR_HEX, imageUrl: "", sizes: [] };
+export function makeEmptyColor(oneSize = false): ColorDraft {
+  return {
+    id: newClientId(),
+    name: "",
+    hex: DEFAULT_COLOR_HEX,
+    imageUrl: "",
+    sizes: oneSize ? [oneSizeEntry()] : [],
+  };
 }
 
 /** There is only ever one colourless card, and it lives in its own state

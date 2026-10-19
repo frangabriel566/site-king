@@ -28,6 +28,7 @@ import {
   SIZE_ORDER,
   isColorlessVariant,
   isSimpleVariant,
+  SIMPLE_VARIANT_SIZE,
 } from "@/lib/constants";
 import { buildGallerySlides, getProductColors } from "@/lib/product-gallery";
 import { normalizeSearchText } from "@/lib/search-text";
@@ -688,7 +689,8 @@ export async function getFilterOptions(): Promise<FilterOptions> {
       if (isSimpleVariant(row.color, row.size)) continue;
       // A one-colourway product still contributes its sizes to the filter —
       // only its sentinel colour is left out of the colour list.
-      sizeSet.add(row.size);
+      // Tamanho único (bonés em várias cores) não é uma opção de filtro.
+      if (row.size !== SIMPLE_VARIANT_SIZE) sizeSet.add(row.size);
       if (isColorlessVariant(row.color) || colorMap.has(row.color)) continue;
       colorMap.set(row.color, row.color_hex);
     }

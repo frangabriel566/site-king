@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { selectOnFocus } from "@/lib/utils";
-import type { ColorDraft } from "@/lib/variants";
+import { SIMPLE_VARIANT_SIZE } from "@/lib/constants";
+import { oneSizeEntry, type ColorDraft } from "@/lib/variants";
 
 export function ProductColorCard({
   color,
@@ -17,6 +18,7 @@ export function ProductColorCard({
   checkDuplicate,
   savingRef,
   colorless = false,
+  oneSize = false,
 }: {
   color: ColorDraft;
   /** Letter or numeric run, picked by the category upstream. Sizes this
@@ -33,6 +35,10 @@ export function ProductColorCard({
    * stock controls remain. Everything below is identical — the sizes of one
    * colourway work exactly like the sizes of a named colour. */
   colorless?: boolean;
+  /** Categoria de tamanho único (boné, chapéu…): sem grade de tamanhos,
+   * só o estoque da cor. Uma cor que já tinha tamanhos de verdade (produto
+   * salvo antes) continua mostrando a grade, pra nada sumir sem aviso. */
+  oneSize?: boolean;
 }) {
   // Ids for the DOM come from useId, never from color.id: React guarantees
   // useId agrees across the server render and hydration, which keeps these
@@ -48,6 +54,15 @@ export function ProductColorCard({
   const options = [...sizeOptions, ...selected.filter((s) => !sizeOptions.includes(s))];
   const allSelected = sizeOptions.every((size) => selected.includes(size));
   const label = colorless ? "este produto" : color.name.trim() || "nova cor";
+
+  const showOneSize =
+    oneSize && color.sizes.every((s) => s.size === SIMPLE_VARIANT_SIZE);
+  const oneSizeCurrent = color.sizes.find((s) => s.size === SIMPLE_VARIANT_SIZE);
+  const oneSizeStock = oneSizeCurrent?.stock ?? 0;
+  /** Keeps the saved row's id and SKU when only the stock changes. */
+  function oneSizeEntryFrom(stock: number) {
+    return oneSizeCurrent ? { ...oneSizeCurrent, stock } : oneSizeEntry(stock);
+  }
 
   /** Keeps the row reading P, M, G… (or 38, 39, 40…) no matter what order
    * they were clicked in; anything off-list sorts to the end. */
@@ -160,6 +175,26 @@ export function ProductColorCard({
       </div>
       )}
 
+      {showOneSize ? (
+        <div className={colorless ? "" : "mt-5"}>
+          <div className="flex flex-col gap-1.5 sm:max-w-40">
+            <Label htmlFor={`${fieldId}-stock-one`}>Estoque</Label>
+            <Input
+              id={`${fieldId}-stock-one`}
+              type="number"
+              min={0}
+              value={oneSizeStock}
+              onChange={(e) => onChange({ sizes: [oneSizeEntryFrom(Number(e.target.value) || 0)] })}
+              onFocus={selectOnFocus}
+              className="h-10"
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            Tamanho único — não precisa escolher tamanho.
+          </p>
+        </div>
+      ) : (
+      <>
       <div className={colorless ? "" : "mt-5"}>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-label">Tamanhos disponíveis</p>
@@ -258,6 +293,8 @@ export function ProductColorCard({
               color.sizes.length === 1 ? "variação" : "variações"
             })`}
       </p>
+      </>
+      )}
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   countVariants,
   deriveVariants,
   detectVariantMode,
+  isOneSizeCategory as isOneSizeCategoryName,
   makeColorlessColor,
   type ColorDraft,
   type VariantMode,
@@ -217,6 +218,8 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(product?.category_id ?? initialCategoryId ?? "");
   const selectedCategoryName = categoryOptions.find((c) => c.id === categoryId)?.name ?? "";
   const isShoeCategory = /t[eê]nis|chinelo|sand[aá]lia/i.test(selectedCategoryName);
+  const isOneSizeCategory = isOneSizeCategoryName(selectedCategoryName);
+  const createdCategoryNames = useRef(new Map<string, string>());
 
   const [brandOptions, setBrandOptions] = useState<Pick<AdminBrandListItem, "id" | "name">[]>(brands);
   const [brandId, setBrandId] = useState(product?.brand_id ?? initialBrandId ?? "");
@@ -296,6 +299,28 @@ export function ProductForm({
       if (index === -1) return [...prev, { key: "Tamanho", value: next }];
       return prev.map((r, i) => (i === index ? { ...r, value: next } : r));
     });
+  }
+
+  // Boné, chapéu…: num produto novo que ainda está no padrão "só tamanhos"
+  // sem nenhum tamanho marcado, escolher a categoria já leva pra "peça
+  // única" com "Tamanho: Único" na ficha técnica — o operador não precisa
+  // informar tamanho nenhum. Produto já salvo ou com tamanhos marcados
+  // fica como está.
+  function handleCategoryChange(nextId: string) {
+    setCategoryId(nextId);
+    if (product) return;
+    // A category created inline arrives here before categoryOptions has
+    // re-rendered with it, so its name comes from the ref.
+    const nextName =
+      categoryOptions.find((c) => c.id === nextId)?.name ??
+      createdCategoryNames.current.get(nextId) ??
+      "";
+    if (!isOneSizeCategoryName(nextName)) return;
+    if (mode !== "sizes" || sizeOnly.sizes.length > 0) return;
+    setMode("single");
+    setAttributeRows((prev) =>
+      prev.some((r) => r.key === "Tamanho") ? prev : [...prev, { key: "Tamanho", value: "Único" }],
+    );
   }
 
   function handlePromoToggle(enabled: boolean) {
@@ -619,8 +644,11 @@ export function ProductForm({
           }}
           categories={categoryOptions}
           categoryId={categoryId}
-          onCategoryChange={setCategoryId}
-          onCategoryCreated={(category) => setCategoryOptions((prev) => [...prev, category])}
+          onCategoryChange={handleCategoryChange}
+          onCategoryCreated={(category) => {
+            createdCategoryNames.current.set(category.id, category.name);
+            setCategoryOptions((prev) => [...prev, category]);
+          }}
           price={price}
           onPriceChange={setPrice}
           compareAtPrice={compareAtPrice}
@@ -664,6 +692,7 @@ export function ProductForm({
           simpleSize={simpleSize}
           onSimpleSizeChange={setSimpleSize}
           isShoeCategory={isShoeCategory}
+          isOneSizeCategory={isOneSizeCategory}
           savingRef={savingRef}
           checkDuplicate={checkDuplicatePhoto}
         />

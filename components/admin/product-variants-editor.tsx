@@ -12,11 +12,14 @@ import {
   NUMERIC_SIZES,
   countVariants,
   makeEmptyColor,
+  oneSizeEntry,
   type ColorDraft,
   type VariantMode,
 } from "@/lib/variants";
 
-const MODES: { value: VariantMode; title: string; description: string }[] = [
+type ModeOption = { value: VariantMode; title: string; description: string };
+
+const MODES: ModeOption[] = [
   {
     value: "colors",
     title: "Cores e tamanhos",
@@ -34,6 +37,25 @@ const MODES: { value: VariantMode; title: string; description: string }[] = [
   },
 ];
 
+/** Boné, chapéu…: tamanho único, então os modos falam de cor e estoque. */
+const ONE_SIZE_MODES: ModeOption[] = [
+  {
+    value: "colors",
+    title: "Várias cores",
+    description: "Cada cor com seu estoque. Tamanho único.",
+  },
+  {
+    value: "sizes",
+    title: "Só tamanhos",
+    description: "Uma cor só, com grade de tamanhos.",
+  },
+  {
+    value: "single",
+    title: "Peça única",
+    description: "Uma cor só. Tamanho único, um estoque.",
+  },
+];
+
 export function ProductVariantsEditor({
   mode,
   onModeChange,
@@ -46,6 +68,7 @@ export function ProductVariantsEditor({
   simpleSize,
   onSimpleSizeChange,
   isShoeCategory,
+  isOneSizeCategory = false,
   savingRef,
   checkDuplicate,
 }: {
@@ -66,6 +89,8 @@ export function ProductVariantsEditor({
   simpleSize: string;
   onSimpleSizeChange: (size: string) => void;
   isShoeCategory: boolean;
+  /** Categoria de tamanho único (boné, chapéu, touca, viseira). */
+  isOneSizeCategory?: boolean;
   /** Flipped by the form right before a real save — see ImageUploader. */
   savingRef: RefObject<boolean>;
   checkDuplicate?: (file: File, slotId: string, label: string) => Promise<string | undefined>;
@@ -82,6 +107,20 @@ export function ProductVariantsEditor({
     setSizeMode(isShoeCategory ? "numeric" : "letter");
   }, [isShoeCategory]);
 
+  // Numa categoria de tamanho único, uma cor recém-criada (ou que ficou
+  // sem tamanho) ganha a linha de tamanho único na hora — senão ela não
+  // gera variação e o produto não salva.
+  useEffect(() => {
+    if (!isOneSizeCategory || mode !== "colors") return;
+    if (!colors.some((color) => color.sizes.length === 0)) return;
+    onColorsChange(
+      colors.map((color) =>
+        color.sizes.length === 0 ? { ...color, sizes: [oneSizeEntry()] } : color,
+      ),
+    );
+  }, [isOneSizeCategory, mode, colors, onColorsChange]);
+
+  const modeOptions = isOneSizeCategory ? ONE_SIZE_MODES : MODES;
   const sizeOptions = sizeMode === "letter" ? LETTER_SIZES : NUMERIC_SIZES;
   const totals = countVariants(colors);
 
@@ -122,7 +161,7 @@ export function ProductVariantsEditor({
       <div>
         <p className="text-label mb-2">Como este produto é vendido?</p>
         <div className="grid gap-2 sm:grid-cols-3">
-          {MODES.map((option) => {
+          {modeOptions.map((option) => {
             const isActive = mode === option.value;
             return (
               <button
@@ -179,6 +218,11 @@ export function ProductVariantsEditor({
             />
           </div>
 
+          {isOneSizeCategory ? (
+            <p className="mt-3 text-xs text-ink-muted">
+              Tamanho único — não precisa escolher tamanho.
+            </p>
+          ) : (
           <div className="mt-5">
             <p className="text-label mb-2">Tamanho (opcional)</p>
             <div className="flex flex-wrap gap-2">
@@ -204,6 +248,7 @@ export function ProductVariantsEditor({
               tamanhos, use &quot;Só tamanhos&quot; acima.
             </p>
           </div>
+          )}
         </div>
       )}
 
@@ -227,7 +272,7 @@ export function ProductVariantsEditor({
       {mode === "colors" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            {sizeModeToggle}
+            {isOneSizeCategory ? <span /> : sizeModeToggle}
 
             {totals.variants > 1 && (
               <div className="flex items-end gap-2">
@@ -263,6 +308,7 @@ export function ProductVariantsEditor({
                   key={color.id}
                   color={color}
                   sizeOptions={sizeOptions}
+                  oneSize={isOneSizeCategory}
                   onChange={(patch) => updateColor(color.id, patch)}
                   onRemove={() => onColorsChange(colors.filter((c) => c.id !== color.id))}
                   savingRef={savingRef}
@@ -277,11 +323,16 @@ export function ProductVariantsEditor({
               type="button"
               variant="outline"
               size="lg"
-              onClick={() => onColorsChange([...colors, makeEmptyColor()])}
+              onClick={() => onColorsChange([...colors, makeEmptyColor(isOneSizeCategory)])}
             >
               <Plus className="size-4" /> Adicionar outra cor
             </Button>
-            {totals.variants > 0 && (
+            {totals.variants > 0 && isOneSizeCategory && (
+              <p className="text-xs text-ink-muted">
+                {totals.colors} {totals.colors === 1 ? "cor" : "cores"} · tamanho único
+              </p>
+            )}
+            {totals.variants > 0 && !isOneSizeCategory && (
               <p className="text-xs text-ink-muted">
                 {totals.colors} {totals.colors === 1 ? "cor" : "cores"} · {totals.sizes}{" "}
                 {totals.sizes === 1 ? "tamanho" : "tamanhos"} · {totals.variants}{" "}

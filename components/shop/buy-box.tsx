@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
-import { SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
+import { SIMPLE_VARIANT_SIZE, SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import { discountPercent, installmentText, pixPrice } from "@/lib/shop-config";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
@@ -77,6 +77,12 @@ export function BuyBox({
   const isSimpleProduct =
     variants.length === 1 && isSimpleVariant(variants[0].color, variants[0].size);
   const simpleVariant = isSimpleProduct ? variants[0] : null;
+  // Tamanho único em várias cores (bonés): o cliente só escolhe a cor —
+  // cada cor tem uma linha só, no tamanho sentinela, então não há grade.
+  const isOneSizeProduct =
+    !isSimpleProduct &&
+    variants.length > 0 &&
+    variants.every((variant) => variant.size === SIMPLE_VARIANT_SIZE);
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +111,9 @@ export function BuyBox({
 
   const selectedVariant = isSimpleProduct
     ? simpleVariant
-    : sizesForColor.find((v) => v.size === selectedSize);
+    : isOneSizeProduct
+      ? sizesForColor[0]
+      : sizesForColor.find((v) => v.size === selectedSize);
 
   // Every size at zero is a sold-out product, not a product whose sizes all
   // happen to be disabled — say so once, plainly, instead of leaving the
@@ -117,13 +125,13 @@ export function BuyBox({
       setError(
         allOutOfStock
           ? "Produto esgotado."
-          : isSimpleProduct
+          : isSimpleProduct || isOneSizeProduct
             ? "Produto esgotado."
             : "Escolha um tamanho para continuar.",
       );
       // Send them to the control that's blocking the purchase rather than
       // leaving a line of red text below the fold.
-      if (!isSimpleProduct && !allOutOfStock) {
+      if (!isSimpleProduct && !isOneSizeProduct && !allOutOfStock) {
         sizeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       return null;
@@ -168,7 +176,10 @@ export function BuyBox({
     // offers the bag to whoever actually wants it; everyone else stays on
     // the page they were browsing.
     toast.success("Adicionado à sacola", {
-      description: [item.color, item.size].filter(Boolean).join(" · ") || undefined,
+      description:
+        [item.color, item.size === SIMPLE_VARIANT_SIZE ? "" : item.size]
+          .filter(Boolean)
+          .join(" · ") || undefined,
       action: { label: "Ver sacola", onClick: open },
     });
   }
@@ -300,7 +311,13 @@ export function BuyBox({
         </div>
       )}
 
-      {!isSimpleProduct && (
+      {isOneSizeProduct && (
+        <p className="mt-5 text-sm text-muted-foreground sm:mt-6">
+          <span className="font-semibold text-fg">Tamanho:</span> único
+        </p>
+      )}
+
+      {!isSimpleProduct && !isOneSizeProduct && (
         <div
           ref={sizeSectionRef}
           className={`mt-5 scroll-mt-24 rounded-lg transition-shadow duration-200 ease-out sm:mt-6 ${
@@ -360,7 +377,7 @@ export function BuyBox({
 
       {allOutOfStock && (
         <p className="mt-6 text-sm font-medium text-alert">
-          Produto esgotado{isSimpleProduct ? "" : " em todos os tamanhos"}.
+          Produto esgotado{isSimpleProduct || isOneSizeProduct ? "" : " em todos os tamanhos"}.
         </p>
       )}
       {error && <p className="mt-3 text-xs text-alert">{error}</p>}

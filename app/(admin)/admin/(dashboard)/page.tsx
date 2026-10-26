@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, Boxes, CircleDollarSign, Receipt, TrendingUp } from "lucide-react";
+import { AlertTriangle, Boxes, CircleDollarSign, Globe, Receipt, Store } from "lucide-react";
 import { getDashboardStats } from "@/lib/data/dashboard";
 import { formatCurrency } from "@/lib/format";
 import { SalesChartLazy } from "@/components/admin/sales-chart-lazy";
@@ -31,11 +31,13 @@ const STATUS_DOT: Record<string, string> = {
 function MetricCard({
   label,
   value,
+  detail,
   icon: Icon,
   tone = "accent",
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
+  detail?: React.ReactNode;
   icon: LucideIcon;
   tone?: "accent" | "warning";
 }) {
@@ -54,6 +56,7 @@ function MetricCard({
         </span>
       </div>
       <p className="text-xl md:text-2xl">{value}</p>
+      {detail && <p className="mt-1 text-xs text-ink-muted">{detail}</p>}
     </div>
   );
 }
@@ -67,19 +70,32 @@ export default async function AdminDashboardPage() {
       <p className="text-label mb-2">Painel</p>
       <h1 className="text-heading mb-8 text-3xl">Dashboard</h1>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {/* Site and store side by side, never mixed: the sum has its own
+          card. Month in big, today underneath. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard
-          label="Vendas hoje"
-          value={formatCurrency(stats.salesToday)}
+          label="Vendas do site no mês"
+          value={formatCurrency(stats.salesMonth)}
+          detail={`Hoje: ${formatCurrency(stats.salesToday)}`}
+          icon={Globe}
+        />
+        <MetricCard
+          label="Vendas da loja no mês"
+          value={formatCurrency(stats.storeSalesMonth)}
+          detail={`Hoje: ${formatCurrency(stats.storeSalesToday)}`}
+          icon={Store}
+        />
+        <MetricCard
+          label="Site + loja no mês"
+          value={formatCurrency(stats.salesMonth + stats.storeSalesMonth)}
+          detail={`Hoje: ${formatCurrency(stats.salesToday + stats.storeSalesToday)}`}
           icon={CircleDollarSign}
         />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <MetricCard
-          label="Vendas no mês"
-          value={formatCurrency(stats.salesMonth)}
-          icon={TrendingUp}
-        />
-        <MetricCard
-          label="Ticket médio"
+          label="Ticket médio do site"
           value={formatCurrency(stats.averageTicket)}
           icon={Receipt}
         />
@@ -100,7 +116,7 @@ export default async function AdminDashboardPage() {
 
       <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
         <div className="rounded-lg border border-line bg-card p-4 md:p-6">
-          <p className="text-label mb-6">Vendas — últimos 30 dias</p>
+          <p className="text-label mb-6">Vendas do site — últimos 30 dias</p>
           <SalesChartLazy data={stats.dailySales} />
         </div>
 

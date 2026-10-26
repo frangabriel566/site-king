@@ -30,6 +30,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { PRODUCT_SECTIONS } from "../sections";
 import { SHIPPING_MODES } from "../shipping-mode";
+import { STORE_PAYMENT_METHODS } from "../store-sales/payment-methods";
 
 export type Json =
   | string
@@ -46,6 +47,7 @@ export const PRODUCT_BADGES = ["lancamento", "oferta", "mais_vendido"] as const;
 // list without pulling the database schema into its bundle.
 export { PRODUCT_SECTIONS, type ProductSection } from "../sections";
 export { SHIPPING_MODES, type ShippingMode } from "../shipping-mode";
+export { STORE_PAYMENT_METHODS, type StorePaymentMethod } from "../store-sales/payment-methods";
 export const USER_ROLES = ["customer", "admin"] as const;
 export const ORDER_STATUSES = [
   "pending",
@@ -774,6 +776,109 @@ export const counters = sqliteTable("counters", {
 });
 
 // ------------------------------------------------------------------
+// vendas na loja física (Admin → Vendas na loja)
+// ------------------------------------------------------------------
+//
+// Kept apart from `orders` on purpose: a sale at the counter is not a site
+// order, and the store wants the two totals side by side, never mixed. The
+// only thing they share is `product_variants.stock`.
+
+/** The counter's own customer book — not site accounts. Only the name is
+ * required; the birthday is what the "Aniversariantes" list reads. */
+export const store_customers = sqliteTable(
+  "store_customers",
+  {
+    id: uuid(),
+    name: text("name").notNull(),
+    /** Digits with DDD (10 or 11), or null. */
+    phone: text("phone"),
+    /** YYYY-MM-DD, or null. */
+    birthdate: text("birthdate"),
+    /** The year the birthday message was last opened on WhatsApp, so the
+     * list shows who was already congratulated. */
+    birthday_sent_year: integer("birthday_sent_year"),
+    created_at: createdAt(),
+    updated_at: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("store_customers_phone_idx").on(t.phone).where(sql`${t.phone} is not null`),
+    index("store_customers_name_idx").on(t.name),
+  ],
+);
+
+export const store_sales = sqliteTable(
+  "store_sales",
+  {
+    id: uuid(),
+    /** Venda #1, #2… — `max + 1` inside the INSERT (lib/db/sequences.ts). */
+    sale_number: integer("sale_number").notNull().unique(),
+    customer_id: text("customer_id").references(() => store_customers.id, { onDelete: "set null" }),
+    /** The customer's name when the sale was made, so the history keeps it
+     * after the customer is deleted. */
+    customer_name: text("customer_name"),
+    payment_method: text("payment_method", { enum: STORE_PAYMENT_METHODS }).notNull(),
+    subtotal: real("subtotal").notNull(),
+    discount: real("discount").notNull().default(0),
+    total: real("total").notNull(),
+    note: text("note"),
+    /** The admin's e-mail. */
+    created_by: text("created_by"),
+    /** "Desfazer baixa": the pieces went back to stock. The sale stays in
+     * the history, out of every total. */
+    canceled_at: text("canceled_at"),
+    created_at: createdAt(),
+  },
+  (t) => [
+    index("store_sales_created_at_idx").on(t.created_at),
+    index("store_sales_customer_id_idx").on(t.customer_id),
+    check(
+      "store_sales_payment_method_check",
+      sql`${t.payment_method} in ('dinheiro', 'pix', 'debito', 'credito', 'outro')`,
+    ),
+    check(
+      "store_sales_amounts_check",
+      sql`${t.subtotal} >= 0 and ${t.discount} >= 0 and ${t.discount} <= ${t.subtotal} and ${t.total} >= 0`,
+    ),
+  ],
+);
+
+/** Snapshot of name/price at the time of the sale, like order_items. */
+export const store_sale_items = sqliteTable(
+  "store_sale_items",
+  {
+    id: uuid(),
+    sale_id: text("sale_id")
+      .notNull()
+      .references(() => store_sales.id, { onDelete: "cascade" }),
+    product_id: text("product_id").references(() => products.id, { onDelete: "set null" }),
+    variant_id: text("variant_id").references(() => product_variants.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    color: text("color"),
+    size: text("size"),
+    unit_price: real("unit_price").notNull(),
+    qty: integer("qty").notNull(),
+  },
+  (t) => [
+    index("store_sale_items_sale_id_idx").on(t.sale_id),
+    index("store_sale_items_product_id_idx").on(t.product_id),
+    check("store_sale_items_qty_check", sql`${t.qty} > 0`),
+    check("store_sale_items_unit_price_check", sql`${t.unit_price} >= 0`),
+  ],
+);
+
+/** Single row (id = 1): the birthday message's text. Its own table so the
+ * site's settings stay untouched. */
+export const store_settings = sqliteTable(
+  "store_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    /** "{nome}" becomes the customer's first name. Null: the default text. */
+    birthday_message: text("birthday_message"),
+  },
+  (t) => [check("store_settings_single_row", sql`${t.id} = 1`)],
+);
+
+// ------------------------------------------------------------------
 // relations — what `db.query.*.findMany({ with: … })` can embed
 // ------------------------------------------------------------------
 
@@ -843,6 +948,19 @@ export const feedbacksRelations = relations(feedbacks, ({ one, many }) => ({
 
 export const feedbackImagesRelations = relations(feedback_images, ({ one }) => ({
   feedback: one(feedbacks, { fields: [feedback_images.feedback_id], references: [feedbacks.id] }),
+}));
+
+export const storeCustomersRelations = relations(store_customers, ({ many }) => ({
+  store_sales: many(store_sales),
+}));
+
+export const storeSalesRelations = relations(store_sales, ({ one, many }) => ({
+  customer: one(store_customers, { fields: [store_sales.customer_id], references: [store_customers.id] }),
+  items: many(store_sale_items),
+}));
+
+export const storeSaleItemsRelations = relations(store_sale_items, ({ one }) => ({
+  sale: one(store_sales, { fields: [store_sale_items.sale_id], references: [store_sales.id] }),
 }));
 
 export const reviewsRelations = relations(reviews, ({ one }) => ({

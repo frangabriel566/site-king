@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { counters, orders } from "./schema";
+import { counters, orders, store_sales } from "./schema";
 
 /**
  * SQLite has no sequences, so the two counters this app needs are SQL
@@ -16,3 +16,6 @@ export const WHATSAPP_CODE_COUNTER = "whatsapp_order_code";
 /** The KS0001 code for the counter's current value — run after bumping it
  * (`bumpCounter`) in the same batch. */
 export const currentWhatsAppCode = sql<string>`('KS' || printf('%04d', (select ${counters.value} from ${counters} where ${counters.name} = ${WHATSAPP_CODE_COUNTER})))`;
+
+/** Next `store_sales.sale_number` (Vendas na loja). */
+export const nextStoreSaleNumber = sql<number>`(select coalesce(max(${store_sales.sale_number}), 0) + 1 from ${store_sales})`;

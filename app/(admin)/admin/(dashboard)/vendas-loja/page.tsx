@@ -22,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PeriodFilter } from "./period-filter";
-import { CancelSaleButton } from "./cancel-sale-button";
 
 export const metadata: Metadata = { title: "Vendas na loja — Painel" };
 
@@ -294,14 +293,8 @@ export default async function StoreSalesPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {!canceled && (
-                            <CancelSaleButton
-                              saleId={sale.id}
-                              saleNumber={sale.sale_number}
-                              total={formatCurrency(sale.total)}
-                            />
-                          )}
-                          {/* An undone sale opens too: saving brings it back. */}
+                          {/* Sales undone before "Desfazer" left the history open too:
+                              saving one brings it back. */}
                           <Button variant="ghost" size="icon-sm" asChild>
                             <Link
                               href={`/admin/vendas-loja/${sale.id}/editar${periodQuery}`}

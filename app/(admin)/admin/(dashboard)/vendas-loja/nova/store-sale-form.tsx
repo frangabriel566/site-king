@@ -194,13 +194,17 @@ export function StoreSaleForm({
   const total = roundMoney(Math.max(0, subtotal - discountValue));
   const pieces = [...lines, ...locked].reduce((sum, line) => sum + line.qty, 0);
   const hasPieces = lines.length > 0 || locked.length > 0;
+  // Only when bringing back an undone sale: a piece it had may have sold
+  // since.
+  const overStock = lines.some((line) => line.qty > line.stock);
   const discountTooHigh = discountValue > subtotal;
   // Worked out from the total on every render, so a later discount or price
   // change moves the change with it.
   const cashReceived = payment === "dinheiro" && cash !== "" ? roundMoney(Number(cash) || 0) : null;
   const change = cashReceived === null ? null : roundMoney(cashReceived - total);
   const cashShort = change !== null && change < 0;
-  const canSubmit = hasPieces && payment !== null && !discountTooHigh && !cashShort && !pending;
+  const canSubmit = hasPieces && payment !== null && !discountTooHigh && !cashShort && !overStock && !pending;
+  const reactivating = Boolean(sale?.canceled_at);
 
   // Editing: what saving does to the stock, piece by piece.
   const stockMoves = sale
@@ -363,6 +367,11 @@ export function StoreSaleForm({
                         {/* Editing, the stock shown counts the pieces this sale holds. */}
                         {sale ? `até ${line.stock}` : `${line.stock} em estoque`}
                       </p>
+                      {line.qty > line.stock && (
+                        <p className="text-xs font-medium text-[var(--danger)]">
+                          {line.stock === 0 ? "Sem estoque: tire a peça" : `Só ${line.stock} em estoque: diminua`}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1" role="group" aria-label={`Quantidade de ${line.name}`}>
                       <Button
@@ -579,8 +588,11 @@ export function StoreSaleForm({
 
         <div className="flex flex-col gap-2">
           <Button size="lg" className="h-11" disabled={!canSubmit} onClick={() => setConfirming(true)}>
-            {sale ? "Salvar alterações" : "Dar baixa"}
+            {reactivating ? "Salvar e reativar" : sale ? "Salvar alterações" : "Dar baixa"}
           </Button>
+          {overStock && (
+            <p className="text-center text-xs text-ink-muted">Falta estoque de uma das peças.</p>
+          )}
           {hasPieces && payment === null && (
             <p className="text-center text-xs text-ink-muted">Escolha a forma de pagamento.</p>
           )}
@@ -597,14 +609,18 @@ export function StoreSaleForm({
         <AlertDialogContent className="border-line bg-card text-fg">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {sale ? `Salvar as alterações da venda #${sale.sale_number}?` : "Dar baixa nesta venda?"}
+              {reactivating
+                ? `Reativar a venda #${sale?.sale_number}?`
+                : sale
+                  ? `Salvar as alterações da venda #${sale.sale_number}?`
+                  : "Dar baixa nesta venda?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {!sale
                 ? `${pieces} ${pieces === 1 ? "peça sai" : "peças saem"} do estoque agora, também no site.`
-                : stockMoves.length === 0
-                  ? "O estoque não muda."
-                  : "O estoque muda assim, também no site:"}
+                : `${reactivating ? "Ela estava desfeita e volta a valer e aos totais. " : ""}${
+                    stockMoves.length === 0 ? "O estoque não muda." : "O estoque muda assim, também no site:"
+                  }`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {stockMoves.length > 0 && (
@@ -689,7 +705,15 @@ export function StoreSaleForm({
               }}
               disabled={pending}
             >
-              {sale ? (pending ? "Salvando…" : "Salvar alterações") : pending ? "Dando baixa…" : "Confirmar baixa"}
+              {sale
+                ? pending
+                  ? "Salvando…"
+                  : reactivating
+                    ? "Salvar e reativar"
+                    : "Salvar alterações"
+                : pending
+                  ? "Dando baixa…"
+                  : "Confirmar baixa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

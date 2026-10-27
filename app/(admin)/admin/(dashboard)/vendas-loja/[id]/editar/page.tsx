@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/auth/guards";
 import { getEditableStoreSale } from "@/lib/data/store-sales";
@@ -38,16 +37,13 @@ export default async function EditStoreSalePage({
           Registrada em {formatLocalDateTime(sale.created_at)}. O número e a data continuam os mesmos.
         </p>
       </div>
-      {sale.canceled_at ? (
-        <div className="rounded-lg border border-line bg-card p-6 text-sm text-ink-muted">
-          Esta venda foi desfeita e não pode mais ser editada.{" "}
-          <Link href={backHref} className="text-accent-light hover:underline">
-            Voltar ao resumo
-          </Link>
-        </div>
-      ) : (
-        <StoreSaleForm sale={sale} backHref={backHref} />
+      {sale.canceled_at && (
+        <p role="note" className="rounded-lg border border-line-strong bg-card p-4 text-sm">
+          Esta venda foi desfeita. Ao salvar, ela <strong>volta a valer</strong>: as peças saem do estoque de novo,
+          também no site, e a venda volta aos totais.
+        </p>
       )}
+      <StoreSaleForm sale={sale} backHref={backHref} />
     </div>
   );
 }

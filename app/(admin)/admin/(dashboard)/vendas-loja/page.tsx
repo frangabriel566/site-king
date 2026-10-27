@@ -295,23 +295,22 @@ export default async function StoreSalesPage({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {!canceled && (
-                            <>
-                              <Button variant="ghost" size="icon-sm" asChild>
-                                <Link
-                                  href={`/admin/vendas-loja/${sale.id}/editar${periodQuery}`}
-                                  aria-label={`Editar a venda #${sale.sale_number}`}
-                                  title="Editar"
-                                >
-                                  <Pencil className="size-4" />
-                                </Link>
-                              </Button>
-                              <CancelSaleButton
-                                saleId={sale.id}
-                                saleNumber={sale.sale_number}
-                                total={formatCurrency(sale.total)}
-                              />
-                            </>
+                            <CancelSaleButton
+                              saleId={sale.id}
+                              saleNumber={sale.sale_number}
+                              total={formatCurrency(sale.total)}
+                            />
                           )}
+                          {/* An undone sale opens too: saving brings it back. */}
+                          <Button variant="ghost" size="icon-sm" asChild>
+                            <Link
+                              href={`/admin/vendas-loja/${sale.id}/editar${periodQuery}`}
+                              aria-label={`Editar a venda #${sale.sale_number}`}
+                              title="Editar"
+                            >
+                              <Pencil className="size-4" />
+                            </Link>
+                          </Button>
                           <DeleteButton
                             itemLabel={`a venda #${sale.sale_number}`}
                             description={

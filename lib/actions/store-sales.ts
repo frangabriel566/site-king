@@ -51,7 +51,7 @@ const SALE_ERRORS: Record<StoreSaleErrorCode, string> = {
   EMPTY_SALE: "Adicione pelo menos uma peça.",
   NOT_FOUND: "Venda não encontrada. Ela pode ter sido excluída.",
   ALREADY_CANCELED: "Esta baixa já foi desfeita.",
-  CANCELED_SALE: "Esta venda foi desfeita e não pode mais ser editada.",
+  SALE_CHANGED: "A venda mudou em outra tela enquanto você editava. Abra de novo e confira.",
 };
 
 function pieces(qty: number, singular: string, plural: string): string {
@@ -106,7 +106,8 @@ export async function createStoreSaleAction(input: unknown): Promise<StoreSaleAc
   }
 }
 
-/** "Editar": the sale changes in place; stock moves by the difference. */
+/** "Editar": the sale changes in place; stock moves by the difference. An
+ * undone sale comes back into the totals. */
 export async function updateStoreSaleAction(input: unknown): Promise<StoreSaleActionResult> {
   const parsed = storeSaleUpdateSchema.safeParse(input);
   if (!parsed.success) {
@@ -123,7 +124,7 @@ export async function updateStoreSaleAction(input: unknown): Promise<StoreSaleAc
     ].filter(Boolean);
     return {
       ok: true,
-      message: `Venda #${sale.saleNumber} alterada: ${formatCurrency(sale.total)}. ${
+      message: `Venda #${sale.saleNumber} ${sale.reactivated ? "voltou a valer" : "alterada"}: ${formatCurrency(sale.total)}. ${
         moved.length > 0 ? `${moved.join(", ")}.` : "O estoque não mudou."
       }${changeNote(sale.change)}`,
     };

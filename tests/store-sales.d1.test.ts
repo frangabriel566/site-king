@@ -316,14 +316,45 @@ describe("Editar venda", () => {
     expect(await stock(SHIRT)).toBe(9);
   });
 
-  it("refuses an undone sale", async () => {
+  it("brings an undone sale back, taking its pieces out again", async () => {
     await sale([{ variantId: SHIRT, qty: 1, unitPrice: 80 }]);
     const { id } = await onlySale();
     await cancelStoreSaleAction({ sale_id: id });
+    expect(await stock(SHIRT)).toBe(10);
+
+    // It holds nothing: the undo gave the piece back.
+    const editable = await getEditableStoreSale(id);
+    expect(editable).toMatchObject({ held: {}, lines: [{ variantId: SHIRT, qty: 1, stock: 10 }] });
 
     const result = await edit(id, [{ variantId: SHIRT, qty: 3, unitPrice: 80 }]);
-    expect(result).toEqual({ ok: false, message: "Esta venda foi desfeita e não pode mais ser editada." });
-    expect(await stock(SHIRT)).toBe(10);
+    expect(result).toEqual({
+      ok: true,
+      message: `Venda #1 voltou a valer: ${formatCurrency(240)}. 3 peças saíram do estoque.`,
+    });
+    expect(await stock(SHIRT)).toBe(7);
+    expect(await onlySale()).toMatchObject({ canceled_at: null, total: 240 });
+
+    // Back in the totals.
+    await state.db.update(store_sales).set({ created_at: "2026-10-26T15:00:00.000Z" });
+    const period = resolvePeriod({ periodo: "dia", data: "2026-10-26" }, new Date("2026-10-26T18:00:00.000Z"));
+    expect(await getStoreSalesDashboard(period)).toMatchObject({ revenue: 240, sales: 1, pieces: 3 });
+  });
+
+  it("won't bring an undone sale back without the stock for it", async () => {
+    await sale([{ variantId: BLACK_G, qty: 1, unitPrice: 200 }]);
+    const { id } = await onlySale();
+    await cancelStoreSaleAction({ sale_id: id });
+    // The piece that came back sold again in the meantime.
+    await sale([{ variantId: BLACK_G, qty: 1, unitPrice: 200 }]);
+
+    const result = await edit(id, [{ variantId: BLACK_G, qty: 1, unitPrice: 200 }]);
+    expect(result).toEqual({
+      ok: false,
+      message: "Sem estoque suficiente de Moletom King — Preto · G (acabou). Nada foi alterado.",
+    });
+    expect(await stock(BLACK_G)).toBe(0);
+    const [undone] = await state.db.select().from(store_sales).where(eq(store_sales.id, id));
+    expect(undone.canceled_at).not.toBeNull();
   });
 
   it("keeps a line whose piece left the catalogue exactly as it was", async () => {

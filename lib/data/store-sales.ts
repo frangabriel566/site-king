@@ -350,7 +350,8 @@ export async function getEditableStoreSale(id: string): Promise<EditableStoreSal
       locked.push({ id: item.id, name: item.name, variantLabel, qty: item.qty, unitPrice: item.unit_price });
       continue;
     }
-    held[variant.id] = (held[variant.id] ?? 0) + item.qty;
+    // An undone sale holds nothing: the undo gave its pieces back.
+    if (!sale.canceled_at) held[variant.id] = (held[variant.id] ?? 0) + item.qty;
     lines.push({
       variantId: variant.id,
       name: item.name,
@@ -362,7 +363,7 @@ export async function getEditableStoreSale(id: string): Promise<EditableStoreSal
       sitePrice: variant.product.price,
     });
   }
-  for (const line of lines) line.stock = live.get(line.variantId)!.stock + held[line.variantId];
+  for (const line of lines) line.stock = live.get(line.variantId)!.stock + (held[line.variantId] ?? 0);
 
   return {
     id: sale.id,

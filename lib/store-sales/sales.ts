@@ -33,8 +33,8 @@ export type StoreSaleErrorCode =
   | "EMPTY_SALE"
   | "NOT_FOUND"
   | "ALREADY_CANCELED"
-  /** Editing a sale that was undone. */
-  | "CANCELED_SALE";
+  /** Undone or brought back in another tab while it was being edited. */
+  | "SALE_CHANGED";
 
 export class StoreSaleError extends Error {
   constructor(
@@ -69,7 +69,9 @@ function outOfStock(variant: LoadedVariant, available: number): StoreSaleError {
   const label = formatVariantLabel(variant.color, variant.size);
   return new StoreSaleError(
     "OUT_OF_STOCK",
-    `${variant.product.name}${label ? ` — ${label}` : ""} (${available === 1 ? "resta 1" : `restam ${available}`})`,
+    `${variant.product.name}${label ? ` — ${label}` : ""} (${
+      available === 0 ? "acabou" : available === 1 ? "resta 1" : `restam ${available}`
+    })`,
   );
 }
 
@@ -204,6 +206,8 @@ export type UpdatedStoreSale = CreatedStoreSale & {
   returned: number;
   /** Pieces the edit took out of stock. */
   taken: number;
+  /** It had been undone: saving brought it back into the totals. */
+  reactivated: boolean;
 };
 
 /**
@@ -211,6 +215,9 @@ export type UpdatedStoreSale = CreatedStoreSale & {
  * difference — a piece taken off the sale goes back, a piece added leaves —
  * and a line whose piece left the catalogue since stays exactly as it was
  * (nothing to give it back to; the form shows it locked).
+ *
+ * An undone sale can be edited too, and saving brings it back: its pieces
+ * went back to stock when it was undone, so they all leave again.
  */
 export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInput): Promise<UpdatedStoreSale> {
   const db = getDb();
@@ -220,7 +227,7 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
     with: { items: { columns: { id: true, variant_id: true, qty: true, unit_price: true } } },
   });
   if (!sale) throw new StoreSaleError("NOT_FOUND");
-  if (sale.canceled_at) throw new StoreSaleError("CANCELED_SALE");
+  const reactivating = sale.canceled_at !== null;
 
   const wanted = qtyByVariant(input.items);
   const byId = await loadVariants(db, [
@@ -228,9 +235,12 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
   ]);
 
   const locked = sale.items.filter((item) => !item.variant_id || !isSellable(byId.get(item.variant_id)));
-  const held = qtyByVariant(
-    sale.items.flatMap((item) => (locked.includes(item) ? [] : [{ variantId: item.variant_id!, qty: item.qty }])),
-  );
+  // An undone sale holds nothing: the undo gave its pieces back.
+  const held = reactivating
+    ? new Map<string, number>()
+    : qtyByVariant(
+        sale.items.flatMap((item) => (locked.includes(item) ? [] : [{ variantId: item.variant_id!, qty: item.qty }])),
+      );
   if (wanted.size + locked.length === 0) throw new StoreSaleError("EMPTY_SALE");
 
   // What leaves stock (> 0) or comes back (< 0) for each piece.
@@ -265,13 +275,18 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
   let results;
   try {
     results = await runBatch(db, [
-      // Undone in another tab after the read above: this trips the amounts
-      // CHECK (discount >= 0) and rolls the whole batch back, so the stock
-      // the undo returned isn't moved a second time.
+      // Undone (or, for an undone sale, brought back) in another tab after
+      // the read above: this trips the amounts CHECK (discount >= 0) and
+      // rolls the whole batch back, so no stock moves twice.
       db
         .update(store_sales)
         .set({ discount: -1 })
-        .where(and(eq(store_sales.id, saleId), isNotNull(store_sales.canceled_at))),
+        .where(
+          and(
+            eq(store_sales.id, saleId),
+            reactivating ? isNull(store_sales.canceled_at) : isNotNull(store_sales.canceled_at),
+          ),
+        ),
       ...[...delta].map(([variantId, change]) =>
         db
           .update(product_variants)
@@ -298,6 +313,7 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
           total,
           cash_received: cashReceived,
           note: input.note,
+          canceled_at: null,
         })
         .where(eq(store_sales.id, saleId))
         .returning({ id: store_sales.id }),
@@ -306,7 +322,7 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
     if (isCheckViolation(error, "product_variants_stock_check")) {
       throw new StoreSaleError("OUT_OF_STOCK", "uma das peças");
     }
-    if (isCheckViolation(error, "store_sales_amounts_check")) throw new StoreSaleError("CANCELED_SALE");
+    if (isCheckViolation(error, "store_sales_amounts_check")) throw new StoreSaleError("SALE_CHANGED");
     // New lines of a sale deleted in between fail its foreign key.
     if (describeDbError(error).includes("FOREIGN KEY constraint failed")) throw new StoreSaleError("NOT_FOUND");
     throw error;
@@ -322,6 +338,7 @@ export async function updateStoreSale(saleId: string, input: StoreSaleUpdateInpu
     change: cashReceived === null ? null : roundMoney(cashReceived - total),
     returned: moved.filter((change) => change < 0).reduce((sum, change) => sum - change, 0),
     taken: moved.filter((change) => change > 0).reduce((sum, change) => sum + change, 0),
+    reactivated: reactivating,
   };
 }
 

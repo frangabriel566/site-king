@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, like, lt, or, sql, sum } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { requireAdminPage } from "@/lib/auth/guards";
+import { formatVariantLabel } from "@/lib/format";
 import { normalizeSearchText } from "@/lib/search-text";
 import { LOCAL_SQL_MODIFIER, localToday, type Period } from "@/lib/store-sales/period";
 import { BIRTHDAY_WINDOW_DAYS, nextBirthday, type BirthdayInfo } from "@/lib/store-sales/birthday";
@@ -277,6 +278,107 @@ export async function searchStoreProducts(term: string, limit = 12): Promise<Sto
     image: row.product_images[0]?.url ?? null,
     variants: row.product_variants,
   }));
+}
+
+export type EditableSaleLine = {
+  variantId: string;
+  name: string;
+  variantLabel: string | null;
+  image: string | null;
+  /** What this sale can take: the free stock plus what it already holds. */
+  stock: number;
+  qty: number;
+  unitPrice: number;
+  sitePrice: number;
+};
+
+export type EditableStoreSale = {
+  id: string;
+  sale_number: number;
+  created_at: string;
+  canceled_at: string | null;
+  payment_method: StorePaymentMethod;
+  discount: number;
+  cash_received: number | null;
+  note: string | null;
+  customer: StoreCustomerOption | null;
+  /** The name kept on a sale whose customer was deleted from the book. */
+  formerCustomerName: string | null;
+  lines: EditableSaleLine[];
+  /** Pieces that left the catalogue since the sale: they stay as they were
+   * (lib/store-sales/sales.ts → updateStoreSale). */
+  locked: { id: string; name: string; variantLabel: string | null; qty: number; unitPrice: number }[];
+  /** Per variant, the pieces this sale holds — available to it on top of
+   * the stock. */
+  held: Record<string, number>;
+};
+
+/** A sale as the edit form starts from it. */
+export async function getEditableStoreSale(id: string): Promise<EditableStoreSale | null> {
+  await requireAdminPage();
+  const db = getDb();
+  const sale = await db.query.store_sales.findFirst({
+    where: eq(store_sales.id, id),
+    with: {
+      items: true,
+      customer: { columns: { id: true, name: true, phone: true } },
+    },
+  });
+  if (!sale) return null;
+
+  const variantIds = sale.items.flatMap((item) => (item.variant_id ? [item.variant_id] : []));
+  const variants =
+    variantIds.length === 0
+      ? []
+      : await db.query.product_variants.findMany({
+          columns: { id: true, stock: true, archived_at: true },
+          where: inArray(product_variants.id, variantIds),
+          with: { product: { columns: { id: true, price: true, deleted_at: true } } },
+        });
+  const live = new Map(
+    variants.filter((v) => !v.archived_at && !v.product.deleted_at).map((variant) => [variant.id, variant]),
+  );
+  const images = await firstImages([...new Set([...live.values()].map((variant) => variant.product.id))]);
+
+  const held: Record<string, number> = {};
+  const lines: EditableSaleLine[] = [];
+  const locked: EditableStoreSale["locked"] = [];
+  for (const item of sale.items) {
+    const variant = item.variant_id ? live.get(item.variant_id) : undefined;
+    const variantLabel = formatVariantLabel(item.color, item.size);
+    if (!variant) {
+      locked.push({ id: item.id, name: item.name, variantLabel, qty: item.qty, unitPrice: item.unit_price });
+      continue;
+    }
+    held[variant.id] = (held[variant.id] ?? 0) + item.qty;
+    lines.push({
+      variantId: variant.id,
+      name: item.name,
+      variantLabel,
+      image: images.get(variant.product.id) ?? null,
+      stock: 0,
+      qty: item.qty,
+      unitPrice: item.unit_price,
+      sitePrice: variant.product.price,
+    });
+  }
+  for (const line of lines) line.stock = live.get(line.variantId)!.stock + held[line.variantId];
+
+  return {
+    id: sale.id,
+    sale_number: sale.sale_number,
+    created_at: sale.created_at,
+    canceled_at: sale.canceled_at,
+    payment_method: sale.payment_method,
+    discount: sale.discount,
+    cash_received: sale.cash_received,
+    note: sale.note,
+    customer: sale.customer,
+    formerCustomerName: sale.customer ? null : sale.customer_name,
+    lines,
+    locked,
+    held,
+  };
 }
 
 // ------------------------------------------------------------------

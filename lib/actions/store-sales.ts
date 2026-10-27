@@ -12,7 +12,14 @@ import {
   type StoreCustomerOption,
   type StoreProductResult,
 } from "@/lib/data/store-sales";
-import { StoreSaleError, cancelStoreSale, createStoreSale, type StoreSaleErrorCode } from "@/lib/store-sales/sales";
+import {
+  StoreSaleError,
+  cancelStoreSale,
+  createStoreSale,
+  deleteStoreSale,
+  updateStoreSale,
+  type StoreSaleErrorCode,
+} from "@/lib/store-sales/sales";
 import { nextBirthday } from "@/lib/store-sales/birthday";
 import { localToday } from "@/lib/store-sales/period";
 import {
@@ -21,6 +28,7 @@ import {
   storeCustomerSchema,
   storeSaleIdSchema,
   storeSaleSchema,
+  storeSaleUpdateSchema,
 } from "@/lib/validations/store-sale";
 
 const { store_customers, store_settings } = schema;
@@ -36,24 +44,43 @@ function revalidateStoreSales() {
 
 const SALE_ERRORS: Record<StoreSaleErrorCode, string> = {
   VARIANT_NOT_FOUND: "Uma das peças não está mais no catálogo. Busque de novo e tente outra vez.",
-  OUT_OF_STOCK: "Sem estoque suficiente de uma das peças. Nada foi baixado.",
+  OUT_OF_STOCK: "Sem estoque suficiente de uma das peças.",
   DISCOUNT_TOO_HIGH: "O desconto não pode ser maior que o valor das peças.",
-  CASH_TOO_LOW: "O valor recebido não cobre o total. Nada foi baixado.",
+  CASH_TOO_LOW: "O valor recebido não cobre o total.",
   CUSTOMER_NOT_FOUND: "O cliente escolhido não está mais cadastrado.",
-  NOT_FOUND: "Venda não encontrada.",
+  EMPTY_SALE: "Adicione pelo menos uma peça.",
+  NOT_FOUND: "Venda não encontrada. Ela pode ter sido excluída.",
   ALREADY_CANCELED: "Esta baixa já foi desfeita.",
+  CANCELED_SALE: "Esta venda foi desfeita e não pode mais ser editada.",
 };
 
-function translateSaleError(error: unknown, fallback: string): string {
+function pieces(qty: number, singular: string, plural: string): string {
+  return `${qty} ${qty === 1 ? singular : plural}`;
+}
+
+function notRestoredNote(notRestored: number): string {
+  if (notRestored === 0) return "";
+  return ` ${pieces(notRestored, "peça não voltou", "peças não voltaram")} porque a variação saiu do catálogo.`;
+}
+
+function changeNote(change: number | null): string {
+  if (change === null) return "";
+  return change > 0 ? ` Troco: ${formatCurrency(change)}.` : " Sem troco.";
+}
+
+/** `unchanged` closes the messages where the store might fear a half-done
+ * write: "Nada foi baixado." for a new sale, "Nada foi alterado." for an edit. */
+function translateSaleError(error: unknown, fallback: string, unchanged = "Nada foi baixado."): string {
   if (!(error instanceof StoreSaleError)) return fallback;
   // The piece that ran out is what the store needs to know.
   if (error.code === "OUT_OF_STOCK" && error.detail) {
-    return `Sem estoque suficiente de ${error.detail}. Nada foi baixado.`;
+    return `Sem estoque suficiente de ${error.detail}. ${unchanged}`;
   }
   if (error.code === "CASH_TOO_LOW" && error.detail) {
-    return `O valor recebido não cobre o total: faltam ${error.detail}. Nada foi baixado.`;
+    return `O valor recebido não cobre o total: faltam ${error.detail}. ${unchanged}`;
   }
-  return SALE_ERRORS[error.code];
+  const message = SALE_ERRORS[error.code];
+  return error.code === "OUT_OF_STOCK" || error.code === "CASH_TOO_LOW" ? `${message} ${unchanged}` : message;
 }
 
 /** "Dar baixa": records the sale and takes the pieces out of stock. */
@@ -67,17 +94,70 @@ export async function createStoreSaleAction(input: unknown): Promise<StoreSaleAc
   try {
     const sale = await createStoreSale(parsed.data, admin.email);
     revalidateStoreSales();
-    const change =
-      sale.change === null ? "" : sale.change > 0 ? ` Troco: ${formatCurrency(sale.change)}.` : " Sem troco.";
     return {
       ok: true,
-      message: `Venda #${sale.saleNumber} registrada: ${sale.pieces} ${
-        sale.pieces === 1 ? "peça baixada" : "peças baixadas"
-      }, ${formatCurrency(sale.total)}.${change}`,
+      message: `Venda #${sale.saleNumber} registrada: ${pieces(sale.pieces, "peça baixada", "peças baixadas")}, ${formatCurrency(
+        sale.total,
+      )}.${changeNote(sale.change)}`,
     };
   } catch (error) {
     if (!(error instanceof StoreSaleError)) console.error("[createStoreSaleAction]", error);
     return { ok: false, message: translateSaleError(error, "Não foi possível registrar a venda.") };
+  }
+}
+
+/** "Editar": the sale changes in place; stock moves by the difference. */
+export async function updateStoreSaleAction(input: unknown): Promise<StoreSaleActionResult> {
+  const parsed = storeSaleUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Venda inválida." };
+  }
+
+  await requireAdmin();
+  try {
+    const sale = await updateStoreSale(parsed.data.sale_id, parsed.data);
+    revalidateStoreSales();
+    const moved = [
+      sale.returned > 0 ? `${pieces(sale.returned, "peça voltou", "peças voltaram")} ao estoque` : "",
+      sale.taken > 0 ? `${pieces(sale.taken, "peça saiu", "peças saíram")} do estoque` : "",
+    ].filter(Boolean);
+    return {
+      ok: true,
+      message: `Venda #${sale.saleNumber} alterada: ${formatCurrency(sale.total)}. ${
+        moved.length > 0 ? `${moved.join(", ")}.` : "O estoque não mudou."
+      }${changeNote(sale.change)}`,
+    };
+  } catch (error) {
+    if (!(error instanceof StoreSaleError)) console.error("[updateStoreSaleAction]", error);
+    return {
+      ok: false,
+      message: translateSaleError(error, "Não foi possível salvar as alterações.", "Nada foi alterado."),
+    };
+  }
+}
+
+/** "Excluir": the sale leaves the history; a standing sale's pieces go back. */
+export async function deleteStoreSaleAction(input: unknown): Promise<StoreSaleActionResult> {
+  const parsed = storeSaleIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Venda inválida." };
+
+  await requireAdmin();
+  try {
+    const result = await deleteStoreSale(parsed.data.sale_id);
+    revalidateStoreSales();
+    if (result.wasCanceled) return { ok: true, message: `Venda #${result.saleNumber} excluída do histórico.` };
+    return {
+      ok: true,
+      message: `Venda #${result.saleNumber} excluída. ${pieces(
+        result.restored,
+        "peça voltou",
+        "peças voltaram",
+      )} ao estoque.${notRestoredNote(result.notRestored)}`,
+    };
+  } catch (error) {
+    if (!(error instanceof StoreSaleError)) console.error("[deleteStoreSaleAction]", error);
+    revalidateStoreSales();
+    return { ok: false, message: translateSaleError(error, "Não foi possível excluir a venda.") };
   }
 }
 
@@ -90,15 +170,13 @@ export async function cancelStoreSaleAction(input: unknown): Promise<StoreSaleAc
   try {
     const result = await cancelStoreSale(parsed.data.sale_id);
     revalidateStoreSales();
-    const missing =
-      result.notRestored > 0
-        ? ` ${result.notRestored} ${result.notRestored === 1 ? "peça não voltou" : "peças não voltaram"} porque a variação saiu do catálogo.`
-        : "";
     return {
       ok: true,
-      message: `Baixa da venda #${result.saleNumber} desfeita. ${result.restored} ${
-        result.restored === 1 ? "peça voltou" : "peças voltaram"
-      } ao estoque.${missing}`,
+      message: `Baixa da venda #${result.saleNumber} desfeita. ${pieces(
+        result.restored,
+        "peça voltou",
+        "peças voltaram",
+      )} ao estoque.${notRestoredNote(result.notRestored)}`,
     };
   } catch (error) {
     if (!(error instanceof StoreSaleError)) console.error("[cancelStoreSaleAction]", error);

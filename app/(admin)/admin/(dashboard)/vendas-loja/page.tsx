@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { CircleDollarSign, Plus, Receipt, Shirt, ShoppingBag } from "lucide-react";
+import { CircleDollarSign, Pencil, Plus, Receipt, Shirt, ShoppingBag } from "lucide-react";
 import { getFirstStoreSaleYear, getStoreSalesDashboard } from "@/lib/data/store-sales";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { roundMoney } from "@/lib/money";
 import { formatLocalDateTime, localToday, resolvePeriod, MONTH_NAMES, type Period } from "@/lib/store-sales/period";
 import { STORE_PAYMENT_LABEL } from "@/lib/store-sales/payment-methods";
 import { SafeImage } from "@/components/shop/safe-image";
+import { DeleteButton } from "@/components/admin/delete-button";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { deleteStoreSaleAction } from "@/lib/actions/store-sales";
 import { StoreSalesChartLazy } from "@/components/admin/store-sales-chart-lazy";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +74,13 @@ export default async function StoreSalesPage({
 }) {
   const params = await searchParams;
   const period = resolvePeriod(params);
+  // "Editar" comes back to this same period after saving.
+  const periodSearch = new URLSearchParams(
+    Object.entries({ periodo: params.periodo, data: params.data }).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
+  ).toString();
+  const periodQuery = periodSearch ? `?${periodSearch}` : "";
   const today = localToday();
   const [stats, firstYear] = await Promise.all([getStoreSalesDashboard(period), getFirstStoreSaleYear()]);
 
@@ -284,13 +293,35 @@ export default async function StoreSalesPage({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {!canceled && (
-                          <CancelSaleButton
-                            saleId={sale.id}
-                            saleNumber={sale.sale_number}
-                            total={formatCurrency(sale.total)}
+                        <div className="flex items-center justify-end gap-1">
+                          {!canceled && (
+                            <>
+                              <Button variant="ghost" size="icon-sm" asChild>
+                                <Link
+                                  href={`/admin/vendas-loja/${sale.id}/editar${periodQuery}`}
+                                  aria-label={`Editar a venda #${sale.sale_number}`}
+                                  title="Editar"
+                                >
+                                  <Pencil className="size-4" />
+                                </Link>
+                              </Button>
+                              <CancelSaleButton
+                                saleId={sale.id}
+                                saleNumber={sale.sale_number}
+                                total={formatCurrency(sale.total)}
+                              />
+                            </>
+                          )}
+                          <DeleteButton
+                            itemLabel={`a venda #${sale.sale_number}`}
+                            description={
+                              canceled
+                                ? "Ela sai do histórico de vez. As peças já tinham voltado ao estoque quando a baixa foi desfeita."
+                                : `As peças voltam ao estoque e a venda de ${formatCurrency(sale.total)} sai do histórico e dos totais de vez. Não dá para recuperar.`
+                            }
+                            action={deleteStoreSaleAction.bind(null, { sale_id: sale.id })}
                           />
-                        )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

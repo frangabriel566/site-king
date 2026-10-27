@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Minus, Plus, ScanBarcode, Search, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Lock, Minus, Plus, ScanBarcode, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -22,9 +23,9 @@ import { SafeImage } from "@/components/shop/safe-image";
 import { CurrencyInput } from "@/components/admin/currency-input";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import { roundMoney } from "@/lib/money";
-import { createStoreSaleAction, searchStoreProductsAction } from "@/lib/actions/store-sales";
+import { createStoreSaleAction, searchStoreProductsAction, updateStoreSaleAction } from "@/lib/actions/store-sales";
 import { STORE_PAYMENT_LABEL, STORE_PAYMENT_METHODS, type StorePaymentMethod } from "@/lib/store-sales/payment-methods";
-import type { StoreCustomerOption, StoreProductResult } from "@/lib/data/store-sales";
+import type { EditableStoreSale, StoreCustomerOption, StoreProductResult } from "@/lib/data/store-sales";
 import { CustomerPicker } from "./customer-picker";
 
 type Line = {
@@ -52,26 +53,52 @@ function cashSuggestions(total: number): number[] {
   return [...new Set(amounts)].slice(0, 3);
 }
 
+const NO_HELD: Record<string, number> = {};
+const NO_LOCKED: EditableStoreSale["locked"] = [];
+
 /**
  * "Nova baixa": the pieces sold at the counter. Nothing leaves stock until
  * "Dar baixa" is confirmed — then all of it at once, or none of it if a
  * piece ran out in the meantime (lib/store-sales/sales.ts).
+ *
+ * With `sale`, the same form edits that sale: it starts filled in, the
+ * pieces the sale already holds count as available, and saving moves stock
+ * only by the difference.
  */
-export function StoreSaleForm() {
+export function StoreSaleForm({
+  sale,
+  backHref = "/admin/vendas-loja",
+}: {
+  sale?: EditableStoreSale;
+  /** Where an edit goes back to: the history, on the period it showed. */
+  backHref?: string;
+}) {
+  const router = useRouter();
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<StoreProductResult[]>([]);
   const [searched, setSearched] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
-  const [discount, setDiscount] = useState("");
-  const [payment, setPayment] = useState<StorePaymentMethod | null>(null);
+  const [lines, setLines] = useState<Line[]>(
+    () => sale?.lines.map((line) => ({ ...line, unitPrice: line.unitPrice.toFixed(2) })) ?? [],
+  );
+  const [discount, setDiscount] = useState(sale && sale.discount > 0 ? sale.discount.toFixed(2) : "");
+  const [payment, setPayment] = useState<StorePaymentMethod | null>(sale?.payment_method ?? null);
   /** Dinheiro: what the customer handed over. Dot-decimal; "" = not typed. */
-  const [cash, setCash] = useState("");
-  const [customer, setCustomer] = useState<StoreCustomerOption | null>(null);
-  const [note, setNote] = useState("");
+  const [cash, setCash] = useState(sale?.cash_received != null ? sale.cash_received.toFixed(2) : "");
+  const [customer, setCustomer] = useState<StoreCustomerOption | null>(sale?.customer ?? null);
+  /** A customer deleted from the book left only the name on the sale. */
+  const [keepFormerName, setKeepFormerName] = useState(Boolean(sale?.formerCustomerName));
+  const [note, setNote] = useState(sale?.note ?? "");
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
   const requestId = useRef(0);
+  const held = sale?.held ?? NO_HELD;
+  const locked = sale?.locked ?? NO_LOCKED;
+
+  /** What the sale can take of a piece: its stock plus what it already holds. */
+  function limitOf(variant: StoreProductResult["variants"][number]): number {
+    return variant.stock + (held[variant.id] ?? 0);
+  }
 
   async function runSearch(value: string): Promise<StoreProductResult[]> {
     const id = ++requestId.current;
@@ -102,13 +129,14 @@ export function StoreSaleForm() {
 
   function addVariant(product: StoreProductResult, variant: StoreProductResult["variants"][number]) {
     const existing = lines.find((line) => line.variantId === variant.id);
-    if (inCart(variant.id) >= variant.stock) {
+    const limit = limitOf(variant);
+    if (inCart(variant.id) >= limit) {
       toast.error("Não há mais estoque dessa peça.");
       return;
     }
     if (existing) {
       setLines((current) =>
-        current.map((line) => (line.variantId === variant.id ? { ...line, qty: line.qty + 1, stock: variant.stock } : line)),
+        current.map((line) => (line.variantId === variant.id ? { ...line, qty: line.qty + 1, stock: limit } : line)),
       );
     } else {
       setLines((current) => [
@@ -118,7 +146,7 @@ export function StoreSaleForm() {
           name: product.name,
           variantLabel: formatVariantLabel(variant.color, variant.size),
           image: product.image,
-          stock: variant.stock,
+          stock: limit,
           qty: 1,
           unitPrice: product.price.toFixed(2),
           sitePrice: product.price,
@@ -142,7 +170,7 @@ export function StoreSaleForm() {
     }
     // A single product with a single piece in stock: the same shortcut.
     const inStock = found.flatMap((product) =>
-      product.variants.filter((v) => v.stock > 0).map((variant) => ({ product, variant })),
+      product.variants.filter((v) => limitOf(v) > 0).map((variant) => ({ product, variant })),
     );
     if (found.length === 1 && inStock.length === 1) {
       addVariant(inStock[0].product, inStock[0].variant);
@@ -158,17 +186,32 @@ export function StoreSaleForm() {
     );
   }
 
-  const subtotal = roundMoney(lines.reduce((sum, line) => sum + line.qty * (Number(line.unitPrice) || 0), 0));
+  const subtotal = roundMoney(
+    lines.reduce((sum, line) => sum + line.qty * (Number(line.unitPrice) || 0), 0) +
+      locked.reduce((sum, line) => sum + line.qty * line.unitPrice, 0),
+  );
   const discountValue = roundMoney(Number(discount) || 0);
   const total = roundMoney(Math.max(0, subtotal - discountValue));
-  const pieces = lines.reduce((sum, line) => sum + line.qty, 0);
+  const pieces = [...lines, ...locked].reduce((sum, line) => sum + line.qty, 0);
+  const hasPieces = lines.length > 0 || locked.length > 0;
   const discountTooHigh = discountValue > subtotal;
   // Worked out from the total on every render, so a later discount or price
   // change moves the change with it.
   const cashReceived = payment === "dinheiro" && cash !== "" ? roundMoney(Number(cash) || 0) : null;
   const change = cashReceived === null ? null : roundMoney(cashReceived - total);
   const cashShort = change !== null && change < 0;
-  const canSubmit = lines.length > 0 && payment !== null && !discountTooHigh && !cashShort && !pending;
+  const canSubmit = hasPieces && payment !== null && !discountTooHigh && !cashShort && !pending;
+
+  // Editing: what saving does to the stock, piece by piece.
+  const stockMoves = sale
+    ? [...new Set([...Object.keys(held), ...lines.map((line) => line.variantId)])].flatMap((variantId) => {
+        const delta = inCart(variantId) - (held[variantId] ?? 0);
+        const line =
+          lines.find((l) => l.variantId === variantId) ?? sale.lines.find((l) => l.variantId === variantId);
+        if (delta === 0 || !line) return [];
+        return [{ variantId, back: delta < 0, label: `${Math.abs(delta)}x ${line.name}${line.variantLabel ? ` — ${line.variantLabel}` : ""}` }];
+      })
+    : [];
 
   function reset() {
     setLines([]);
@@ -186,7 +229,7 @@ export function StoreSaleForm() {
   function submit() {
     if (!payment) return;
     startTransition(async () => {
-      const result = await createStoreSaleAction({
+      const input = {
         items: lines.map((line) => ({
           variantId: line.variantId,
           qty: line.qty,
@@ -197,11 +240,15 @@ export function StoreSaleForm() {
         cashReceived,
         customerId: customer?.id ?? null,
         note,
-      });
+      };
+      const result = sale
+        ? await updateStoreSaleAction({ ...input, sale_id: sale.id, keepCustomerName: keepFormerName })
+        : await createStoreSaleAction(input);
       if (result.ok) {
         toast.success(result.message);
         setConfirming(false);
-        reset();
+        if (sale) router.push(backHref);
+        else reset();
       } else {
         toast.error(result.message);
       }
@@ -268,7 +315,7 @@ export function StoreSaleForm() {
                     ) : (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {product.variants.map((variant) => {
-                          const available = variant.stock - inCart(variant.id);
+                          const available = limitOf(variant) - inCart(variant.id);
                           const label = formatVariantLabel(variant.color, variant.size) ?? "Adicionar";
                           return (
                             <button
@@ -280,7 +327,7 @@ export function StoreSaleForm() {
                             >
                               {label}
                               <span className="ml-1.5 text-ink-muted">
-                                {variant.stock === 0 ? "sem estoque" : `${available} em estoque`}
+                                {limitOf(variant) === 0 ? "sem estoque" : `${available} em estoque`}
                               </span>
                             </button>
                           );
@@ -296,7 +343,7 @@ export function StoreSaleForm() {
 
         <section className="rounded-lg border border-line bg-card p-4 md:p-6">
           <h2 className="text-label mb-4">Peças da venda</h2>
-          {lines.length === 0 ? (
+          {!hasPieces ? (
             <p className="text-sm text-ink-muted">Busque uma peça acima e escolha a cor/tamanho para adicionar.</p>
           ) : (
             <ul className="flex flex-col divide-y divide-line">
@@ -313,7 +360,8 @@ export function StoreSaleForm() {
                       <p className="truncate text-sm font-medium">{line.name}</p>
                       <p className="text-xs text-ink-muted">
                         {line.variantLabel ? `${line.variantLabel} · ` : ""}
-                        {line.stock} em estoque
+                        {/* Editing, the stock shown counts the pieces this sale holds. */}
+                        {sale ? `até ${line.stock}` : `${line.stock} em estoque`}
                       </p>
                     </div>
                     <div className="flex items-center gap-1" role="group" aria-label={`Quantidade de ${line.name}`}>
@@ -377,6 +425,23 @@ export function StoreSaleForm() {
                   </li>
                 );
               })}
+              {locked.map((line) => (
+                <li key={line.id} className="flex items-center gap-3 py-3 text-ink-muted">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-field">
+                    <Lock className="size-4" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-fg">
+                      {line.qty}x {line.name}
+                    </p>
+                    <p className="text-xs">
+                      {line.variantLabel ? `${line.variantLabel} · ` : ""}
+                      Saiu do catálogo: fica na venda como está.
+                    </p>
+                  </div>
+                  <p className="w-24 text-right text-sm tabular-nums">{formatCurrency(line.qty * line.unitPrice)}</p>
+                </li>
+              ))}
             </ul>
           )}
         </section>
@@ -481,7 +546,25 @@ export function StoreSaleForm() {
 
         <section className="rounded-lg border border-line bg-card p-4 md:p-6">
           <h2 className="text-label mb-4">Cliente (opcional)</h2>
-          <CustomerPicker value={customer} onChange={setCustomer} />
+          {sale?.formerCustomerName && keepFormerName && !customer ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-line-strong bg-field px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{sale.formerCustomerName}</p>
+                <p className="text-xs text-ink-muted">Cadastro excluído</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setKeepFormerName(false)}
+                aria-label="Tirar o cliente da venda"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+          ) : (
+            <CustomerPicker value={customer} onChange={setCustomer} />
+          )}
           <div className="mt-5 flex flex-col gap-2">
             <Label htmlFor="store-sale-note">Observação (opcional)</Label>
             <Textarea
@@ -496,16 +579,16 @@ export function StoreSaleForm() {
 
         <div className="flex flex-col gap-2">
           <Button size="lg" className="h-11" disabled={!canSubmit} onClick={() => setConfirming(true)}>
-            Dar baixa
+            {sale ? "Salvar alterações" : "Dar baixa"}
           </Button>
-          {lines.length > 0 && payment === null && (
+          {hasPieces && payment === null && (
             <p className="text-center text-xs text-ink-muted">Escolha a forma de pagamento.</p>
           )}
-          {lines.length > 0 && cashShort && (
+          {hasPieces && cashShort && (
             <p className="text-center text-xs text-ink-muted">O valor recebido não cobre o total.</p>
           )}
-          <Link href="/admin/vendas-loja" className="text-center text-xs text-ink-muted hover:text-fg">
-            Ver o resumo das vendas
+          <Link href={backHref} className="text-center text-xs text-ink-muted hover:text-fg">
+            {sale ? "Cancelar edição" : "Ver o resumo das vendas"}
           </Link>
         </div>
       </aside>
@@ -513,11 +596,36 @@ export function StoreSaleForm() {
       <AlertDialog open={confirming} onOpenChange={(open) => !pending && setConfirming(open)}>
         <AlertDialogContent className="border-line bg-card text-fg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Dar baixa nesta venda?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {sale ? `Salvar as alterações da venda #${sale.sale_number}?` : "Dar baixa nesta venda?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pieces} {pieces === 1 ? "peça sai" : "peças saem"} do estoque agora, também no site.
+              {!sale
+                ? `${pieces} ${pieces === 1 ? "peça sai" : "peças saem"} do estoque agora, também no site.`
+                : stockMoves.length === 0
+                  ? "O estoque não muda."
+                  : "O estoque muda assim, também no site:"}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {stockMoves.length > 0 && (
+            <dl className="flex flex-col gap-2 rounded-lg border border-line bg-field p-3 text-sm">
+              {[
+                { back: true, title: "Volta ao estoque" },
+                { back: false, title: "Sai do estoque" },
+              ].map(({ back, title }) => {
+                const moves = stockMoves.filter((move) => move.back === back);
+                if (moves.length === 0) return null;
+                return (
+                  <div key={title}>
+                    <dt className="text-xs font-medium text-ink-muted">{title}</dt>
+                    {moves.map((move) => (
+                      <dd key={move.variantId}>{move.label}</dd>
+                    ))}
+                  </div>
+                );
+              })}
+            </dl>
+          )}
           <ul className="flex flex-col gap-1 text-sm">
             {lines.map((line) => (
               <li key={line.variantId} className="flex justify-between gap-3">
@@ -528,6 +636,15 @@ export function StoreSaleForm() {
                 <span className="shrink-0 tabular-nums text-ink-muted">
                   {formatCurrency(line.qty * (Number(line.unitPrice) || 0))}
                 </span>
+              </li>
+            ))}
+            {locked.map((line) => (
+              <li key={line.id} className="flex justify-between gap-3 text-ink-muted">
+                <span className="min-w-0 truncate">
+                  {line.qty}x {line.name}
+                  {line.variantLabel ? ` — ${line.variantLabel}` : ""}
+                </span>
+                <span className="shrink-0 tabular-nums">{formatCurrency(line.qty * line.unitPrice)}</span>
               </li>
             ))}
           </ul>
@@ -554,10 +671,10 @@ export function StoreSaleForm() {
                 </div>
               </>
             )}
-            {customer && (
+            {(customer || (keepFormerName && sale?.formerCustomerName)) && (
               <div className="flex justify-between text-ink-muted">
                 <dt>Cliente</dt>
-                <dd>{customer.name}</dd>
+                <dd>{customer?.name ?? sale?.formerCustomerName}</dd>
               </div>
             )}
           </dl>
@@ -572,7 +689,7 @@ export function StoreSaleForm() {
               }}
               disabled={pending}
             >
-              {pending ? "Dando baixa…" : "Confirmar baixa"}
+              {sale ? (pending ? "Salvando…" : "Salvar alterações") : pending ? "Dando baixa…" : "Confirmar baixa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

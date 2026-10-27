@@ -40,6 +40,20 @@ export const storeSaleSchema = z.object({
 
 export type StoreSaleInput = z.infer<typeof storeSaleSchema>;
 
+/** Editing a sale (Histórico de baixas → Editar). */
+export const storeSaleUpdateSchema = storeSaleSchema.extend({
+  sale_id: z.guid(),
+  // Lines whose piece left the catalogue stay on the sale as they were, so
+  // the editable ones may be none (lib/store-sales/sales.ts).
+  items: z
+    .array(storeSaleItemSchema)
+    .max(STORE_SALE_MAX_LINES, `No máximo ${STORE_SALE_MAX_LINES} peças diferentes por venda.`),
+  /** Keep the name of a customer deleted from the book since the sale. */
+  keepCustomerName: z.boolean().optional().default(false),
+});
+
+export type StoreSaleUpdateInput = z.infer<typeof storeSaleUpdateSchema>;
+
 export const storeSaleIdSchema = z.object({ sale_id: z.guid() });
 
 function isRealDate(value: string): boolean {

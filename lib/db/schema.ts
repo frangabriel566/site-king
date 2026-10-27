@@ -820,6 +820,9 @@ export const store_sales = sqliteTable(
     subtotal: real("subtotal").notNull(),
     discount: real("discount").notNull().default(0),
     total: real("total").notNull(),
+    /** Paid in cash: what the customer handed over. The change is this
+     * minus `total`. Null for every other payment, or when not typed. */
+    cash_received: real("cash_received"),
     note: text("note"),
     /** The admin's e-mail. */
     created_by: text("created_by"),

@@ -21,6 +21,14 @@ export const storeSaleSchema = z.object({
     .max(STORE_SALE_MAX_LINES, `No máximo ${STORE_SALE_MAX_LINES} peças diferentes por venda.`),
   discount: z.coerce.number().min(0, "Desconto não pode ser negativo.").default(0),
   paymentMethod: z.enum(STORE_PAYMENT_METHODS, { message: "Escolha a forma de pagamento." }),
+  /** Dinheiro: what the customer handed over, for the change. Optional. */
+  cashReceived: z.coerce
+    .number()
+    .min(0, "Valor recebido não pode ser negativo.")
+    .max(1_000_000)
+    .nullable()
+    .optional()
+    .default(null),
   customerId: z.guid().nullable().optional().default(null),
   note: z
     .string()

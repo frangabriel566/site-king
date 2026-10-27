@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { CircleDollarSign, Plus, Receipt, Shirt, ShoppingBag } from "lucide-react";
 import { getFirstStoreSaleYear, getStoreSalesDashboard } from "@/lib/data/store-sales";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
+import { roundMoney } from "@/lib/money";
 import { formatLocalDateTime, localToday, resolvePeriod, MONTH_NAMES, type Period } from "@/lib/store-sales/period";
 import { STORE_PAYMENT_LABEL } from "@/lib/store-sales/payment-methods";
 import { SafeImage } from "@/components/shop/safe-image";
@@ -267,6 +268,12 @@ export default async function StoreSalesPage({
                       </TableCell>
                       <TableCell className="text-ink-muted">
                         {STORE_PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method}
+                        {sale.cash_received !== null && (
+                          <span className="mt-0.5 block whitespace-nowrap text-xs">
+                            recebeu {formatCurrency(sale.cash_received)}
+                            <span className="block">troco {formatCurrency(roundMoney(sale.cash_received - sale.total))}</span>
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <span className={canceled ? "line-through" : undefined}>{formatCurrency(sale.total)}</span>

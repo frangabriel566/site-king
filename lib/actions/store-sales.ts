@@ -38,6 +38,7 @@ const SALE_ERRORS: Record<StoreSaleErrorCode, string> = {
   VARIANT_NOT_FOUND: "Uma das peças não está mais no catálogo. Busque de novo e tente outra vez.",
   OUT_OF_STOCK: "Sem estoque suficiente de uma das peças. Nada foi baixado.",
   DISCOUNT_TOO_HIGH: "O desconto não pode ser maior que o valor das peças.",
+  CASH_TOO_LOW: "O valor recebido não cobre o total. Nada foi baixado.",
   CUSTOMER_NOT_FOUND: "O cliente escolhido não está mais cadastrado.",
   NOT_FOUND: "Venda não encontrada.",
   ALREADY_CANCELED: "Esta baixa já foi desfeita.",
@@ -48,6 +49,9 @@ function translateSaleError(error: unknown, fallback: string): string {
   // The piece that ran out is what the store needs to know.
   if (error.code === "OUT_OF_STOCK" && error.detail) {
     return `Sem estoque suficiente de ${error.detail}. Nada foi baixado.`;
+  }
+  if (error.code === "CASH_TOO_LOW" && error.detail) {
+    return `O valor recebido não cobre o total: faltam ${error.detail}. Nada foi baixado.`;
   }
   return SALE_ERRORS[error.code];
 }
@@ -63,11 +67,13 @@ export async function createStoreSaleAction(input: unknown): Promise<StoreSaleAc
   try {
     const sale = await createStoreSale(parsed.data, admin.email);
     revalidateStoreSales();
+    const change =
+      sale.change === null ? "" : sale.change > 0 ? ` Troco: ${formatCurrency(sale.change)}.` : " Sem troco.";
     return {
       ok: true,
       message: `Venda #${sale.saleNumber} registrada: ${sale.pieces} ${
         sale.pieces === 1 ? "peça baixada" : "peças baixadas"
-      }, ${formatCurrency(sale.total)}.`,
+      }, ${formatCurrency(sale.total)}.${change}`,
     };
   } catch (error) {
     if (!(error instanceof StoreSaleError)) console.error("[createStoreSaleAction]", error);

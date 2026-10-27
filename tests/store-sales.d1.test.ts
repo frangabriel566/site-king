@@ -127,6 +127,63 @@ describe("Dar baixa", () => {
     expect(await stock(SHIRT)).toBe(10);
   });
 
+  describe("dinheiro", () => {
+    it("keeps what was received and tells the change", async () => {
+      const result = await sale([{ variantId: SHIRT, qty: 1, unitPrice: 80 }], {
+        paymentMethod: "dinheiro",
+        discount: 15,
+        cashReceived: 100,
+      });
+      expect(result).toEqual({
+        ok: true,
+        message: `Venda #1 registrada: 1 peça baixada, ${formatCurrency(65)}. Troco: ${formatCurrency(35)}.`,
+      });
+      const [row] = await state.db.select().from(store_sales);
+      expect(row).toMatchObject({ total: 65, cash_received: 100 });
+
+      // The history reads it back.
+      await state.db.update(store_sales).set({ created_at: "2026-10-26T15:00:00.000Z" });
+      const period = resolvePeriod({ periodo: "dia", data: "2026-10-26" }, new Date("2026-10-26T18:00:00.000Z"));
+      const { list } = await getStoreSalesDashboard(period);
+      expect(list[0]).toMatchObject({ total: 65, cash_received: 100 });
+    });
+
+    it("says when there is no change", async () => {
+      const result = await sale([{ variantId: SHIRT, qty: 1, unitPrice: 79.9 }], {
+        paymentMethod: "dinheiro",
+        cashReceived: 79.9,
+      });
+      expect(result.ok && result.message).toMatch(/ Sem troco\.$/);
+    });
+
+    it("refuses an amount below the total and changes nothing", async () => {
+      const result = await sale([{ variantId: SHIRT, qty: 2, unitPrice: 80 }], {
+        paymentMethod: "dinheiro",
+        cashReceived: 150,
+      });
+      expect(result).toEqual({
+        ok: false,
+        message: `O valor recebido não cobre o total: faltam ${formatCurrency(10)}. Nada foi baixado.`,
+      });
+      expect(await stock(SHIRT)).toBe(10);
+      expect(await state.db.select().from(store_sales)).toHaveLength(0);
+    });
+
+    it("is optional", async () => {
+      const result = await sale([{ variantId: SHIRT, qty: 1, unitPrice: 80 }], { paymentMethod: "dinheiro" });
+      expect(result).toEqual({ ok: true, message: `Venda #1 registrada: 1 peça baixada, ${formatCurrency(80)}.` });
+      const [row] = await state.db.select().from(store_sales);
+      expect(row.cash_received).toBeNull();
+    });
+
+    it("is never kept for another payment", async () => {
+      const result = await sale([{ variantId: SHIRT, qty: 1, unitPrice: 80 }], { paymentMethod: "pix", cashReceived: 10 });
+      expect(result.ok && result.message).not.toMatch(/troco/i);
+      const [row] = await state.db.select().from(store_sales);
+      expect(row.cash_received).toBeNull();
+    });
+  });
+
   it("keeps the customer's name on the sale", async () => {
     const created = await createStoreCustomerAction({ name: "Ana Souza", phone: "(11) 98888-7777", birthdate: "" });
     if (!created.ok) throw new Error(created.message);

@@ -5,7 +5,7 @@ import { insertChunks, runBatch } from "@/lib/db/batch";
 import { isCheckViolation } from "@/lib/db/errors";
 import { nextStoreSaleNumber } from "@/lib/db/sequences";
 import { roundMoney } from "@/lib/money";
-import { formatVariantLabel } from "@/lib/format";
+import { formatCurrency, formatVariantLabel } from "@/lib/format";
 import type { StoreSaleInput } from "@/lib/validations/store-sale";
 
 /**
@@ -25,6 +25,8 @@ export type StoreSaleErrorCode =
   /** detail: the piece, e.g. "Moletom — Preto · M (restam 2)". */
   | "OUT_OF_STOCK"
   | "DISCOUNT_TOO_HIGH"
+  /** detail: what is missing, e.g. "R$ 5,00". */
+  | "CASH_TOO_LOW"
   | "CUSTOMER_NOT_FOUND"
   | "NOT_FOUND"
   | "ALREADY_CANCELED";
@@ -38,7 +40,14 @@ export class StoreSaleError extends Error {
   }
 }
 
-export type CreatedStoreSale = { id: string; saleNumber: number; total: number; pieces: number };
+export type CreatedStoreSale = {
+  id: string;
+  saleNumber: number;
+  total: number;
+  pieces: number;
+  /** Dinheiro with the amount received typed in; null otherwise. */
+  change: number | null;
+};
 
 export async function createStoreSale(
   input: StoreSaleInput,
@@ -91,6 +100,13 @@ export async function createStoreSale(
   const discount = roundMoney(input.discount);
   if (discount > subtotal) throw new StoreSaleError("DISCOUNT_TOO_HIGH");
   const total = roundMoney(subtotal - discount);
+  // Only cash has change. The form blocks a short amount; this is the check
+  // that counts, against the total worked out here.
+  const cashReceived =
+    input.paymentMethod === "dinheiro" && input.cashReceived !== null ? roundMoney(input.cashReceived) : null;
+  if (cashReceived !== null && cashReceived < total) {
+    throw new StoreSaleError("CASH_TOO_LOW", formatCurrency(roundMoney(total - cashReceived)));
+  }
   const saleId = crypto.randomUUID();
 
   let results;
@@ -107,6 +123,7 @@ export async function createStoreSale(
           subtotal,
           discount,
           total,
+          cash_received: cashReceived,
           note: input.note,
           created_by: createdBy,
           created_at: now,
@@ -151,6 +168,7 @@ export async function createStoreSale(
     saleNumber: created.sale_number,
     total,
     pieces: input.items.reduce((sum, item) => sum + item.qty, 0),
+    change: cashReceived === null ? null : roundMoney(cashReceived - total),
   };
 }
 

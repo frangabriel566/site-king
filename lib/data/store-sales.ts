@@ -58,6 +58,7 @@ export type StoreSaleListItem = {
   subtotal: number;
   discount: number;
   total: number;
+  cash_received: number | null;
   note: string | null;
   created_by: string | null;
   canceled_at: string | null;
@@ -166,6 +167,7 @@ export async function getStoreSalesDashboard(period: Period): Promise<StoreSales
         subtotal: true,
         discount: true,
         total: true,
+        cash_received: true,
         note: true,
         created_by: true,
         canceled_at: true,

@@ -45,6 +45,13 @@ const STATUS_NOTE: Record<StoreProductResult["status"], string | null> = {
   archived: "Fora do site",
 };
 
+/** The round amounts a customer usually pays a cash total with: R$ 85 → 90, 100, 200. */
+function cashSuggestions(total: number): number[] {
+  if (total <= 0) return [];
+  const amounts = [10, 50, 100, 200].map((step) => Math.ceil(total / step) * step).filter((value) => value > total);
+  return [...new Set(amounts)].slice(0, 3);
+}
+
 /**
  * "Nova baixa": the pieces sold at the counter. Nothing leaves stock until
  * "Dar baixa" is confirmed — then all of it at once, or none of it if a
@@ -57,6 +64,8 @@ export function StoreSaleForm() {
   const [lines, setLines] = useState<Line[]>([]);
   const [discount, setDiscount] = useState("");
   const [payment, setPayment] = useState<StorePaymentMethod | null>(null);
+  /** Dinheiro: what the customer handed over. Dot-decimal; "" = not typed. */
+  const [cash, setCash] = useState("");
   const [customer, setCustomer] = useState<StoreCustomerOption | null>(null);
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -154,12 +163,18 @@ export function StoreSaleForm() {
   const total = roundMoney(Math.max(0, subtotal - discountValue));
   const pieces = lines.reduce((sum, line) => sum + line.qty, 0);
   const discountTooHigh = discountValue > subtotal;
-  const canSubmit = lines.length > 0 && payment !== null && !discountTooHigh && !pending;
+  // Worked out from the total on every render, so a later discount or price
+  // change moves the change with it.
+  const cashReceived = payment === "dinheiro" && cash !== "" ? roundMoney(Number(cash) || 0) : null;
+  const change = cashReceived === null ? null : roundMoney(cashReceived - total);
+  const cashShort = change !== null && change < 0;
+  const canSubmit = lines.length > 0 && payment !== null && !discountTooHigh && !cashShort && !pending;
 
   function reset() {
     setLines([]);
     setDiscount("");
     setPayment(null);
+    setCash("");
     setCustomer(null);
     setNote("");
     setTerm("");
@@ -179,6 +194,7 @@ export function StoreSaleForm() {
         })),
         discount: discountValue,
         paymentMethod: payment,
+        cashReceived,
         customerId: customer?.id ?? null,
         note,
       });
@@ -421,6 +437,46 @@ export function StoreSaleForm() {
               <dd className="tabular-nums">{formatCurrency(total)}</dd>
             </div>
           </dl>
+
+          {payment === "dinheiro" && (
+            <div className="mt-5 flex flex-col gap-2 border-t border-line pt-4">
+              <Label htmlFor="store-sale-cash">Valor recebido (para o troco)</Label>
+              <CurrencyInput id="store-sale-cash" name="cash_received" value={cash} onValueChange={setCash} />
+              {total > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {[total, ...cashSuggestions(total)].map((amount, index) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setCash(amount.toFixed(2))}
+                      aria-pressed={cashReceived === amount}
+                      className={`rounded-md border px-2.5 py-1.5 text-xs tabular-nums transition-colors duration-150 ease-out ${
+                        cashReceived === amount
+                          ? "border-[var(--accent)] bg-[var(--accent-soft-hover)] text-fg"
+                          : "border-line-strong bg-field hover:border-[var(--accent)] hover:text-fg"
+                      }`}
+                    >
+                      {index === 0 ? "Valor exato" : formatCurrency(amount)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div aria-live="polite">
+                {change !== null &&
+                  (cashShort ? (
+                    <p className="flex justify-between text-sm font-medium text-[var(--danger)]">
+                      <span>Faltam</span>
+                      <span className="tabular-nums">{formatCurrency(-change)}</span>
+                    </p>
+                  ) : (
+                    <p className="flex items-baseline justify-between text-lg font-semibold">
+                      <span>Troco</span>
+                      <span className="tabular-nums">{change > 0 ? formatCurrency(change) : "Sem troco"}</span>
+                    </p>
+                  ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="rounded-lg border border-line bg-card p-4 md:p-6">
@@ -444,6 +500,9 @@ export function StoreSaleForm() {
           </Button>
           {lines.length > 0 && payment === null && (
             <p className="text-center text-xs text-ink-muted">Escolha a forma de pagamento.</p>
+          )}
+          {lines.length > 0 && cashShort && (
+            <p className="text-center text-xs text-ink-muted">O valor recebido não cobre o total.</p>
           )}
           <Link href="/admin/vendas-loja" className="text-center text-xs text-ink-muted hover:text-fg">
             Ver o resumo das vendas
@@ -483,6 +542,18 @@ export function StoreSaleForm() {
               <dt>Total · {payment ? STORE_PAYMENT_LABEL[payment] : ""}</dt>
               <dd>{formatCurrency(total)}</dd>
             </div>
+            {cashReceived !== null && change !== null && (
+              <>
+                <div className="flex justify-between text-ink-muted">
+                  <dt>Recebido</dt>
+                  <dd>{formatCurrency(cashReceived)}</dd>
+                </div>
+                <div className="flex justify-between text-base font-semibold">
+                  <dt>Troco</dt>
+                  <dd>{change > 0 ? formatCurrency(change) : "Sem troco"}</dd>
+                </div>
+              </>
+            )}
             {customer && (
               <div className="flex justify-between text-ink-muted">
                 <dt>Cliente</dt>

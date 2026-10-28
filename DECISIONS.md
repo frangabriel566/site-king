@@ -1832,3 +1832,14 @@ Mercado Pago, salvo com credenciais de teste.
   recusa sem opção, opção sumida ou preço mudado) e
   `tests/integrations.d1.test.ts` (checkout aberto com os dois ativos; em
   teste, só para o admin).
+- **Admin sem cadastro de cliente compra** (ajuste no mesmo dia): a conta
+  criada por `scripts/create-admin.mjs` não tem linha em `customers`, e o
+  checkout barrava com "Complete seu cadastro". Na primeira compra do
+  admin, o servidor cria uma linha mínima (nome ou e-mail), para o dono
+  testar o checkout com a conta do painel. Cliente sem cadastro continua
+  barrado.
+- **Cupom no checkout vira pergunta** (pedido do dono da loja): o campo
+  saiu do resumo. Ao tocar em "Finalizar pedido" (site ou WhatsApp), uma
+  janela pergunta "Você tem cupom de desconto?", com o campo e "Não tenho
+  cupom, finalizar". Com cupom já aplicado (na sacola ou na janela), não
+  pergunta de novo. A sacola, a gaveta e o produto continuam com o campo.

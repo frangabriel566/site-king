@@ -2,16 +2,16 @@
 
 import { SafeImage } from "@/components/shop/safe-image";
 import { formatCurrency, formatVariantLabel } from "@/lib/format";
-import { CouponField } from "@/components/shop/coupon-field";
 import { OrderTotals } from "@/components/shop/order-totals";
 import type { BagCoupon } from "@/lib/hooks/use-bag-coupon";
 import type { RevisedItem } from "@/lib/data/checkout";
 import type { ShippingMode } from "@/lib/shipping-mode";
 
 /**
- * The checkout's summary: what is being bought, the coupon field (the one
- * applied in the bag comes along already applied), and the same totals
- * block as the bag. The coupon's amount is the server's answer
+ * The checkout's summary: what is being bought and the same totals block
+ * as the bag. The coupon is asked for when the shopper finishes (the
+ * checkout's "Você tem cupom de desconto?"); one applied in the bag comes
+ * along and shows here as the discount line. The coupon's amount is the server's answer
  * (useBagCoupon); createOrderAction checks it again before recording it.
  */
 export function OrderSummary({
@@ -55,8 +55,6 @@ export function OrderSummary({
           </li>
         ))}
       </ul>
-
-      <CouponField coupon={coupon} className="mb-5 border-t border-line pt-5" />
 
       <OrderTotals
         subtotal={subtotal}

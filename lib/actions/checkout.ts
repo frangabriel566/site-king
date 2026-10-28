@@ -115,7 +115,19 @@ export async function createOrderAction(
     return { ok: false, message: "Você precisa entrar para finalizar a compra." };
   }
 
-  const customer = await getCustomerForUser(user.id);
+  let customer = await getCustomerForUser(user.id);
+  // The store's own admin account (scripts/create-admin.mjs) has no
+  // customer row — it never went through the shop's sign-up — and the
+  // order and the address both point at one. It gets a bare row on its
+  // first purchase, so the owner can test the checkout with the account
+  // the panel already knows. A shopper always has one from sign-up.
+  if (!customer && user.role === "admin") {
+    await getDb()
+      .insert(schema.customers)
+      .values({ id: user.id, name: user.name || user.email, phone: "", birthdate: "" })
+      .onConflictDoNothing();
+    customer = await getCustomerForUser(user.id);
+  }
   if (!customer) {
     return { ok: false, message: "Complete seu cadastro antes de continuar." };
   }

@@ -18,6 +18,7 @@ import { createTestDb } from "./support/d1";
 const state = vi.hoisted(() => ({
   db: null as unknown as Db,
   userId: null as string | null,
+  role: "customer" as "admin" | "customer",
 }));
 
 vi.mock("@/lib/db", async () => ({
@@ -26,7 +27,9 @@ vi.mock("@/lib/db", async () => ({
 }));
 vi.mock("@/lib/auth/guards", () => ({
   getCurrentUser: async () =>
-    state.userId ? { id: state.userId, email: "cliente@teste.com" } : null,
+    state.userId
+      ? { id: state.userId, email: "cliente@teste.com", name: "", role: state.role }
+      : null,
   requireAdmin: async () => undefined,
   requireAdminPage: async () => undefined,
 }));
@@ -84,7 +87,11 @@ beforeAll(async () => {
     { code: "DEZ", type: "percent", value: 10 },
     { code: "FRETE", type: "fixed", value: 0, free_shipping: true },
   ]);
-  await db.insert(user).values({ id: CUSTOMER, name: "Ana", email: "cliente@teste.com" });
+  await db.insert(user).values([
+    { id: CUSTOMER, name: "Ana", email: "cliente@teste.com" },
+    // The store's admin (scripts/create-admin.mjs): no customer row.
+    { id: "u-admin", name: "Dono", email: "dono@kingstore.test" },
+  ]);
   await db.insert(customers).values({
     id: CUSTOMER,
     name: "Ana Souza",
@@ -229,6 +236,32 @@ describe("o frete do checkout", () => {
       if (result.ok) return;
       expect(result.freightChanged).toBe(true);
     }
+  });
+});
+
+describe("a conta de admin no checkout", () => {
+  it("compra sem cadastro de cliente: ganha um na primeira compra; um cliente sem cadastro continua barrado", async () => {
+    const base = {
+      address: ADDRESS,
+      method: "whatsapp" as const,
+      freight: { serviceId: 1, expectedPrice: 25.5 },
+      items: [{ variantId: V1, qty: 1 }],
+    };
+    state.userId = "u-admin";
+    state.role = "admin";
+    const result = await createOrderAction(base);
+    expect(result.ok).toBe(true);
+    const row = await state.db.query.customers.findFirst({ where: eq(customers.id, "u-admin") });
+    expect(row?.name).toBe("cliente@teste.com");
+    // Twice is fine: the row is reused.
+    expect((await createOrderAction(base)).ok).toBe(true);
+
+    await state.db.insert(user).values({ id: "u-sem-cadastro", name: "X", email: "x@teste.com" });
+    state.userId = "u-sem-cadastro";
+    state.role = "customer";
+    const refused = await createOrderAction(base);
+    expect(refused.ok).toBe(false);
+    state.userId = CUSTOMER;
   });
 });
 

@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CouponField } from "@/components/shop/coupon-field";
 import { AuthTabs } from "@/components/shop/auth-tabs";
 import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from "@/components/shop/address-fields";
 import { OrderSummary } from "@/components/shop/order-summary";
@@ -67,6 +75,9 @@ export function CheckoutWizard({
   const [revised, setRevised] = useState<RevisedItem[]>([]);
   const [revising, setRevising] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // "Você tem cupom de desconto?" — asked once the shopper finishes,
+  // instead of a field in the summary (pedido do dono da loja).
+  const [couponAsk, setCouponAsk] = useState(false);
   // The Frete step: Melhor Envio options for the address's CEP and the bag
   // as the server has it. `quotedFor` is what they were quoted against —
   // a different CEP or bag asks again.
@@ -150,7 +161,14 @@ export function CheckoutWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, revising, quoteKey]);
 
+  function requestFinish() {
+    // A coupon already applied (in the bag, or just now) needs no question.
+    if (coupon.applied) void handleFinish();
+    else setCouponAsk(true);
+  }
+
   async function handleFinish() {
+    setCouponAsk(false);
     setSubmitting(true);
     const result = await createOrderAction({
       address,
@@ -412,7 +430,7 @@ export function CheckoutWizard({
               <Button
                 size="lg"
                 className="bg-buy text-white hover:bg-buy-hover"
-                onClick={handleFinish}
+                onClick={requestFinish}
                 disabled={submitting || revising || !charge}
               >
                 {submitting ? "Finalizando…" : "Finalizar pedido"}
@@ -421,6 +439,38 @@ export function CheckoutWizard({
           </div>
         )}
       </div>
+
+      <Dialog open={couponAsk} onOpenChange={setCouponAsk}>
+        <DialogContent className="storefront-theme bg-white text-fg sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Você tem cupom de desconto?</DialogTitle>
+            <DialogDescription>Se tiver, adicione aqui antes de finalizar.</DialogDescription>
+          </DialogHeader>
+          <CouponField coupon={coupon} />
+          <div className="mt-2 flex flex-col gap-2">
+            {coupon.applied ? (
+              <Button
+                size="lg"
+                className="w-full bg-buy text-white hover:bg-buy-hover"
+                onClick={() => void handleFinish()}
+                disabled={submitting}
+              >
+                Finalizar com o cupom
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full"
+                onClick={() => void handleFinish()}
+                disabled={submitting || coupon.loading}
+              >
+                Não tenho cupom, finalizar
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <OrderSummary
         items={revised}

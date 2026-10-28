@@ -10,9 +10,15 @@ import { AddressFields, EMPTY_ADDRESS, type AddressFieldsValue } from "@/compone
 import { OrderSummary } from "@/components/shop/order-summary";
 import { EmptyState } from "@/components/shop/empty-state";
 import { getCheckoutContextAction } from "@/lib/actions/checkout-context";
-import { reviseCartAction, createOrderAction } from "@/lib/actions/checkout";
+import {
+  reviseCartAction,
+  createOrderAction,
+  quoteCheckoutFreightAction,
+} from "@/lib/actions/checkout";
+import { formatCurrency } from "@/lib/format";
+import type { ShippingQuote } from "@/lib/shipping/melhor-envio";
 import { CHECKOUT_METHODS, type CheckoutMethod } from "@/lib/constants";
-import { shippingModeFor } from "@/lib/orders/summary";
+import { cheapestFreight, freightCharge, shippingModeFor } from "@/lib/orders/summary";
 import { useShopConfig } from "@/components/shop/shop-config-provider";
 import type { RevisedItem } from "@/lib/data/checkout";
 import { useBagCoupon } from "@/lib/hooks/use-bag-coupon";
@@ -61,6 +67,14 @@ export function CheckoutWizard({
   const [revised, setRevised] = useState<RevisedItem[]>([]);
   const [revising, setRevising] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // The Frete step: Melhor Envio options for the address's CEP and the bag
+  // as the server has it. `quotedFor` is what they were quoted against —
+  // a different CEP or bag asks again.
+  const [quotes, setQuotes] = useState<ShippingQuote[] | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [quotedFor, setQuotedFor] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState<number | null>(null);
 
   useEffect(() => {
     getCheckoutContextAction().then((ctx) => {
@@ -91,17 +105,50 @@ export function CheckoutWizard({
     [revised],
   );
 
-  // The store's rule or a free-shipping coupon, else agreed on WhatsApp —
-  // createOrderAction prices it the same way (lib/orders/pricing.ts). The
-  // Melhor Envio quote will replace "a combinar" here.
-  const shippingMode = shippingModeFor(
-    subtotal,
-    freeShippingThreshold,
-    Boolean(coupon.applied?.freeShipping),
-  );
-  // Online payment takes the whole bill, and a freight still to be agreed
-  // isn't in it: the server refuses it too.
-  const canPayOnline = onlineAvailable && shippingMode !== "to_agree";
+  // The store's rule or a free-shipping coupon decides whether the cheapest
+  // option is free; createOrderAction charges the same way
+  // (lib/orders/pricing.ts → freightCharge).
+  const freeShippingApplies =
+    shippingModeFor(subtotal, freeShippingThreshold, Boolean(coupon.applied?.freeShipping)) === "free";
+  const charge =
+    quotes && serviceId !== null ? freightCharge(quotes, serviceId, freeShippingApplies) : null;
+  const chosenQuote = quotes?.find((q) => q.serviceId === serviceId) ?? null;
+  const shippingMode = charge?.shippingMode ?? "charged";
+  const shipping = charge?.shipping ?? 0;
+  const canPayOnline = onlineAvailable && charge !== null;
+
+  const quoteKey = `${address.cep.replace(/\D/g, "")}|${items
+    .map((i) => `${i.variantId}:${i.qty}`)
+    .join(",")}`;
+
+  async function loadQuotes() {
+    setQuoting(true);
+    setQuoteError(null);
+    const result = await quoteCheckoutFreightAction(
+      address.cep,
+      items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
+    );
+    setQuoting(false);
+    setQuotedFor(quoteKey);
+    if (!result.ok) {
+      setQuotes(null);
+      setServiceId(null);
+      setQuoteError(result.message);
+      return;
+    }
+    setQuotes(result.quotes);
+    // Keeps the pick if it is still offered; else the cheapest.
+    setServiceId((current) =>
+      current !== null && result.quotes.some((q) => q.serviceId === current)
+        ? current
+        : (cheapestFreight(result.quotes)?.serviceId ?? null),
+    );
+  }
+
+  useEffect(() => {
+    if (step === 3 && !revising && quotedFor !== quoteKey && !quoting) void loadQuotes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, revising, quoteKey]);
 
   async function handleFinish() {
     setSubmitting(true);
@@ -109,6 +156,8 @@ export function CheckoutWizard({
       address,
       method: canPayOnline ? checkoutMethod : "whatsapp",
       couponCode: coupon.applied?.code ?? undefined,
+      freight:
+        serviceId !== null && charge ? { serviceId, expectedPrice: charge.shipping } : undefined,
       items: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
     });
     setSubmitting(false);
@@ -118,6 +167,12 @@ export function CheckoutWizard({
       // off it comes, the summary shows the real total, and the shopper
       // decides again.
       if (result.couponRejected) coupon.remove();
+      // The freight changed under the shopper: back to the Frete step with
+      // fresh options.
+      if (result.freightChanged) {
+        setQuotedFor(null);
+        setStep(3);
+      }
       toast.error(result.message);
       return;
     }
@@ -233,20 +288,60 @@ export function CheckoutWizard({
         {step === 3 && (
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Frete</h2>
-            {/* No price and nothing to pick: with no quote, the freight is
-                free (the store's rule or the coupon) or agreed on WhatsApp. */}
-            <p
-              className={`rounded-lg border border-line p-4 text-sm ${
-                shippingMode === "free" ? "font-semibold text-buy" : "text-fg"
-              }`}
-            >
-              {shippingMode === "free" ? "Frete grátis" : "Frete a combinar pelo WhatsApp"}
-            </p>
+            {quoting || revising ? (
+              <p className="text-sm text-ink-muted">Calculando o frete para o CEP {address.cep}…</p>
+            ) : quoteError ? (
+              <div className="rounded-lg border border-line p-4 text-sm">
+                <p className="text-fg">{quoteError}</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => void loadQuotes()}>
+                  Tentar de novo
+                </Button>
+              </div>
+            ) : quotes ? (
+              <div className="flex flex-col gap-3" role="radiogroup" aria-label="Opções de frete">
+                {quotes.map((quote) => {
+                  const price = freightCharge(quotes, quote.serviceId, freeShippingApplies);
+                  const selected = serviceId === quote.serviceId;
+                  return (
+                    <label
+                      key={quote.serviceId}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 text-sm transition-colors duration-150 ease-out ${
+                        selected ? "border-fg" : "border-line hover:border-ink-muted"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="freight-option"
+                        checked={selected}
+                        onChange={() => setServiceId(quote.serviceId)}
+                        className="accent-fg"
+                      />
+                      <span className="min-w-0 flex-1">
+                        {[quote.company, quote.name].filter(Boolean).join(" ")}
+                        <span className="block text-xs text-ink-muted">
+                          Até {quote.deliveryDays} {quote.deliveryDays === 1 ? "dia útil" : "dias úteis"} após a postagem
+                        </span>
+                      </span>
+                      <span
+                        className={
+                          price?.shippingMode === "free" ? "font-semibold text-buy" : "font-semibold text-fg"
+                        }
+                      >
+                        {price?.shippingMode === "free" ? "Grátis" : formatCurrency(price?.shipping ?? quote.price)}
+                      </span>
+                    </label>
+                  );
+                })}
+                {freeShippingApplies && quotes.length > 1 && (
+                  <p className="text-xs text-ink-muted">O frete grátis vale para a opção mais barata.</p>
+                )}
+              </div>
+            ) : null}
             <div className="mt-8 flex gap-3">
               <Button variant="outline" size="lg" onClick={() => setStep(2)}>
                 Voltar
               </Button>
-              <Button size="lg" onClick={() => setStep(4)}>
+              <Button size="lg" onClick={() => setStep(4)} disabled={!charge || quoting}>
                 Continuar
               </Button>
             </div>
@@ -256,6 +351,16 @@ export function CheckoutWizard({
         {step === 4 && (
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Pagamento</h2>
+
+            {charge && (
+              <p className="mb-4 max-w-sm text-sm text-ink-muted">
+                Frete:{" "}
+                <span className="text-fg">
+                  {[chosenQuote?.company, chosenQuote?.name].filter(Boolean).join(" ")}{" "}
+                  — {charge.shippingMode === "free" ? "grátis" : formatCurrency(charge.shipping)}
+                </span>
+              </p>
+            )}
 
             {canPayOnline ? (
               <>
@@ -308,7 +413,7 @@ export function CheckoutWizard({
                 size="lg"
                 className="bg-buy text-white hover:bg-buy-hover"
                 onClick={handleFinish}
-                disabled={submitting || revising}
+                disabled={submitting || revising || !charge}
               >
                 {submitting ? "Finalizando…" : "Finalizar pedido"}
               </Button>
@@ -321,6 +426,8 @@ export function CheckoutWizard({
         items={revised}
         subtotal={subtotal}
         shippingMode={shippingMode}
+        shipping={shipping}
+        shippingPending={charge ? undefined : "calculado no passo Frete"}
         coupon={coupon}
       />
     </div>

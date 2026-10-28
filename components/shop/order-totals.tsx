@@ -23,6 +23,8 @@ export function OrderTotals({
   itemCount,
   coupon,
   shippingMode,
+  shipping = 0,
+  shippingPending,
   className = "",
 }: {
   subtotal: number;
@@ -30,6 +32,11 @@ export function OrderTotals({
   itemCount: number;
   coupon: AppliedCoupon | null;
   shippingMode: ShippingMode;
+  /** The freight charged, read when `shippingMode` is "charged". */
+  shipping?: number;
+  /** The checkout before a freight option is picked: the freight line says
+   * this instead of a price, and the total is the products'. */
+  shippingPending?: string;
   className?: string;
 }) {
   const lines = orderSummaryLines({
@@ -38,7 +45,10 @@ export function OrderTotals({
     discount: coupon?.discount ?? 0,
     couponCode: coupon?.code ?? null,
     shippingMode,
-  });
+    shipping,
+  }).map((line) =>
+    shippingPending && line.kind === "shipping" ? { ...line, value: shippingPending } : line,
+  );
 
   return (
     <dl className={`flex flex-col gap-2 text-sm ${className}`} aria-live="polite">

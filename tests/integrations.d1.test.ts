@@ -10,14 +10,17 @@ import { createTestDb } from "./support/d1";
  * mode following the switches, the environment variables as fallback.
  */
 
-const state = vi.hoisted(() => ({ db: null as unknown as Db }));
+const state = vi.hoisted(() => ({
+  db: null as unknown as Db,
+  viewer: null as null | { id: string; email: string; role: "admin" | "customer" },
+}));
 
 vi.mock("@/lib/db", async () => ({
   getDb: () => state.db,
   schema: await import("@/lib/db/schema"),
 }));
 vi.mock("@/lib/auth/guards", () => ({
-  getCurrentUser: async () => null,
+  getCurrentUser: async () => state.viewer,
   requireAdmin: async () => ({ id: "admin-1", email: "dono@kingstore.test", role: "admin" }),
   requireAdminPage: async () => ({ id: "admin-1", email: "dono@kingstore.test", role: "admin" }),
 }));
@@ -194,7 +197,7 @@ describe("Melhor Envio no painel", () => {
 });
 
 describe("modo de venda", () => {
-  it("segue as chaves do painel, sem deploy (o checkout só abre com a Etapa 3)", async () => {
+  it("segue as chaves do painel, sem deploy (o checkout precisa dos dois ativos)", async () => {
     await saveMercadoPago();
     mockFetch(200, { nickname: "KINGSTORE" });
     await actions.testIntegrationAction("mercadopago");
@@ -207,6 +210,44 @@ describe("modo de venda", () => {
     expect(await getMercadoPagoCredentials({ requireActive: true })).toBeNull();
     // The webhook still reaches the account after it was switched off.
     expect(await getMercadoPagoCredentials({ requireActive: false })).toMatchObject({ accessToken: MP_TOKEN });
+  });
+
+  it("com os dois ativos o checkout abre; com o Mercado Pago em teste, só para o admin", async () => {
+    // Melhor Envio on (any environment: it only quotes).
+    await actions.saveMelhorEnvioAction(
+      { status: "idle" },
+      form({ environment: "test", token: ME_TOKEN, email: "contato@kingstore.test" }),
+    );
+    mockFetch(200, { firstname: "King" });
+    await actions.testIntegrationAction("melhorenvio");
+    expect((await actions.setIntegrationActiveAction("melhorenvio", true)).ok).toBe(true);
+    const settings = { origin_cep: "01310100" };
+
+    // Mercado Pago in production: open to everyone.
+    await saveMercadoPago();
+    mockFetch(200, { nickname: "KINGSTORE" });
+    await actions.testIntegrationAction("mercadopago");
+    await actions.setIntegrationActiveAction("mercadopago", true);
+    state.viewer = null;
+    expect(await getSalesMode(settings)).toMatchObject({
+      freightQuotes: true,
+      checkoutOpen: true,
+      checkoutTestOnly: false,
+    });
+
+    // Test credentials: a visitor and a customer stay on WhatsApp, the
+    // admin gets the checkout to test with.
+    await saveMercadoPago("TEST-1111111111111111-090909-abcdefabcdef-123456789", "test");
+    mockFetch(200, { nickname: "TESTUSER123" });
+    await actions.testIntegrationAction("mercadopago");
+    expect((await actions.setIntegrationActiveAction("mercadopago", true)).ok).toBe(true);
+    for (const viewer of [null, { id: "c-1", email: "cliente@x.com", role: "customer" as const }]) {
+      state.viewer = viewer;
+      expect(await getSalesMode(settings)).toMatchObject({ checkoutOpen: false, checkoutTestOnly: true });
+    }
+    state.viewer = { id: "admin-1", email: "dono@kingstore.test", role: "admin" };
+    expect(await getSalesMode(settings)).toMatchObject({ checkoutOpen: true, checkoutTestOnly: true });
+    state.viewer = null;
   });
 
   it("sem nada salvo no painel, as variáveis de ambiente valem; salvas no painel, o painel decide", async () => {

@@ -34,9 +34,13 @@ type Issued = {
 export function ShippingLabel({
   orderId,
   initial,
+  preferredServiceId = null,
 }: {
   orderId: string;
   initial: Issued | null;
+  /** The option the shopper picked and paid for at the checkout: the quote
+   * selects it first, so the label matches what was charged. */
+  preferredServiceId?: number | null;
 }) {
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [selected, setSelected] = useState<Quote | null>(null);
@@ -65,7 +69,7 @@ export function ShippingLabel({
       const data = await call({ action: "quote" });
       const list = (data.quotes ?? []) as Quote[];
       setQuotes(list);
-      setSelected(list[0] ?? null);
+      setSelected(list.find((q) => q.serviceId === preferredServiceId) ?? list[0] ?? null);
       if (list.length === 0) toast.error("Nenhuma transportadora atende esse endereço.");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Erro ao cotar.");

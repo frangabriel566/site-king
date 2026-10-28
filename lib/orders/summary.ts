@@ -29,6 +29,36 @@ export function shippingModeFor(
     : "to_agree";
 }
 
+/** What a freight option costs this order — the Melhor Envio quote, with
+ * the free-shipping rule (the store's or the coupon's) covering only the
+ * cheapest option: the shopper who wants it faster pays for the faster
+ * one. The checkout shows these prices and the server charges them
+ * (lib/orders/pricing.ts), so the two can't disagree. */
+export type FreightOption = { serviceId: number; price: number };
+
+export function cheapestFreight<T extends FreightOption>(options: T[]): T | null {
+  return options.reduce<T | null>(
+    (best, option) => (best === null || option.price < best.price ? option : best),
+    null,
+  );
+}
+
+export function freightCharge(
+  options: FreightOption[],
+  serviceId: number,
+  freeShippingApplies: boolean,
+): { shippingMode: Extract<ShippingMode, "free" | "charged">; shipping: number } | null {
+  const chosen = options.find((option) => option.serviceId === serviceId);
+  if (!chosen) return null;
+  if (freeShippingApplies && cheapestFreight(options)?.serviceId === chosen.serviceId) {
+    return { shippingMode: "free", shipping: 0 };
+  }
+  const shipping = roundMoney(chosen.price);
+  return shipping > 0
+    ? { shippingMode: "charged", shipping }
+    : { shippingMode: "free", shipping: 0 };
+}
+
 export type OrderSummaryInput = {
   /** The products, before the coupon. */
   subtotal: number;

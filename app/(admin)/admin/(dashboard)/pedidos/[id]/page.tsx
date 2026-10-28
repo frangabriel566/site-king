@@ -37,6 +37,8 @@ export default async function AdminOrderDetailPage({
     city?: string;
     state?: string;
     cep?: string;
+    /** The Melhor Envio option picked at the checkout. */
+    freight?: { name: string; company: string; days: number } | null;
   } | null;
 
   return (
@@ -112,6 +114,13 @@ export default async function AdminOrderDetailPage({
                   {address.district}, {address.city} — {address.state}
                   <br />
                   {address.cep}
+                  {address.freight && (
+                    <>
+                      <br />
+                      Envio: {[address.freight.company, address.freight.name].filter(Boolean).join(" ")} — até{" "}
+                      {address.freight.days} {address.freight.days === 1 ? "dia útil" : "dias úteis"} após a postagem
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -159,6 +168,7 @@ export default async function AdminOrderDetailPage({
           {showLabel && (
             <ShippingLabel
               orderId={order.id}
+              preferredServiceId={order.shipping_service ? Number(order.shipping_service) || null : null}
               initial={
                 order.melhorenvio_order_id
                   ? {

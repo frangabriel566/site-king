@@ -1785,3 +1785,50 @@ integrar Mercado Pago e Melhor Envio; por isso esta migration é a 0010.
   Novidades, Mais vendidos, Kits, Ofertas por último).
 - Migration `0011` recria `product_sections` para trocar o CHECK (SQLite
   não altera CHECK no lugar); os dados são copiados.
+
+## Bloco 37 — Cotação de frete e checkout online (Etapa 3, out/2026)
+
+Pedido do dono da loja: "Comprar agora" leva à compra online (CEP,
+endereço, frete e pagamento no site) e "Comprar pelo WhatsApp" continua ao
+lado, como hoje. Melhor Envio já estava ativo em produção pelo painel; o
+Mercado Pago, salvo com credenciais de teste.
+
+- **Cotação única** (`lib/shipping/quote.ts`, `quoteFreight`): a caixa
+  "Calcular frete e prazo" (`/api/frete`), o passo Frete do checkout e o
+  servidor que cobra o pedido perguntam no mesmo lugar. Só entram ids e
+  quantidades; peso, medidas e valor segurado vêm do banco.
+- **`QUOTE_CHECKOUT_READY = true`** (`lib/sales-mode.ts`). Com o Melhor
+  Envio ativo, a calculadora volta à página do produto e à sacola. O
+  checkout abre com os dois ativos.
+- **Mercado Pago em teste → checkout só para o admin**
+  (`checkoutTestOnly`). Um pagamento no sandbox não é pagamento: com
+  credenciais de teste, só quem está logado como admin vê o checkout; os
+  clientes seguem no WhatsApp. A tela de Integrações diz isso. As páginas
+  da loja são dinâmicas (`app/layout.tsx`), então a versão do admin nunca é
+  servida a outro visitante.
+- **Passo Frete:** opções reais para o CEP do endereço, já marcando a mais
+  barata. Muda o CEP ou a sacola, cota de novo. Sem opção escolhida não
+  avança, e o resumo diz "calculado no passo Frete".
+- **Frete grátis só na opção mais barata** (`freightCharge` em
+  `lib/orders/summary.ts`, decisão 6 do plano): a regra dos R$ 399 ou o
+  cupom de frete grátis zera a mais barata; quem escolhe a mais rápida
+  paga o preço dela inteiro.
+- **O servidor cota de novo e cobra o número dele** (`createOrderAction`
+  → `priceOrder(..., freight)`): opção que sumiu ou preço diferente do que
+  o cliente viu falha com `freightChanged`, e o checkout volta ao passo
+  Frete com as opções atualizadas. Nunca muda o valor em silêncio.
+- **O pedido guarda o envio** sem migration: `shipping_service` (id do
+  serviço, que a etiqueta do painel já pré-seleciona) e
+  `shipping_address.freight` (serviço, transportadora, prazo), mostrados na
+  página do pedido e no painel.
+- **CPF não é pedido no checkout** (decisão do dono da loja). A etiqueta
+  continua aceitando o CPF digitado no painel na hora de gerar.
+- **Login continua exigido** no checkout (passo Dados, com cadastro ali
+  mesmo); o pedido do WhatsApp segue sem login.
+- **Pedido do WhatsApp sem mudança:** frete a combinar ou grátis, como no
+  Bloco 32.
+- **Testes:** `tests/order-totals.d1.test.ts` (o checkout com frete cobra
+  produtos iguais aos da sacola + o frete; grátis só na mais barata;
+  recusa sem opção, opção sumida ou preço mudado) e
+  `tests/integrations.d1.test.ts` (checkout aberto com os dois ativos; em
+  teste, só para o admin).

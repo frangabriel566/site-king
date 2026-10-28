@@ -18,11 +18,15 @@ export function OrderSummary({
   items,
   subtotal,
   shippingMode,
+  shipping,
+  shippingPending,
   coupon,
 }: {
   items: RevisedItem[];
   subtotal: number;
   shippingMode: ShippingMode;
+  shipping?: number;
+  shippingPending?: string;
   coupon: BagCoupon;
 }) {
   return (
@@ -59,6 +63,8 @@ export function OrderSummary({
         itemCount={items.reduce((sum, item) => sum + item.availableQty, 0)}
         coupon={coupon.applied}
         shippingMode={shippingMode}
+        shipping={shipping}
+        shippingPending={shippingPending}
         className="border-t border-line pt-5"
       />
     </div>

@@ -9,8 +9,10 @@ import { createTestDb } from "./support/d1";
 /**
  * The same bag, through every door it can take to an order, must cost the
  * same and read the same: what the bag shows (OrderTotals), the WhatsApp
- * order its "Finalizar compra" creates, and the checkout (closed today,
- * kept for when online payment returns) — order rows and messages alike.
+ * order its "Finalizar compra" creates, and the checkout — order rows and
+ * messages alike. The checkout adds the Melhor Envio freight picked (the
+ * cheapest option free when the store's rule or the coupon covers it);
+ * the products' part is the same as the bag's to the cent.
  */
 
 const state = vi.hoisted(() => ({
@@ -28,10 +30,18 @@ vi.mock("@/lib/auth/guards", () => ({
   requireAdmin: async () => undefined,
   requireAdminPage: async () => undefined,
 }));
-// The checkout's door is closed in production today; open it here to
-// prove it would price the bag the same way.
+// Open the checkout here (in production it follows Admin → Integrações).
 vi.mock("@/lib/sales-mode", () => ({
   getSalesMode: () => ({ freightQuotes: true, checkoutOpen: true }),
+}));
+// Melhor Envio stands in with two fixed options; the quote's own rules
+// (CEP, weights, errors) are the route's and the client's business.
+const QUOTES = [
+  { serviceId: 1, name: "PAC", company: "Correios", companyPicture: null, price: 25.5, deliveryDays: 7 },
+  { serviceId: 2, name: "SEDEX", company: "Correios", companyPicture: null, price: 48.9, deliveryDays: 3 },
+];
+vi.mock("@/lib/shipping/quote", () => ({
+  quoteFreight: async (cep: string) => ({ ok: true, cep, quotes: QUOTES }),
 }));
 
 const { createWhatsAppOrderAction } = await import("@/lib/actions/whatsapp-orders");
@@ -154,30 +164,71 @@ describe.each([
     if (!viaBag.ok) return;
     const bagOrder = await recorded(viaBag.orderId);
 
-    // The checkout, finishing on WhatsApp.
+    // The checkout, cheapest freight (PAC), finishing on WhatsApp.
     state.userId = CUSTOMER;
+    const freight = mode === "free" ? 0 : 25.5;
     const viaCheckout = await createOrderAction({
       address: ADDRESS,
       method: "whatsapp",
       couponCode: coupon ?? undefined,
+      freight: { serviceId: 1, expectedPrice: freight },
       items: [...items],
     });
     expect(viaCheckout.ok).toBe(true);
     if (!viaCheckout.ok) return;
     const checkoutOrder = await recorded(viaCheckout.orderId);
 
-    for (const order of [bagOrder, checkoutOrder]) {
-      expect(order.shipping_mode).toBe(mode);
-      expect(order.shipping).toBe(0);
-      expect(order.total).toBe(total);
-      expect(orderSummaryLines(summaryFromOrder(order))).toEqual(bag);
-    }
+    expect(bagOrder.shipping_mode).toBe(mode);
+    expect(bagOrder.shipping).toBe(0);
+    expect(bagOrder.total).toBe(total);
+    expect(orderSummaryLines(summaryFromOrder(bagOrder))).toEqual(bag);
 
-    // Both messages carry the bag's lines, word for word.
-    const text = orderSummaryText(summaryFromOrder(bagOrder)).join("\n");
-    expect(messageOf(viaBag.url)).toContain(text);
+    // Same products, discount and coupon; the freight is now a price.
+    expect(checkoutOrder.shipping_mode).toBe(mode === "free" ? "free" : "charged");
+    expect(checkoutOrder.shipping).toBe(freight);
+    expect(checkoutOrder.total).toBe(total + freight);
+    expect(checkoutOrder.subtotal).toBe(bagOrder.subtotal);
+    expect(checkoutOrder.discount).toBe(bagOrder.discount);
+    expect(checkoutOrder.shipping_service).toBe("1");
+    expect(checkoutOrder.shipping_address?.freight).toMatchObject({ service_id: 1, name: "PAC", days: 7 });
+
+    // Each message carries its own order's lines, word for word.
+    expect(messageOf(viaBag.url)).toContain(orderSummaryText(summaryFromOrder(bagOrder)).join("\n"));
     expect(viaCheckout.payment?.kind).toBe("whatsapp");
-    expect(messageOf(viaCheckout.payment!.url)).toContain(text);
+    expect(messageOf(viaCheckout.payment!.url)).toContain(
+      orderSummaryText(summaryFromOrder(checkoutOrder)).join("\n"),
+    );
+  });
+});
+
+describe("o frete do checkout", () => {
+  const items = [{ variantId: V1, qty: 2 }, { variantId: V2, qty: 1 }]; // R$ 420: frete grátis
+
+  it("o grátis vale só para a opção mais barata; a mais rápida é cobrada", async () => {
+    state.userId = CUSTOMER;
+    const result = await createOrderAction({
+      address: ADDRESS,
+      method: "whatsapp",
+      freight: { serviceId: 2, expectedPrice: 48.9 },
+      items,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const order = await recorded(result.orderId);
+    expect(order.shipping_mode).toBe("charged");
+    expect(order.shipping).toBe(48.9);
+    expect(order.total).toBe(468.9);
+  });
+
+  it("recusa sem opção, com opção que sumiu ou com preço diferente do que o cliente viu", async () => {
+    state.userId = CUSTOMER;
+    const base = { address: ADDRESS, method: "whatsapp" as const, items };
+    for (const freight of [undefined, { serviceId: 99, expectedPrice: 10 }, { serviceId: 2, expectedPrice: 30 }]) {
+      const result = await createOrderAction({ ...base, freight });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.freightChanged).toBe(true);
+    }
   });
 });
 

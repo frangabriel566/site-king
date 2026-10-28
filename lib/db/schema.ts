@@ -78,6 +78,14 @@ export type ShippingAddressSnapshot = {
   city: string;
   state: string;
   is_default?: boolean;
+  /** The Melhor Envio option picked at the checkout, as quoted then. */
+  freight?: {
+    service_id: number;
+    name: string;
+    company: string;
+    /** Working days the carrier quoted. */
+    days: number;
+  } | null;
 };
 
 export type CustomerSnapshot = {

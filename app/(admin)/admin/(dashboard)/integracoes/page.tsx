@@ -14,7 +14,6 @@ export default async function AdminIntegrationsPage() {
   const [data, origin] = await Promise.all([getIntegrationsAdmin(), getRequestOrigin()]);
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || origin).replace(/\/+$/, "");
   const { sales } = data;
-  const bothOn = sales.mercadoPagoActive && sales.melhorEnvioActive;
 
   const melhorEnvioBlocked = !data.originCepValid
     ? "Para ativar: cadastre o CEP de origem em Configurações."
@@ -37,17 +36,22 @@ export default async function AdminIntegrationsPage() {
       <section className="mb-8 rounded-lg border border-line bg-card p-5">
         <p className="text-label mb-2">Modo de venda agora</p>
         <p className="text-xl font-semibold text-fg">
-          {sales.checkoutOpen ? "Checkout com pagamento online ativo" : "Vendas só pelo WhatsApp"}
+          {sales.checkoutTestOnly
+            ? "Checkout em teste (só para o admin)"
+            : sales.checkoutOpen
+              ? "Checkout com pagamento online ativo"
+              : "Vendas só pelo WhatsApp"}
         </p>
         <ul className="mt-3 flex flex-col gap-1 text-sm text-ink-muted">
           <li>Mercado Pago: {sales.mercadoPagoActive ? "ativo" : "desligado"}</li>
           <li>Melhor Envio: {sales.melhorEnvioActive ? "ativo" : "desligado"}</li>
         </ul>
-        {bothOn && !sales.checkoutOpen && (
+        {sales.checkoutTestOnly && (
           <p className="mt-3 text-sm text-fg">
-            Os dois estão ativos. O checkout com pagamento online abre quando a
-            cotação de frete no checkout entrar no site (próxima atualização);
-            até lá as vendas seguem pelo WhatsApp.
+            O Mercado Pago está com credenciais de teste, então o checkout
+            online aparece só para você, logado como admin. Os clientes
+            continuam comprando pelo WhatsApp. Para abrir a todos, troque para
+            as credenciais de produção, teste e ative.
           </p>
         )}
       </section>

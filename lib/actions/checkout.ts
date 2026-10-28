@@ -20,6 +20,8 @@ import {
 } from "@/lib/payments";
 import { getSiteSettings } from "@/lib/data/settings";
 import { priceOrder } from "@/lib/orders/pricing";
+import { quoteFreight } from "@/lib/shipping/quote";
+import type { ShippingQuote } from "@/lib/shipping/melhor-envio";
 import { getSalesMode } from "@/lib/sales-mode";
 import { isCheckoutMethod, type CheckoutMethod } from "@/lib/constants";
 
@@ -34,6 +36,33 @@ export async function getCartVariantsAction(
   productIds: string[],
 ): Promise<Record<string, CartVariantOption[]>> {
   return getCartVariants(productIds);
+}
+
+export type CheckoutFreightResult =
+  | { ok: true; quotes: ShippingQuote[] }
+  | { ok: false; message: string };
+
+/**
+ * The checkout's Frete step: Melhor Envio options for the bag as the
+ * database has it (prices and stock re-read) and the address's CEP. The
+ * prices here are the carrier's; the free-shipping rule is applied on top
+ * (freightCharge), the same way the server charges the order.
+ */
+export async function quoteCheckoutFreightAction(
+  cep: string,
+  items: { variantId: string; qty: number }[],
+): Promise<CheckoutFreightResult> {
+  const sales = await getSalesMode(await getSiteSettings());
+  if (!sales.checkoutOpen) return { ok: false, message: "Frete indisponível no momento." };
+  const revision = await reviseCartItems(items.slice(0, 50));
+  if (revision.items.length === 0) {
+    return { ok: false, message: "Sua sacola está vazia ou os itens não estão mais disponíveis." };
+  }
+  const result = await quoteFreight(
+    cep,
+    revision.items.map((item) => ({ productId: item.productId, quantity: item.availableQty })),
+  );
+  return result.ok ? { ok: true, quotes: result.quotes } : { ok: false, message: result.error };
 }
 
 export type CreateOrderInput = {
@@ -51,6 +80,10 @@ export type CreateOrderInput = {
    * existed. */
   method?: CheckoutMethod;
   couponCode?: string;
+  /** The Melhor Envio option picked in the Frete step and the price the
+   * shopper saw for it. The server quotes again and charges its own
+   * number; a different one fails the order with `freightChanged`. */
+  freight?: { serviceId: number; expectedPrice: number };
   items: { variantId: string; qty: number }[];
 };
 
@@ -62,6 +95,9 @@ export type CreateOrderResult =
       /** The coupon no longer applies (expired, out of uses, under its
        * minimum…): the checkout drops it so the shopper can retry. */
       couponRejected?: boolean;
+      /** The freight option is gone or repriced: the checkout quotes again
+       * and the shopper picks again. */
+      freightChanged?: boolean;
     };
 
 export async function createOrderAction(
@@ -104,14 +140,36 @@ export async function createOrderAction(
 
   const subtotal = revision.subtotal;
 
+  // The freight is quoted again here, for the order's own lines and the
+  // address being saved — what the Frete step showed was a preview, like
+  // the coupon. No option, no order: the checkout always charges freight.
+  if (!input.freight) {
+    return { ok: false, freightChanged: true, message: "Escolha uma opção de frete." };
+  }
+  const quote = await quoteFreight(
+    addressParsed.data.cep,
+    revision.items.map((item) => ({ productId: item.productId, quantity: item.availableQty })),
+  );
+  if (!quote.ok) {
+    return { ok: false, freightChanged: true, message: quote.error };
+  }
+  const chosenQuote = quote.quotes.find((option) => option.serviceId === input.freight?.serviceId);
+
   // The same pricing as the WhatsApp order (lib/orders/pricing.ts). The
   // coupon is re-checked against the database subtotal — what the bag
   // showed was only a preview. A coupon that stopped applying in between
   // is an error, not a silent discount of zero: the shopper would
-  // otherwise pay more than the total they confirmed.
-  const priced = await priceOrder(subtotal, input.couponCode);
+  // otherwise pay more than the total they confirmed. The same goes for a
+  // freight that changed price.
+  const priced = await priceOrder(subtotal, input.couponCode, {
+    options: quote.quotes,
+    serviceId: input.freight.serviceId,
+    expectedPrice: input.freight.expectedPrice,
+  });
   if (!priced.ok) {
-    return { ok: false, couponRejected: true, message: `Cupom removido: ${priced.message}` };
+    return priced.reason === "freight"
+      ? { ok: false, freightChanged: true, message: priced.message }
+      : { ok: false, couponRejected: true, message: `Cupom removido: ${priced.message}` };
   }
   const { discount, couponCode, shippingMode, shipping, total } = priced.pricing;
 
@@ -124,8 +182,8 @@ export async function createOrderAction(
   );
 
   // Online payment takes the whole bill at once, and a freight still to be
-  // agreed isn't in it yet. Until the checkout quotes Melhor Envio, only a
-  // free freight can be paid here.
+  // agreed isn't in it. The checkout always quotes now, so this is only the
+  // backstop for a pricing that ever came back "a combinar".
   if (paymentMethod === "mercadopago" && shippingMode === "to_agree") {
     return {
       ok: false,
@@ -164,7 +222,21 @@ export async function createOrderAction(
           total,
           coupon_code: couponCode,
           payment_method: paymentMethod,
-          shipping_address: addressParsed.data,
+          // The address as typed, plus the freight picked: the order pages
+          // and the WhatsApp message say which service and how long.
+          shipping_address: {
+            ...addressParsed.data,
+            freight: chosenQuote
+              ? {
+                  service_id: chosenQuote.serviceId,
+                  name: chosenQuote.name,
+                  company: chosenQuote.company,
+                  days: chosenQuote.deliveryDays,
+                }
+              : null,
+          },
+          // What the label is bought with; the panel suggests it first.
+          shipping_service: chosenQuote ? String(chosenQuote.serviceId) : null,
           customer_snapshot: {
             name: customer.name,
             email: user.email,

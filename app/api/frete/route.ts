@@ -1,21 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
-import { getDb, schema } from "@/lib/db";
-import { getSiteSettings } from "@/lib/data/settings";
-import {
-  calculateShipping,
-  MelhorEnvioError,
-  MelhorEnvioNotConfiguredError,
-} from "@/lib/shipping/melhor-envio";
-import {
-  assertPackageSpecs,
-  isValidCep,
-  MissingPackageSpecError,
-  normalizeCep,
-  toQuoteItems,
-  type PackageLine,
-} from "@/lib/shipping/package";
+import { quoteFreight } from "@/lib/shipping/quote";
 
 export const runtime = "nodejs";
 
@@ -37,14 +22,11 @@ const bodySchema = z.object({
 });
 
 /**
- * Quotes freight for a bag against a CEP.
- *
- * Public on purpose — it is the shopper's own bag, and it reveals
- * nothing they cannot already see on the product pages. What it does
- * *not* do is trust the client's prices or weights: only product ids and
- * quantities come in, and every number the carrier is given is read back
- * from the database here. A tampered body can change what is being
- * quoted; it cannot change what a parcel weighs or what it insures for.
+ * Quotes freight for a bag against a CEP — the "Calcular frete e prazo"
+ * box. Public on purpose: it is the shopper's own bag, and it reveals
+ * nothing they cannot already see on the product pages. The quote itself
+ * (and why nothing the client sends is trusted for weight or value) lives
+ * in lib/shipping/quote.ts, shared with the checkout.
  */
 export async function POST(request: NextRequest) {
   let json: unknown;
@@ -69,143 +51,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const cep = normalizeCep(parsed.data.cep);
-  if (!isValidCep(cep)) {
+  const result = await quoteFreight(parsed.data.cep, parsed.data.items);
+  if (!result.ok) {
     return NextResponse.json(
-      {
-        error: "CEP de entrega inválido. Use os 8 dígitos, ex.: 01310-100.",
-        source: "destination_cep",
-      },
-      { status: 400 },
+      { error: result.error, ...(result.source ? { source: result.source } : {}) },
+      { status: result.status },
     );
   }
-
-  const settings = await getSiteSettings();
-  const rawOriginCep = (settings.origin_cep ?? "").trim();
-  const originCep = normalizeCep(rawOriginCep);
-  if (!isValidCep(originCep)) {
-    // Never the shopper's fault, so it must not read like it is — and
-    // the operator needs to see in the logs whether the field is empty
-    // or holding something unusable.
-    console.error(
-      "[frete] origin_cep inutilizável em site_settings:",
-      JSON.stringify(rawOriginCep),
-    );
-    return NextResponse.json(
-      {
-        error:
-          rawOriginCep === ""
-            ? "A loja ainda não configurou o CEP de origem."
-            : "O CEP de origem cadastrado pela loja é inválido.",
-        source: "origin_cep",
-      },
-      { status: 503 },
-    );
-  }
-
-  // Quantities are summed per product: the same product in two colours is
-  // two bag lines but one parcel line, and its weight counts twice.
-  const quantities = new Map<string, number>();
-  for (const item of parsed.data.items) {
-    quantities.set(
-      item.productId,
-      (quantities.get(item.productId) ?? 0) + item.quantity,
-    );
-  }
-
-  let products;
-  try {
-    const { products: table } = schema;
-    products = await getDb()
-      .select({
-        id: table.id,
-        name: table.name,
-        price: table.price,
-        weight_grams: table.weight_grams,
-        length_cm: table.length_cm,
-        width_cm: table.width_cm,
-        height_cm: table.height_cm,
-      })
-      .from(table)
-      // At most 50 lines reach here (the body schema caps it), well under
-      // D1's 100-parameter limit.
-      .where(and(inArray(table.id, [...quantities.keys()]), eq(table.status, "active")));
-  } catch (error) {
-    console.error("[frete] consulta de produtos", error);
-    products = null;
-  }
-
-  if (!products) {
-    return NextResponse.json(
-      { error: "Não foi possível consultar os produtos." },
-      { status: 502 },
-    );
-  }
-  if (!products || products.length === 0) {
-    return NextResponse.json({ error: "Produtos não encontrados." }, { status: 404 });
-  }
-
-  const lines: PackageLine[] = products.map((product) => ({
-    product,
-    quantity: quantities.get(product.id) ?? 1,
-    unitPrice: Number(product.price),
-  }));
-
-  try {
-    assertPackageSpecs(lines);
-    const quotes = await calculateShipping({
-      fromPostalCode: originCep,
-      toPostalCode: cep,
-      products: toQuoteItems(lines),
-    });
-
-    if (quotes.length === 0) {
-      return NextResponse.json(
-        { error: "Nenhuma transportadora atende esse CEP." },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json({ quotes });
-  } catch (cause) {
-    if (cause instanceof MissingPackageSpecError) {
-      // The shopper cannot act on which product is missing a weight, and
-      // naming it would leak catalogue state. The operator gets the
-      // detail in the logs instead.
-      console.error("[frete] produto sem peso/medidas:", cause.productNames);
-      return NextResponse.json(
-        { error: "Frete indisponível para um dos itens. Fale com a loja." },
-        { status: 409 },
-      );
-    }
-    if (cause instanceof MelhorEnvioNotConfiguredError) {
-      console.error("[frete]", cause.message);
-      return NextResponse.json(
-        { error: "Cálculo de frete temporariamente indisponível." },
-        { status: 503 },
-      );
-    }
-    if (cause instanceof MelhorEnvioError) {
-      console.error(
-        "[frete] Melhor Envio:",
-        cause.status ?? "sem status",
-        cause.message,
-        cause.detail,
-      );
-      // The upstream message can carry token and account detail, so it
-      // stays in the logs. What the shopper gets told is whether waiting
-      // helps: a rejected token never fixes itself, a 5xx usually does.
-      const isAuth = cause.status === 401 || cause.status === 403;
-      return NextResponse.json(
-        {
-          error: isAuth
-            ? "A integração de frete da loja está com um problema de acesso. Fale com a loja."
-            : "O Melhor Envio não respondeu ao cálculo. Tente de novo em instantes.",
-          source: "melhor_envio",
-        },
-        { status: 502 },
-      );
-    }
-    throw cause;
-  }
+  return NextResponse.json({ quotes: result.quotes });
 }

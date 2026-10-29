@@ -1843,3 +1843,25 @@ Mercado Pago, salvo com credenciais de teste.
   janela pergunta "Você tem cupom de desconto?", com o campo e "Não tenho
   cupom, finalizar". Com cupom já aplicado (na sacola ou na janela), não
   pergunta de novo. A sacola, a gaveta e o produto continuam com o campo.
+
+## Bloco 38 — Pagamento que não dava baixa + CPF no checkout (out/2026)
+
+Sintoma: pedidos pagos no Mercado Pago (produção) ficavam em "Aguardando
+pagamento" e não liberavam o envio.
+
+- **`notification_url` pelo domínio da requisição** (`getRequestOrigin`),
+  não por `NEXT_PUBLIC_SITE_URL`, que é fixado no build: se faltou no build
+  da Cloudflare, o aviso ia para localhost.
+- **Assinatura inválida não recusa mais o webhook**, só registra no log. O
+  pedido muda pelo pagamento lido na API do Mercado Pago com o nosso token,
+  nunca pelo corpo do aviso; uma chave secreta errada não pode deixar
+  pagamento real sem baixa.
+- **Conferência sem webhook** (`lib/payments/sync.ts`): busca pagamentos
+  por `external_reference`. Roda quando o cliente volta para
+  `/pedido/[id]` e no botão "Verificar pagamento no Mercado Pago" do
+  painel (pedido pendente). Mesmo `reconcile` do webhook, idempotente.
+- **CPF no checkout** (muda a decisão do Bloco 37, pedido do dono da
+  loja): o Melhor Envio recusa etiqueta sem documento do destinatário.
+  Passo Endereço pede CPF (validado pelos dígitos), o servidor recusa sem
+  ele, fica em `customer_snapshot.document` (JSON, sem migration), aparece
+  no painel e já vem preenchido na etiqueta.

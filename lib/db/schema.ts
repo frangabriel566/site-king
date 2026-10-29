@@ -92,6 +92,8 @@ export type CustomerSnapshot = {
   name?: string;
   email?: string | null;
   phone?: string;
+  /** CPF do destinatário (só dígitos), pedido no checkout online. */
+  document?: string;
 };
 
 /** A category's size chart (Admin → Categorias), shown in the product

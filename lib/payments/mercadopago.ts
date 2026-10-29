@@ -2,6 +2,7 @@ import "server-only";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { roundMoney } from "@/lib/money";
 import { getMercadoPagoCredentials } from "@/lib/integrations";
+import { getRequestOrigin } from "@/lib/site-url";
 import type { PaymentInitResult, PaymentOrderInput, PaymentProvider } from "./types";
 
 export class MercadoPagoProvider implements PaymentProvider {
@@ -12,7 +13,10 @@ export class MercadoPagoProvider implements PaymentProvider {
       throw new Error("Mercado Pago não está ativo.");
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    // O domínio por onde o pedido chegou, lido na hora. NEXT_PUBLIC_SITE_URL
+    // é fixado no build: se faltou no build da Cloudflare, virava
+    // localhost e o aviso de pagamento nunca chegava ao site.
+    const siteUrl = (await getRequestOrigin()).replace(/\/+$/, "");
     const client = new MercadoPagoConfig({ accessToken: credentials.accessToken });
     const preference = new Preference(client);
 

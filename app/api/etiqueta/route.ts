@@ -41,7 +41,7 @@ const bodySchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-type Snapshot = { name?: string; email?: string; phone?: string } | null;
+type Snapshot = { name?: string; email?: string; phone?: string; document?: string } | null;
 type Address = {
   street?: string;
   number?: string;
@@ -188,7 +188,8 @@ export async function POST(request: NextRequest) {
       name: snapshot?.name ?? "Cliente",
       phone: snapshot?.phone ?? undefined,
       email: snapshot?.email ?? undefined,
-      document: body.document ? body.document.replace(/\D/g, "") : undefined,
+      // O digitado no painel vale; sem ele, o CPF que o cliente deu no checkout.
+      document: (body.document ? body.document.replace(/\D/g, "") : "") || snapshot?.document || undefined,
       address: address?.street ?? "",
       complement: address?.complement ?? undefined,
       number: address?.number ?? "",

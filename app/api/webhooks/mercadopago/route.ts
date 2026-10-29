@@ -51,7 +51,11 @@ export async function POST(request: NextRequest) {
       secret,
     });
     if (!isValid) {
-      return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+      // Não recusa: o que muda o pedido é lido da API do Mercado Pago com o
+      // nosso token, nunca deste corpo, então uma assinatura que não bate
+      // (chave secreta errada/trocada) não pode deixar um pagamento real
+      // sem baixa. Fica no log para corrigir a chave.
+      console.warn("[mercadopago webhook] assinatura inválida para", dataId);
     }
   }
 

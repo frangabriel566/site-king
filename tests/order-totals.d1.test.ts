@@ -144,6 +144,9 @@ async function recorded(orderId: string) {
   return row!;
 }
 
+// CPF de teste válido (dígitos verificadores corretos).
+const CPF = "529.982.247-25";
+
 const ADDRESS = {
   cep: "01310-100",
   street: "Avenida Paulista",
@@ -176,6 +179,7 @@ describe.each([
     const freight = mode === "free" ? 0 : 25.5;
     const viaCheckout = await createOrderAction({
       address: ADDRESS,
+      document: CPF,
       method: "whatsapp",
       couponCode: coupon ?? undefined,
       freight: { serviceId: 1, expectedPrice: freight },
@@ -215,6 +219,7 @@ describe("o frete do checkout", () => {
     state.userId = CUSTOMER;
     const result = await createOrderAction({
       address: ADDRESS,
+      document: CPF,
       method: "whatsapp",
       freight: { serviceId: 2, expectedPrice: 48.9 },
       items,
@@ -229,7 +234,7 @@ describe("o frete do checkout", () => {
 
   it("recusa sem opção, com opção que sumiu ou com preço diferente do que o cliente viu", async () => {
     state.userId = CUSTOMER;
-    const base = { address: ADDRESS, method: "whatsapp" as const, items };
+    const base = { address: ADDRESS, document: CPF, method: "whatsapp" as const, items };
     for (const freight of [undefined, { serviceId: 99, expectedPrice: 10 }, { serviceId: 2, expectedPrice: 30 }]) {
       const result = await createOrderAction({ ...base, freight });
       expect(result.ok).toBe(false);
@@ -243,6 +248,7 @@ describe("a conta de admin no checkout", () => {
   it("compra sem cadastro de cliente: ganha um na primeira compra; um cliente sem cadastro continua barrado", async () => {
     const base = {
       address: ADDRESS,
+      document: CPF,
       method: "whatsapp" as const,
       freight: { serviceId: 1, expectedPrice: 25.5 },
       items: [{ variantId: V1, qty: 1 }],

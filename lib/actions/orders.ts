@@ -88,3 +88,26 @@ export async function updateOrderStatusAction(
   revalidatePath("/admin/estoque");
   return { ok: true };
 }
+
+const SYNC_MESSAGE: Record<string, string> = {
+  paid: "Pagamento confirmado no Mercado Pago. Pedido marcado como pago.",
+  already_paid: "Este pedido já estava pago.",
+  payment_id_recorded: "O Mercado Pago tem o pagamento, mas ainda não aprovado.",
+  not_found: "Nenhum pagamento encontrado no Mercado Pago para este pedido.",
+  no_order: "Pedido não encontrado.",
+  not_configured: "Mercado Pago não configurado em Integrações.",
+  error: "Não foi possível consultar o Mercado Pago agora. Tente de novo.",
+};
+
+/** Botão "Verificar pagamento": consulta o Mercado Pago sem esperar o webhook. */
+export async function syncOrderPaymentAction(orderId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const { syncOrderPayment } = await import("@/lib/payments/sync");
+  const outcome = await syncOrderPayment(orderId);
+  revalidatePath(`/admin/pedidos/${orderId}`);
+  revalidatePath("/admin/pedidos");
+  return {
+    ok: outcome === "paid" || outcome === "already_paid",
+    message: SYNC_MESSAGE[outcome] ?? outcome,
+  };
+}

@@ -5,6 +5,7 @@ import { getOrderForConfirmation } from "@/lib/data/orders";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
+import { syncOrderPayment } from "@/lib/payments/sync";
 
 export const metadata: Metadata = { title: "Pedido" };
 
@@ -14,8 +15,15 @@ export default async function OrderConfirmationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const order = await getOrderForConfirmation(id);
+  let order = await getOrderForConfirmation(id);
   if (!order) notFound();
+
+  // O cliente volta do Mercado Pago para cá. Se o webhook ainda não chegou
+  // (ou falhou), confere o pagamento direto na API antes de mostrar a página.
+  if (order.status === "pending") {
+    const outcome = await syncOrderPayment(order.id);
+    if (outcome === "paid") order = (await getOrderForConfirmation(id)) ?? order;
+  }
 
   const address = order.shipping_address as {
     street?: string;

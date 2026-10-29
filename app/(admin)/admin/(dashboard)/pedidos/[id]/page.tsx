@@ -8,6 +8,8 @@ import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
 import { getSalesMode } from "@/lib/sales-mode";
 import { OrderStatusForm } from "./order-status-form";
 import { ShippingLabel } from "./shipping-label";
+import { SyncPaymentButton } from "./sync-payment-button";
+import { formatCpf } from "@/lib/validations/cpf";
 
 export const metadata: Metadata = { title: "Pedido — Painel" };
 
@@ -28,6 +30,7 @@ export default async function AdminOrderDetailPage({
     name?: string;
     email?: string;
     phone?: string;
+    document?: string;
   } | null;
   const address = order.shipping_address as {
     street?: string;
@@ -103,6 +106,9 @@ export default async function AdminOrderDetailPage({
               <p className="text-sm">{snapshot?.name ?? "—"}</p>
               <p className="text-sm text-ink-muted">{snapshot?.email ?? "—"}</p>
               <p className="text-sm text-ink-muted">{snapshot?.phone ?? "—"}</p>
+              {snapshot?.document && (
+                <p className="text-sm text-ink-muted">CPF {formatCpf(snapshot.document)}</p>
+              )}
             </div>
             {address && (
               <div>
@@ -159,15 +165,23 @@ export default async function AdminOrderDetailPage({
               </p>
             </div>
           ) : (
+            <>
+            {order.status === "pending" && order.payment_method === "mercadopago" && (
+              <div className="print:hidden">
+                <SyncPaymentButton orderId={order.id} />
+              </div>
+            )}
             <OrderStatusForm
               orderId={order.id}
               currentStatus={order.status}
               currentTrackingCode={order.tracking_code}
             />
+            </>
           )}
           {showLabel && (
             <ShippingLabel
               orderId={order.id}
+              initialDocument={snapshot?.document ?? ""}
               preferredServiceId={order.shipping_service ? Number(order.shipping_service) || null : null}
               initial={
                 order.melhorenvio_order_id

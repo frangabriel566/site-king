@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { formatCpf, isValidCpf } from "@/lib/validations/cpf";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +67,8 @@ export function CheckoutWizard({
   const [authenticated, setAuthenticated] = useState(false);
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [address, setAddress] = useState<AddressFieldsValue>(EMPTY_ADDRESS);
+  const [cpf, setCpf] = useState("");
+  const cpfValid = isValidCpf(cpf);
   const [checkoutMethod, setCheckoutMethod] = useState<CheckoutMethod>(initialMethod);
   // The coupon applied in the bag comes along; it can also be applied or
   // removed here, in the summary.
@@ -172,6 +177,7 @@ export function CheckoutWizard({
     setSubmitting(true);
     const result = await createOrderAction({
       address,
+      document: cpf,
       method: canPayOnline ? checkoutMethod : "whatsapp",
       couponCode: coupon.applied?.code ?? undefined,
       freight:
@@ -287,6 +293,24 @@ export function CheckoutWizard({
         {step === 2 && (
           <div>
             <h2 className="mb-6 text-xl font-bold text-fg">Endereço de entrega</h2>
+            <div className="mb-6">
+              <Label htmlFor="checkout-cpf">CPF do destinatário</Label>
+              <Input
+                id="checkout-cpf"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="000.000.000-00"
+                value={cpf}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
+                aria-invalid={cpf.length === 14 && !cpfValid}
+                className="mt-2"
+              />
+              <p className="mt-1 text-xs text-ink-muted">
+                {cpf.length === 14 && !cpfValid
+                  ? "CPF inválido. Confira os números."
+                  : "Exigido pelos Correios e transportadoras para emitir a etiqueta de envio."}
+              </p>
+            </div>
             <AddressFields value={address} onChange={setAddress} idPrefix="checkout" />
             <div className="mt-8 flex gap-3">
               <Button variant="outline" size="lg" onClick={() => setStep(1)}>
@@ -295,7 +319,7 @@ export function CheckoutWizard({
               <Button
                 size="lg"
                 onClick={() => setStep(3)}
-                disabled={!address.cep || !address.street || !address.number || !address.city || !address.state}
+                disabled={!cpfValid || !address.cep || !address.street || !address.number || !address.city || !address.state}
               >
                 Continuar
               </Button>

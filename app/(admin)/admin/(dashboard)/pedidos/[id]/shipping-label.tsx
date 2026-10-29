@@ -35,16 +35,19 @@ export function ShippingLabel({
   orderId,
   initial,
   preferredServiceId = null,
+  initialDocument = "",
 }: {
   orderId: string;
   initial: Issued | null;
   /** The option the shopper picked and paid for at the checkout: the quote
    * selects it first, so the label matches what was charged. */
   preferredServiceId?: number | null;
+  /** CPF que o cliente informou no checkout, já preenchido. */
+  initialDocument?: string;
 }) {
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [selected, setSelected] = useState<Quote | null>(null);
-  const [document, setDocument] = useState("");
+  const [document, setDocument] = useState(initialDocument);
   const [issued, setIssued] = useState<Issued | null>(initial);
   const [busy, setBusy] = useState<"quote" | "purchase" | null>(null);
 

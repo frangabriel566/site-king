@@ -13,6 +13,7 @@ import { getDb, schema } from "@/lib/db";
 import { insertChunks, runBatch } from "@/lib/db/batch";
 import { nextOrderNumber } from "@/lib/db/sequences";
 import { addressSchema } from "@/lib/validations/address";
+import { isValidCpf, onlyDigits } from "@/lib/validations/cpf";
 import {
   getPaymentProvider,
   resolvePaymentMethod,
@@ -79,6 +80,8 @@ export type CreateOrderInput = {
    * store is configured for", which is how this behaved before the choice
    * existed. */
   method?: CheckoutMethod;
+  /** CPF do destinatário: o Melhor Envio não gera etiqueta sem ele. */
+  document?: string;
   couponCode?: string;
   /** The Melhor Envio option picked in the Frete step and the price the
    * shopper saw for it. The server quotes again and charges its own
@@ -130,6 +133,13 @@ export async function createOrderAction(
   }
   if (!customer) {
     return { ok: false, message: "Complete seu cadastro antes de continuar." };
+  }
+
+  // Sem CPF a etiqueta do Melhor Envio é recusada, e o pedido já pago
+  // ficaria parado no painel.
+  const document = onlyDigits(input.document ?? "");
+  if (!isValidCpf(document)) {
+    return { ok: false, message: "Informe um CPF válido para a entrega." };
   }
 
   const addressParsed = addressSchema.safeParse({
@@ -253,6 +263,7 @@ export async function createOrderAction(
             name: customer.name,
             email: user.email,
             phone: customer.phone,
+            document,
           },
         })
         .returning({ order_number: orders.order_number }),

@@ -172,6 +172,10 @@ export default async function AdminOrderDetailPage({
               </div>
             )}
             <OrderStatusForm
+              // O status pode mudar por fora do formulário (botão de
+              // verificar pagamento); a key recria o Select com o valor novo
+              // em vez de ficar com o antigo e reverter ao salvar.
+              key={`${order.status}|${order.tracking_code ?? ""}`}
               orderId={order.id}
               currentStatus={order.status}
               currentTrackingCode={order.tracking_code}

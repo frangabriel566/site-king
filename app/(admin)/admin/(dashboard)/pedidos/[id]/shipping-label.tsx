@@ -192,9 +192,9 @@ export function ShippingLabel({
             ))}
           </div>
 
-          {/* O checkout não pede CPF, e os Correios exigem o documento do
-              destinatário na declaração de conteúdo. Até o checkout passar
-              a capturá-lo, ele é digitado aqui. */}
+          {/* Os Correios exigem o documento do destinatário na declaração
+              de conteúdo. Vem preenchido com o CPF do checkout; pedidos
+              antigos (sem ele) são digitados aqui. */}
           <div className="mb-4 flex flex-col gap-2">
             <Label htmlFor="recipient-document">CPF do destinatário</Label>
             <Input
@@ -206,7 +206,7 @@ export function ShippingLabel({
               autoComplete="off"
             />
             <p className="text-xs text-ink-muted">
-              Exigido pelos Correios. O checkout ainda não coleta esse dado.
+              Exigido pelos Correios. Já vem preenchido nos pedidos novos.
             </p>
           </div>
 

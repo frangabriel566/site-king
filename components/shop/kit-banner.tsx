@@ -51,14 +51,14 @@ export function KitBanner({
         {kit.image && (
           <Link
             href={`/produto/${kit.slug}`}
-            className="relative aspect-[16/10] min-w-0 flex-[1_1_300px] overflow-hidden rounded-xl border border-line"
+            className="relative aspect-[4/5] min-w-0 flex-[1_1_300px] overflow-hidden rounded-xl border border-line bg-black md:aspect-[16/10]"
           >
             <SafeImage
               src={kit.image.url}
               alt={kit.image.alt ?? kit.name}
               fill
               sizes="(min-width: 1024px) 40vw, 100vw"
-              className="object-cover"
+              className="object-contain"
             />
           </Link>
         )}

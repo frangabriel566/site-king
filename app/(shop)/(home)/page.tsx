@@ -3,6 +3,8 @@ import { cache } from "react";
 import { getActiveBanners } from "@/lib/data/banners";
 import { getCategoriesWithImages } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/settings";
+import { getHomeSettings, homeText } from "@/lib/data/home";
+import { formatCurrency } from "@/lib/format";
 import { getBestSellersShelf, getSectionProducts } from "@/lib/data/products";
 import { sectionHref } from "@/lib/sections";
 import { getHomeFeedbacks } from "@/lib/data/feedbacks";
@@ -43,9 +45,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const [settings, banners, categories, launches, newest, onSale, bestSellers, kits, feedbacks] =
+  const [settings, home, banners, categories, launches, newest, onSale, bestSellers, kits, feedbacks] =
     await Promise.all([
       getSiteSettings(),
+      getHomeSettings(),
       activeBanners(),
       getCategoriesWithImages(),
       getSectionProducts("lancamentos", HOME_RAIL_LIMIT),
@@ -69,11 +72,12 @@ export default async function HomePage() {
     .filter((price) => price > 0);
   const fromPrice = shelfPrices.length > 0 ? Math.min(...shelfPrices) : null;
   const heroBanner = banners.find((banner) => banner.image_url) ?? null;
-  // The card over the hero photo: the banner's own featured product, else
-  // the first launch, so the card is there as in the approved layout even
-  // before a product is picked in the panel.
+  // The card over the hero photo: the product picked in Página inicial,
+  // else the banner's own featured product, else the first launch, so the
+  // card is there as in the approved layout even before one is picked.
   const firstLaunch = launches[0] ?? bestSellers[0] ?? null;
   const heroFeatured =
+    home.featured_product ??
     heroBanner?.featured_product ??
     (firstLaunch
       ? {
@@ -85,6 +89,25 @@ export default async function HomePage() {
           compare_at_price: firstLaunch.compare_at_price,
         }
       : null);
+  const homeRow = home.row;
+  const heroTexts = {
+    eyebrow: homeText(homeRow, "eyebrow"),
+    eyebrowHighlight: homeText(homeRow, "eyebrow_highlight"),
+    headline: homeText(homeRow, "headline"),
+    headlineHighlight:
+      homeRow?.headline_highlight?.trim() ||
+      (fromPrice !== null ? formatCurrency(fromPrice) : null),
+    subtitle: homeText(homeRow, "subtitle"),
+    ctaLabel: homeText(homeRow, "cta_label"),
+    ctaHref: homeText(homeRow, "cta_href"),
+    whatsappLabel: homeText(homeRow, "whatsapp_label"),
+  };
+  // The panel's card title belongs to the product picked there; it isn't
+  // put on a fallback product the store owner didn't choose.
+  const heroFeaturedLabel =
+    home.featured_product && homeRow?.featured_label?.trim()
+      ? homeRow.featured_label.trim()
+      : null;
   const whatsappDigits = settings.whatsapp?.replace(/\D/g, "") ?? "";
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`
@@ -97,10 +120,11 @@ export default async function HomePage() {
   return (
     <>
       <HomeHero
-        fromPrice={fromPrice}
+        texts={heroTexts}
         imageUrl={heroBanner?.image_url ?? null}
         imageAlt={heroBanner?.headline_line1 ?? "King Store"}
         featured={heroFeatured}
+        featuredLabel={heroFeaturedLabel}
         whatsappHref={whatsappHref}
       />
       <BenefitsStrip settings={settings} />

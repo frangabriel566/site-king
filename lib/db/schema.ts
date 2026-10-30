@@ -891,6 +891,34 @@ export const store_settings = sqliteTable(
   (t) => [check("store_settings_single_row", sql`${t.id} = 1`)],
 );
 
+/** Single row (id = 1): the texts at the top of the home page and its
+ * featured product (Painel → Página inicial). Every column is optional:
+ * left empty, the storefront uses the default text (lib/data/home.ts). */
+export const home_settings = sqliteTable(
+  "home_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    /** "VISTA-SE COMO UM" … */
+    eyebrow: text("eyebrow"),
+    /** … "REI", in gold. */
+    eyebrow_highlight: text("eyebrow_highlight"),
+    /** "Grifes importadas a partir de" */
+    headline: text("headline"),
+    /** The gold end of the headline. Empty: the lowest shelf price. */
+    headline_highlight: text("headline_highlight"),
+    subtitle: text("subtitle"),
+    cta_label: text("cta_label"),
+    cta_href: text("cta_href"),
+    whatsapp_label: text("whatsapp_label"),
+    featured_product_id: text("featured_product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
+    /** Shown on the card instead of the product's name; the product keeps it. */
+    featured_label: text("featured_label"),
+  },
+  (t) => [check("home_settings_single_row", sql`${t.id} = 1`)],
+);
+
 // ------------------------------------------------------------------
 // relations — what `db.query.*.findMany({ with: … })` can embed
 // ------------------------------------------------------------------
@@ -931,6 +959,13 @@ export const productVariantsRelations = relations(product_variants, ({ one }) =>
 export const bannersRelations = relations(banners, ({ one }) => ({
   featured_product: one(products, {
     fields: [banners.featured_product_id],
+    references: [products.id],
+  }),
+}));
+
+export const homeSettingsRelations = relations(home_settings, ({ one }) => ({
+  featured_product: one(products, {
+    fields: [home_settings.featured_product_id],
     references: [products.id],
   }),
 }));

@@ -30,6 +30,7 @@ type TableMap = {
   feedback_images: typeof schema.feedback_images;
   banners: typeof schema.banners;
   site_settings: typeof schema.site_settings;
+  home_settings: typeof schema.home_settings;
   customers: typeof schema.customers;
   addresses: typeof schema.addresses;
   orders: typeof schema.orders;

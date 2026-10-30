@@ -99,6 +99,13 @@
       "when": 1793067232933,
       "tag": "0013_store_sale_cash",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793378595441,
+      "tag": "0014_home_settings",
+      "breakpoints": true
     }
   ]
 }

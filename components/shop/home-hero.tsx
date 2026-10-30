@@ -11,20 +11,36 @@ import type { FeaturedBannerProduct } from "@/lib/data/banners";
  * active banner's (Banners in the panel), so swapping it needs no deploy;
  * with no banner the text simply takes the full width.
  */
+export type HomeHeroTexts = {
+  eyebrow: string;
+  eyebrowHighlight: string;
+  headline: string;
+  /** The gold end of the headline: the panel's text, else the lowest
+   * shelf price, else nothing. */
+  headlineHighlight: string | null;
+  subtitle: string;
+  ctaLabel: string;
+  ctaHref: string;
+  whatsappLabel: string;
+};
+
+/** Texts from Painel → Página inicial (lib/data/home.ts). */
 export function HomeHero({
-  fromPrice,
+  texts,
   imageUrl,
   imageAlt,
   featured,
+  featuredLabel,
   whatsappHref,
 }: {
-  /** Lowest price among the products on the home shelves; null hides it. */
-  fromPrice: number | null;
+  texts: HomeHeroTexts;
   imageUrl: string | null;
   imageAlt: string;
   /** The banner's featured product (Banners → Produto em destaque): its
    * name and price float over the photo and open the product. */
   featured: FeaturedBannerProduct | null;
+  /** Card title from the panel; null shows the product's name. */
+  featuredLabel: string | null;
   whatsappHref: string | null;
 }) {
   return (
@@ -35,27 +51,32 @@ export function HomeHero({
             aria-hidden="true"
             className="h-0.5 w-12 shrink-0 bg-gold-text shadow-[0_0_12px_rgba(205,169,107,0.8)]"
           />
-          VISTA-SE COMO UM <span className="text-gold-text">REI</span>
-        </p>
-        <h1 className="!text-[clamp(2.75rem,9vw,4rem)] !font-black leading-[0.98]">
-          Grifes importadas
-          {fromPrice !== null && (
+          {texts.eyebrow}
+          {texts.eyebrowHighlight && (
             <>
               {" "}
-              a partir de <span className="text-gold-text">{formatCurrency(fromPrice)}</span>
+              <span className="text-gold-text">{texts.eyebrowHighlight}</span>
+            </>
+          )}
+        </p>
+        <h1 className="!text-[clamp(2.75rem,9vw,4rem)] !font-black leading-[0.98]">
+          {texts.headline}
+          {texts.headlineHighlight && (
+            <>
+              {" "}
+              <span className="text-gold-text">{texts.headlineHighlight}</span>
             </>
           )}
         </h1>
         <p className="max-w-[520px] text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Peruanas, polos, sarjas e bermudas das marcas que você usa. Parcele em 3x sem juros
-          ou feche direto pelo WhatsApp.
+          {texts.subtitle}
         </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <Link
-            href="/colecao"
+            href={texts.ctaHref}
             className="bg-buy inline-flex min-h-[52px] items-center gap-2.5 rounded-[10px] px-7 font-display text-[17px] font-extrabold tracking-[0.06em] text-on-buy transition-colors duration-150 ease-out hover:bg-buy-hover"
           >
-            COMPRAR AGORA
+            {texts.ctaLabel}
             <ArrowRight className="size-[18px]" aria-hidden="true" />
           </Link>
           {whatsappHref && (
@@ -66,7 +87,7 @@ export function HomeHero({
               className="inline-flex min-h-[52px] items-center gap-2.5 rounded-[10px] border border-line-strong px-6 text-[15px] font-semibold transition-colors duration-150 ease-out hover:border-gold"
             >
               <MessageCircle className="size-[18px]" aria-hidden="true" />
-              Comprar pelo WhatsApp
+              {texts.whatsappLabel}
             </a>
           )}
         </div>
@@ -89,7 +110,7 @@ export function HomeHero({
               href={`/produto/${featured.slug}`}
               className="absolute bottom-7 left-3 flex flex-col gap-0.5 rounded-xl border border-line bg-bg/95 px-4 py-3 transition-colors duration-150 ease-out hover:border-gold sm:-left-3"
             >
-              <span className="text-xs text-muted-foreground">{featured.name}</span>
+              <span className="text-xs text-muted-foreground">{featuredLabel ?? featured.name}</span>
               <span className="font-display text-2xl font-extrabold leading-tight">
                 {formatCurrency(featured.price)}
               </span>

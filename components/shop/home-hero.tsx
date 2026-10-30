@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { SafeImage } from "@/components/shop/safe-image";
 import { formatCurrency } from "@/lib/format";
+import type { FeaturedBannerProduct } from "@/lib/data/banners";
 
 /**
  * The top of the home page in the King Store layout (out/2026): the
@@ -14,12 +15,16 @@ export function HomeHero({
   fromPrice,
   imageUrl,
   imageAlt,
+  featured,
   whatsappHref,
 }: {
   /** Lowest price among the products on the home shelves; null hides it. */
   fromPrice: number | null;
   imageUrl: string | null;
   imageAlt: string;
+  /** The banner's featured product (Banners → Produto em destaque): its
+   * name and price float over the photo and open the product. */
+  featured: FeaturedBannerProduct | null;
   whatsappHref: string | null;
 }) {
   return (
@@ -68,15 +73,28 @@ export function HomeHero({
       </div>
 
       {imageUrl && (
-        <div className="relative aspect-[4/5] max-h-[560px] min-w-0 flex-[1_1_380px] overflow-hidden rounded-2xl border border-gold shadow-[0_0_60px_rgba(205,169,107,0.22)]">
-          <SafeImage
-            src={imageUrl}
-            alt={imageAlt}
-            fill
-            priority
-            sizes="(min-width: 1024px) 45vw, 100vw"
-            className="object-cover"
-          />
+        <div className="relative min-w-0 flex-[1_1_380px]">
+          <div className="relative aspect-[4/5] max-h-[560px] overflow-hidden rounded-2xl border border-gold shadow-[0_0_60px_rgba(205,169,107,0.22)]">
+            <SafeImage
+              src={imageUrl}
+              alt={imageAlt}
+              fill
+              priority
+              sizes="(min-width: 1024px) 45vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+          {featured && (
+            <Link
+              href={`/produto/${featured.slug}`}
+              className="absolute bottom-7 left-3 flex flex-col gap-0.5 rounded-xl border border-line bg-bg/95 px-4 py-3 transition-colors duration-150 ease-out hover:border-gold sm:-left-3"
+            >
+              <span className="text-xs text-muted-foreground">{featured.name}</span>
+              <span className="font-display text-2xl font-extrabold leading-tight">
+                {formatCurrency(featured.price)}
+              </span>
+            </Link>
+          )}
         </div>
       )}
     </section>

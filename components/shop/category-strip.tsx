@@ -2,52 +2,33 @@ import Link from "next/link";
 import { SafeImage } from "@/components/shop/safe-image";
 import type { CategoryShowcase } from "@/lib/data/categories";
 
+/**
+ * "Compre por categoria" (King Store layout, out/2026): a titled row of
+ * rounded square tiles that scrolls sideways. The photo is the one the
+ * category already shows (its first product's); without one, the tile
+ * shows the initial in gold.
+ */
 export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }) {
   if (categories.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-[1400px] pt-6 pb-4">
-      <div className="scrollbar-hide overflow-x-auto">
-        {/* One row at every width, however many categories there are.
-            Wrapping used to drop the last one or two onto a second line on
-            their own, which reads as a mistake rather than a layout.
-
-            `w-max` + `mx-auto` is what keeps that honest: the row is
-            exactly as wide as its tiles, so it centres while they fit and
-            scrolls from the left once they don't. `justify-center` on the
-            scroller itself would centre them too, but it pushes the first
-            tiles into overflow that can't be scrolled back to. */}
-        <div className="mx-auto flex w-max gap-4 px-4 md:px-8">
+    <section className="mx-auto max-w-[1400px] pt-12 pb-2">
+      <h2 className="mb-5 px-4 text-2xl md:px-8 md:text-[30px]">Compre por categoria</h2>
+      <div className="scrollbar-hide snap-x snap-mandatory overflow-x-auto">
+        <ul className="flex w-max gap-3.5 px-4 md:px-8">
           {categories.map((category) => (
+            <li key={category.id} className="snap-start">
               <Link
-                key={category.id}
                 href={`/colecao?categoria=${category.slug}`}
-                className="group flex w-24 shrink-0 flex-col items-center gap-3 md:w-28"
+                className="group flex w-[130px] flex-col gap-2.5 md:w-[150px]"
               >
-                {/* One ground for the whole row, always black. A per-slug
-                    white exception used to exist for categories shot on a
-                    light backdrop, but it only moved the problem: the tile
-                    that had it is photographed dark, so the white ring was
-                    the loudest thing in the row. Black matches most of the
-                    shots, and the gold monogram reads on it. */}
-                <span
-                  className={`relative flex size-24 items-center justify-center overflow-hidden rounded-full border border-gold/40 bg-black text-2xl font-bold tracking-wide text-gold shadow-sm transition-[border-color,box-shadow] duration-200 ease-out group-hover:border-gold group-hover:shadow-md md:size-28 md:text-3xl ${
-                    category.image ? "" : "ring-1 ring-gold/15 ring-inset"
-                  }`}
-                >
+                <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[14px] border border-line bg-card text-3xl font-bold text-gold transition-[border-color,box-shadow] duration-200 ease-out group-hover:border-gold group-hover:shadow-[0_0_24px_rgba(205,169,107,0.25)]">
                   {category.image ? (
-                    // `cover`, and no padding, so the photo reaches the edge
-                    // of the circle. Fitting the photo whole instead would
-                    // leave its own backdrop showing as a square inside the
-                    // tile, and the photos come from whichever product leads
-                    // the category — their backdrops are not ours to match.
-                    // Filling costs a crop; it buys a row that stays uniform
-                    // whatever gets uploaded next.
                     <SafeImage
                       src={category.image.url}
                       alt={category.image.alt ?? category.name}
                       fill
-                      sizes="(min-width: 768px) 112px, 96px"
+                      sizes="150px"
                       className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
                       fallbackLabel={category.name.charAt(0).toUpperCase()}
                     />
@@ -55,17 +36,14 @@ export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }
                     category.name.charAt(0).toUpperCase()
                   )}
                 </span>
-                {/* Uppercased here rather than trusted to the data: the
-                    names are typed by hand in the admin and arrive in
-                    whatever case the operator used, which left one tile
-                    shouting and its neighbour whispering. */}
-                <span className="line-clamp-2 min-h-[2.1rem] text-center text-[13px] font-medium uppercase leading-tight tracking-wide text-fg">
+                <span className="line-clamp-2 text-center font-label text-[11px] uppercase leading-snug tracking-[0.08em] text-fg">
                   {category.name}
                 </span>
               </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-    </div>
+    </section>
   );
 }

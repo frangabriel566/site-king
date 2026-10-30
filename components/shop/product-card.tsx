@@ -171,7 +171,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               </span>
             </p>
           )}
-          <p className="text-xl font-extrabold leading-tight text-buy sm:text-2xl">
+          <p className="font-display text-[22px] font-extrabold leading-tight text-fg sm:text-[26px]">
             {formatCurrency(product.price)}
           </p>
           {installments && (

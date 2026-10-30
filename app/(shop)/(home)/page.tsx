@@ -10,11 +10,11 @@ import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
 import { HOME_RAIL_LIMIT } from "@/lib/constants";
 import { discountPercent } from "@/lib/shop-config";
 import { HomeHero } from "@/components/shop/home-hero";
-import { SecondaryBanner } from "@/components/shop/secondary-banner";
 import { BenefitsStrip } from "@/components/shop/benefits-strip";
 import { CategoryStrip } from "@/components/shop/category-strip";
 import { ProductRail } from "@/components/shop/product-rail";
 import { NewsletterSection } from "@/components/shop/newsletter-section";
+import { KitBanner } from "@/components/shop/kit-banner";
 
 // One query per request: the metadata and the page both need the banners.
 const activeBanners = cache(getActiveBanners);
@@ -74,19 +74,20 @@ export default async function HomePage() {
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`
     : null;
 
-  // Each shelf holds what was marked for it in the panel
-  // (lib/data/products.ts) and renders nothing while empty. "Mais
-  // vendidos" leads with its marked products and fills up with real sales.
+  // The King Store layout (out/2026), top to bottom: hero, benefits,
+  // categories, the shelves with the kit banner between "Mais vendidos" and
+  // "Ofertas" (Ofertas stays last, store owner's choice), reviews and the
+  // newsletter. Each shelf renders nothing while empty.
   return (
     <>
-      {/* King Store hero (out/2026): text and the two ways to buy, with the
-          first banner's photo beside it. */}
       <HomeHero
         fromPrice={fromPrice}
         imageUrl={heroBanner?.image_url ?? null}
         imageAlt={heroBanner?.headline_line1 ?? "King Store"}
+        featured={heroBanner?.featured_product ?? null}
         whatsappHref={whatsappHref}
       />
+      <BenefitsStrip settings={settings} />
       <CategoryStrip categories={categories} />
       <ProductRail
         title="Lançamentos"
@@ -95,27 +96,23 @@ export default async function HomePage() {
       />
       <ProductRail title="Novidades" products={newest} seeAllHref={sectionHref("novidades")} />
       <ProductRail title="Mais vendidos" products={bestSellers} />
-      {/* KITS right below Mais vendidos (store owner's choice). */}
-      <ProductRail title="KITS" products={kits} seeAllHref={sectionHref("kits")} />
-      {/* Ofertas is the last product rail on purpose (store owner's choice). */}
+      {kits.length > 0 && (
+        <KitBanner
+          kit={kits[0]}
+          kitCount={kits.length}
+          seeAllHref={sectionHref("kits")}
+          installmentsMax={settings.installments_max}
+        />
+      )}
       <ProductRail
         title="Ofertas"
         tag={topDiscount ? `até ${topDiscount}% off` : null}
         products={onSale}
         seeAllHref={sectionHref("ofertas")}
       />
-      {/* Benefits strip sits after the product rails (store owner's choice). */}
-      <BenefitsStrip settings={settings} />
-      {/* Feedbacks marked "Exibir na home" in the panel; none, no section. */}
       {feedbacks.length > 0 && (
         <FeedbackCarousel title="O que nossos clientes dizem" feedbacks={feedbacks} />
       )}
-      {/* No dedicated data source for this slot yet — the `banners` table
-          has no field marking a row for it, and adding one is a schema
-          change out of scope for this pass. Passing `null` keeps the
-          section from rendering (no empty gap) instead of guessing which
-          hero-carousel banner to reuse here. */}
-      <SecondaryBanner banner={null} />
       <NewsletterSection />
     </>
   );

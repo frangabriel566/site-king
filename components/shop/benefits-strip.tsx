@@ -1,92 +1,78 @@
-import Link from "next/link";
-import { CreditCard, RotateCcw } from "lucide-react";
+import { CreditCard, ShieldCheck, Truck } from "lucide-react";
 import type { SiteSettings } from "@/lib/data/settings";
+import { formatCurrency } from "@/lib/format";
 import { WhatsAppIcon } from "./whatsapp-icon";
 
-type Benefit = {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-  href?: string;
-  external?: boolean;
-};
-
-const COLUMNS = ["", "grid-cols-1", "grid-cols-2", "grid-cols-3"];
+type Benefit = { key: string; title: string; note: string; icon: React.ReactNode; href?: string };
 
 /**
- * The home's benefits row — WhatsApp, parcelamento, trocas. Each one only
- * when the store has it: a WhatsApp number, an installment rule and an
- * exchange note (Configurações). Nothing is printed by default, and with
- * none of the three set the row isn't rendered.
+ * The benefits row right under the home's hero (King Store layout, out/2026):
+ * a short title and a one-line note per item. Each one only when the store
+ * has it — free shipping and installments come from Configurações, the
+ * WhatsApp item from the store's number; "Compra segura" always shows.
  */
 export function BenefitsStrip({ settings }: { settings: SiteSettings }) {
-  const iconClass = "size-5";
+  const iconClass = "size-[26px] shrink-0 text-gold-text";
   const benefits: Benefit[] = [];
 
-  if (settings.whatsapp) {
+  if (settings.free_shipping_threshold) {
     benefits.push({
-      key: "whatsapp",
-      label: "Atendimento no WhatsApp",
-      icon: <WhatsAppIcon className={iconClass} />,
-      href: `https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`,
-      external: true,
+      key: "shipping",
+      title: "Frete grátis",
+      note: `Acima de ${formatCurrency(settings.free_shipping_threshold)}`,
+      icon: <Truck className={iconClass} aria-hidden="true" />,
     });
   }
   if (settings.installments_max && settings.installments_max >= 2) {
     benefits.push({
       key: "installments",
-      label: `Até ${settings.installments_max}x sem juros`,
+      title: `${settings.installments_max}x sem juros`,
+      note: "Cartão, Pix e boleto",
       icon: <CreditCard className={iconClass} aria-hidden="true" />,
     });
   }
-  if (settings.exchange_note) {
+  benefits.push({
+    key: "secure",
+    title: "Compra segura",
+    note: "Pagamento protegido",
+    icon: <ShieldCheck className={iconClass} aria-hidden="true" />,
+  });
+  if (settings.whatsapp) {
     benefits.push({
-      key: "exchange",
-      label: settings.exchange_note,
-      icon: <RotateCcw className={iconClass} aria-hidden="true" />,
-      href: "/trocas-e-devolucoes",
+      key: "whatsapp",
+      title: "Atendimento no WhatsApp",
+      note: "Tire dúvidas de tamanho",
+      icon: <WhatsAppIcon className={iconClass} />,
+      href: `https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`,
     });
   }
 
-  if (benefits.length === 0) return null;
-
   return (
-    <section aria-label="Vantagens da loja" className="border-y border-line bg-surface">
-      <ul
-        className={`mx-auto grid max-w-[1400px] divide-x divide-line px-2 py-4 md:px-8 md:py-5 ${
-          COLUMNS[benefits.length]
-        }`}
-      >
+    <section aria-label="Vantagens da loja" className="border-y border-line bg-[#13171a]">
+      <ul className="mx-auto grid max-w-[1400px] grid-cols-1 gap-x-6 gap-y-4 px-4 py-5 min-[460px]:grid-cols-2 md:px-8 lg:grid-cols-4">
         {benefits.map((benefit) => {
           const content = (
             <>
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card text-gold-text shadow-sm">
-                {benefit.icon}
-              </span>
-              <span className="text-xs font-semibold leading-tight text-fg md:text-sm">
-                {benefit.label}
+              {benefit.icon}
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-fg">{benefit.title}</span>
+                <span className="block text-[13px] text-muted-foreground">{benefit.note}</span>
               </span>
             </>
           );
-          const className =
-            "flex h-full flex-col items-center justify-center gap-2 px-2 text-center md:flex-row md:gap-3";
           return (
             <li key={benefit.key}>
-              {benefit.href && benefit.external ? (
+              {benefit.href ? (
                 <a
                   href={benefit.href}
                   target="_blank"
                   rel="noreferrer"
-                  className={`${className} hover:underline`}
+                  className="flex items-center gap-3.5 transition-opacity duration-150 ease-out hover:opacity-80"
                 >
                   {content}
                 </a>
-              ) : benefit.href ? (
-                <Link href={benefit.href} className={`${className} hover:underline`}>
-                  {content}
-                </Link>
               ) : (
-                <div className={className}>{content}</div>
+                <div className="flex items-center gap-3.5">{content}</div>
               )}
             </li>
           );

@@ -9,7 +9,7 @@ import { getHomeFeedbacks } from "@/lib/data/feedbacks";
 import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
 import { HOME_RAIL_LIMIT } from "@/lib/constants";
 import { discountPercent } from "@/lib/shop-config";
-import { BannerCarousel } from "@/components/shop/banner-carousel";
+import { HomeHero } from "@/components/shop/home-hero";
 import { SecondaryBanner } from "@/components/shop/secondary-banner";
 import { BenefitsStrip } from "@/components/shop/benefits-strip";
 import { CategoryStrip } from "@/components/shop/category-strip";
@@ -63,12 +63,30 @@ export default async function HomePage() {
     return discount !== null && (best === null || discount > best) ? discount : best;
   }, null);
 
+  // "a partir de R$ X" in the hero: the cheapest product on any shelf.
+  const shelfPrices = [...launches, ...newest, ...onSale, ...bestSellers, ...kits]
+    .map((product) => product.price)
+    .filter((price) => price > 0);
+  const fromPrice = shelfPrices.length > 0 ? Math.min(...shelfPrices) : null;
+  const heroBanner = banners.find((banner) => banner.image_url) ?? null;
+  const whatsappDigits = settings.whatsapp?.replace(/\D/g, "") ?? "";
+  const whatsappHref = whatsappDigits
+    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`
+    : null;
+
   // Each shelf holds what was marked for it in the panel
   // (lib/data/products.ts) and renders nothing while empty. "Mais
   // vendidos" leads with its marked products and fills up with real sales.
   return (
     <>
-      <BannerCarousel banners={banners} />
+      {/* King Store hero (out/2026): text and the two ways to buy, with the
+          first banner's photo beside it. */}
+      <HomeHero
+        fromPrice={fromPrice}
+        imageUrl={heroBanner?.image_url ?? null}
+        imageAlt={heroBanner?.headline_line1 ?? "King Store"}
+        whatsappHref={whatsappHref}
+      />
       <CategoryStrip categories={categories} />
       <ProductRail
         title="Lançamentos"

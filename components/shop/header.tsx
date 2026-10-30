@@ -132,7 +132,7 @@ export function Header({
             row is gone rather than left as an empty black strip. */}
         {(messages.length > 0 || whatsappHref) && (
           <div
-            className={`select-none border-b border-white/10 ${
+            className={`select-none bg-gold font-semibold text-on-buy ${
               messages.length > 0 ? "" : "hidden sm:block"
             }`}
           >
@@ -148,7 +148,7 @@ export function Header({
                   href={whatsappHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="hidden shrink-0 touch-manipulation items-center justify-self-end gap-2 hover:text-gold sm:flex"
+                  className="hidden shrink-0 touch-manipulation items-center justify-self-end gap-2 hover:underline sm:flex"
                 >
                   <MessageCircle className="size-3.5" aria-hidden="true" />
                   Fale conosco
@@ -192,7 +192,7 @@ export function Header({
               logoUrl={settings.logo_url}
               name={settings.store_name}
               priority
-              imageClassName="h-9 max-w-[150px] min-[400px]:max-w-[190px] md:h-12 md:max-w-[260px]"
+              imageClassName="h-12 max-w-[150px] rounded-md min-[400px]:max-w-[190px] md:h-14 md:max-w-[260px]"
               textClassName="text-lg font-extrabold uppercase tracking-[0.08em] text-gold"
             />
           </Link>
@@ -255,8 +255,10 @@ export function Header({
       {/* category nav row — plain document flow, right after the sticky
           header. Scrolling past it makes it slide up behind the pinned
           header naturally; no JS, no height animation, no reflow risk. */}
-      <nav className="hidden border-t border-white/10 bg-black text-fg md:block">
-        <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-7 px-8 text-xs font-medium uppercase tracking-wide">
+      {/* On phones too, as a row that scrolls sideways (King Store layout,
+          out/2026); the wide Michroma labels are the look's signature. */}
+      <nav aria-label="Categorias" className="border-t border-white/10 bg-black text-fg">
+        <div className="scrollbar-hide mx-auto flex h-12 max-w-[1400px] items-center gap-7 overflow-x-auto px-4 font-label text-[11px] uppercase tracking-[0.1em] md:px-8">
           {categories.map((category) => (
             <Link
               key={category.id}

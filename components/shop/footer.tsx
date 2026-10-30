@@ -29,6 +29,19 @@ export function Footer({
     { key: "privacy", text: settings.footer_privacy_text, Icon: ShieldCheck },
   ].filter((seal): seal is typeof seal & { text: string } => Boolean(seal.text));
 
+  // Who sells: an online store has to show its CNPJ (Decreto 7.962/2013),
+  // and it is also what makes a new shop look real. It reuses the sender
+  // document from Configurações → Envio — but only a 14-digit CNPJ: a CPF
+  // there is a person's own document and never goes public. City/UF only,
+  // not the street: the sender address may be someone's home.
+  const cnpjDigits = settings.origin_document?.replace(/\D/g, "") ?? "";
+  const cnpj =
+    cnpjDigits.length === 14
+      ? cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+      : null;
+  const cityLine = [settings.origin_city, settings.origin_state].filter(Boolean).join(" - ");
+  const companyLine = [cnpj && `CNPJ ${cnpj}`, cityLine].filter(Boolean).join(" · ");
+
   return (
     <footer className="bg-black text-bg">
       <div className="mx-auto max-w-[1400px] px-4 pt-10 pb-6 sm:pt-14 sm:pb-8 md:px-8">
@@ -164,9 +177,12 @@ export function Footer({
             )}
           </div>
 
-          <p className="text-xs text-bg/60">
-            © {new Date().getFullYear()} {settings.store_name}. Todos os direitos reservados.
-          </p>
+          <div className="text-center text-xs text-bg/60 sm:text-left">
+            <p>
+              © {new Date().getFullYear()} {settings.store_name}. Todos os direitos reservados.
+            </p>
+            {cnpj && <p className="mt-1">{companyLine}</p>}
+          </div>
 
           {/* The rule first, like the header and the trust strip — the
               free-text note alone could promise a value the checkout

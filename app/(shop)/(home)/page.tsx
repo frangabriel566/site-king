@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { getActiveBanners } from "@/lib/data/banners";
 import { getCategoriesWithImages } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/settings";
@@ -15,17 +16,37 @@ import { CategoryStrip } from "@/components/shop/category-strip";
 import { ProductRail } from "@/components/shop/product-rail";
 import { NewsletterSection } from "@/components/shop/newsletter-section";
 
-export const metadata: Metadata = {
-  title: "King Store — Vestuário Masculino",
-  description:
-    "Moletons, camisetas, calças e acessórios. Vestuário masculino, preço em destaque.",
-};
+// One query per request: the metadata and the page both need the banners.
+const activeBanners = cache(getActiveBanners);
+
+const HOME_DESCRIPTION =
+  "Moletons, camisetas, calças e acessórios. Vestuário masculino, preço em destaque.";
+
+export async function generateMetadata(): Promise<Metadata> {
+  // The link card on WhatsApp/Instagram: the first hero banner's photo,
+  // else the store logo. Before, the home had no og:image at all and a
+  // shared link went out as a bare line of text.
+  const [banners, settings] = await Promise.all([activeBanners(), getSiteSettings()]);
+  const ogImage = banners.find((banner) => banner.image_url)?.image_url ?? settings.logo_url;
+  return {
+    // absolute: the root layout's "%s — King Store" template would
+    // otherwise repeat the store name ("King Store — … — King Store").
+    title: { absolute: "King Store — Vestuário Masculino" },
+    description: HOME_DESCRIPTION,
+    openGraph: {
+      title: "King Store — Vestuário Masculino",
+      description: HOME_DESCRIPTION,
+      ...(ogImage ? { images: [{ url: ogImage, alt: "King Store" }] } : {}),
+    },
+    twitter: { card: ogImage ? "summary_large_image" : "summary" },
+  };
+}
 
 export default async function HomePage() {
   const [settings, banners, categories, launches, newest, onSale, bestSellers, kits, feedbacks] =
     await Promise.all([
       getSiteSettings(),
-      getActiveBanners(),
+      activeBanners(),
       getCategoriesWithImages(),
       getSectionProducts("lancamentos", HOME_RAIL_LIMIT),
       getSectionProducts("novidades", HOME_RAIL_LIMIT),

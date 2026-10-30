@@ -86,7 +86,7 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
                   // above — the CTA needs to clear whatever artwork (e.g. a
                   // wordmark) sits lower in the banner image, regardless of
                   // whether this banner has headline text at all.
-                  <span className="absolute bottom-4 left-6 inline-block rounded-md bg-white px-3 py-1 text-xs font-semibold text-fg md:bottom-8 md:left-12 md:px-5 md:py-2 md:text-sm">
+                  <span className="absolute bottom-4 left-6 inline-block rounded-md bg-card px-3 py-1 text-xs font-semibold text-fg md:bottom-8 md:left-12 md:px-5 md:py-2 md:text-sm">
                     {banner.cta_label}
                   </span>
                 )}

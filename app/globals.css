@@ -36,6 +36,7 @@
 
   /* ---- ink -------------------------------------------------------- */
   --fg: #f8fafc;
+  --on-buy: #ffffff;
   --muted: #94a3b8;
   --ink-subtle: #64748b;
 
@@ -112,70 +113,65 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* .storefront-theme — public storefront palette. Retail/conversion    */
-/* model: white ground, warm off-white surfaces, charcoal ink, gold    */
-/* reserved for fills/borders/badges (never body text — see            */
-/* --gold-text). Applied once, on the shop layout's root wrapper; the  */
-/* admin panel never receives this class and keeps the :root palette   */
-/* above untouched.                                                    */
+/* .storefront-theme — public storefront palette. King Store look       */
+/* (out/2026): the logo's graphite ground and brushed gold, laid out    */
+/* in the bold "neon" style — gold is the buy colour (buttons, price,   */
+/* -X% badge) with dark ink on it, so --on-buy, not white, goes on any  */
+/* bg-buy / bg-discount / bg-cta fill. Applied once, on the shop        */
+/* layout's root wrapper; the admin panel never receives this class.    */
 /* ------------------------------------------------------------------ */
 .storefront-theme {
-  --bg: #ffffff;
-  --surface: #f7f6f4;
-  --fg: #1a1d21;
-  --muted: #6b6f76;
-  --line: #e3e1dd;
+  --bg: #101315;
+  --surface: #171b1e;
+  --fg: #f4efe6;
+  --muted: #aba69c;
+  --line: #2c3034;
 
-  --gold: #c9a227;
-  --gold-soft: #f0dfa0;
-  --gold-text: #8a6a15;
-  --chrome: #3a3f45;
+  --gold: #cda96b;
+  --gold-soft: #3a3328;
+  /* Gold as text: the bright tint, 10:1 on --bg. */
+  --gold-text: #f0d48e;
+  --chrome: #c9c3b8;
 
-  --cta: #1a1d21;
-  --cta-gold: #c9a227;
+  --cta: #cda96b;
+  --cta-gold: #cda96b;
   /* The single "buy" accent: purchase buttons, prices, the -X% badge and
-     the Pix price all use it, and nothing else does. Change it here only.
-     #0F8A3C (the spec's literal value) is 4.45:1 on white — just under the
-     4.5:1 body-text minimum. Darkened slightly to 5.45:1; visually almost
-     identical. */
-  --buy: #0d7a34;
-  --buy-hover: #0a6129;
-  --price: var(--buy);
-  --discount: var(--buy);
+     the Pix price. Fills take --on-buy for their text. */
+  --buy: #cda96b;
+  --buy-hover: #ddbb7e;
+  --on-buy: #101315;
+  --price: #f0d48e;
+  --discount: #f0d48e;
   --alert: #c0392b;
 
   --accent: var(--gold-text);
-  /* The admin's blue scale has storefront counterparts purely so a shared
-     component that reaches for one of these tokens never drags admin blue
-     onto the shop. Nothing here is the panel's blue. */
   --accent-hover: var(--gold);
   --accent-active: var(--gold-text);
   --accent-light: var(--gold-soft);
-  --accent-soft: rgba(201, 162, 39, 0.12);
-  --accent-soft-hover: rgba(201, 162, 39, 0.18);
-  --accent-ring: rgba(201, 162, 39, 0.16);
+  --accent-soft: rgba(205, 169, 107, 0.12);
+  --accent-soft-hover: rgba(205, 169, 107, 0.2);
+  --accent-ring: rgba(205, 169, 107, 0.3);
 
-  /* Shop inputs keep sitting directly on whatever panel holds them. */
   --field: transparent;
-  --line-soft: #ecebe7;
-  --line-strong: #d6d3cd;
-  --ink-subtle: #8b9099;
+  --line-soft: #22272b;
+  --line-strong: #3a3f44;
+  --ink-subtle: #807b73;
 
-  --surface-2: #efede8;
-  --surface-muted: #f1f0ec;
-  --surface-hover: #ece9e2;
-  --danger: var(--alert);
-  --success: var(--discount);
-  --warning: #9a5b00;
+  --surface-2: #1c2125;
+  --surface-muted: #1c2125;
+  --surface-hover: #22272b;
+  --danger: #e2685a;
+  --success: var(--gold-text);
+  --warning: #e8a23a;
 
   --background: var(--bg);
   --foreground: var(--fg);
-  --card: #ffffff;
+  --card: #171b1e;
   --card-foreground: var(--fg);
-  --popover: #ffffff;
+  --popover: #171b1e;
   --popover-foreground: var(--fg);
   --primary: var(--cta);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-buy);
   --secondary: var(--surface);
   --secondary-foreground: var(--fg);
   --muted-surface: var(--surface);
@@ -184,11 +180,25 @@
   --accent-foreground: var(--fg);
   --destructive: var(--alert);
   --border: var(--line);
-  --input: var(--line);
-  --ring: var(--gold-text);
+  --input: var(--line-strong);
+  --ring: var(--gold);
   --radius: 0.5rem;
 
-  color-scheme: light;
+  color-scheme: dark;
+}
+
+/* Section and product titles in the display face, as in the approved
+   layout: heavy, uppercase. */
+.storefront-theme :is(h1, h2) {
+  font-family: var(--font-saira), var(--font-archivo), sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+/* The gold glow on buy buttons. */
+.storefront-theme .bg-buy:is(a, button) {
+  box-shadow: 0 0 22px rgba(205, 169, 107, 0.35);
 }
 
 /* Room for the product page's mobile buy bar while it is up, so it never
@@ -294,6 +304,7 @@
   --color-cta-gold: var(--cta-gold);
   --color-buy: var(--buy);
   --color-buy-hover: var(--buy-hover);
+  --color-on-buy: var(--on-buy);
   --color-price: var(--price);
   --color-discount: var(--discount);
   --color-alert: var(--alert);
@@ -304,7 +315,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-archivo);
-  --font-display: var(--font-archivo);
+  --font-display: var(--font-saira);
+  --font-label: var(--font-michroma);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

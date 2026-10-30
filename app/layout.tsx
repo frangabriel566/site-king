@@ -33,6 +33,22 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 // time there is no production database to prerender from. So nothing is
 // static: each request renders with live data. (ISR would not help either:
 // without an OpenNext incremental cache configured, it caches nothing.)
+// Storefront display + label faces (King Store look): Saira for headings,
+// Michroma for the wide uppercase labels. Self-hosted for the same reason
+// as Archivo. Licenses: app/fonts/OFL-saira.txt, app/fonts/OFL-michroma.txt.
+const saira = localFont({
+  src: [{ path: "./fonts/saira-latin-wght.woff2", weight: "100 900", style: "normal" }],
+  variable: "--font-saira",
+  display: "swap",
+  fallback: ["Archivo", "system-ui", "sans-serif"],
+});
+const michroma = localFont({
+  src: [{ path: "./fonts/michroma-latin-400.woff2", weight: "400", style: "normal" }],
+  variable: "--font-michroma",
+  display: "swap",
+  fallback: ["Archivo", "system-ui", "sans-serif"],
+});
+
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -68,7 +84,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${archivo.variable} h-full`}>
+    <html lang="pt-BR" className={`${archivo.variable} ${saira.variable} ${michroma.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-bg text-fg">
         <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
       </body>

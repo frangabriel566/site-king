@@ -48,7 +48,7 @@ export function SecondaryBanner({ banner }: { banner: Banner | null }) {
               </p>
             )}
             {banner.cta_label && (
-              <span className="mt-3 inline-block rounded-md bg-white px-4 py-1.5 text-xs font-semibold text-fg sm:text-sm">
+              <span className="mt-3 inline-block rounded-md bg-card px-4 py-1.5 text-xs font-semibold text-fg sm:text-sm">
                 {banner.cta_label}
               </span>
             )}

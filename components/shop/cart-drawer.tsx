@@ -52,7 +52,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent
-        className="storefront-theme flex w-full flex-col gap-0 border-l border-line bg-white p-0 text-fg sm:max-w-md"
+        className="storefront-theme flex w-full flex-col gap-0 border-l border-line bg-card p-0 text-fg sm:max-w-md"
         showCloseButton={false}
       >
         <SheetTitle className="sr-only">Sacola</SheetTitle>
@@ -60,7 +60,7 @@ export function CartDrawer({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           <span className="flex items-center gap-2 text-sm font-semibold">
             Sacola
             {items.length > 0 && (
-              <span className="flex size-5 items-center justify-center rounded-full bg-fg text-[11px] font-semibold text-white">
+              <span className="flex size-5 items-center justify-center rounded-full bg-fg text-[11px] font-semibold text-bg">
                 {items.length}
               </span>
             )}

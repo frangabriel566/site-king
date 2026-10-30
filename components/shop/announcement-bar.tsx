@@ -84,7 +84,7 @@ function BarArrow({ side, onClick }: { side: "left" | "right"; onClick: () => vo
       type="button"
       onClick={onClick}
       aria-label={side === "left" ? "Aviso anterior" : "Próximo aviso"}
-      className="flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center text-bg/70 transition-colors duration-150 ease-out hover:text-gold"
+      className="flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center text-fg/70 transition-colors duration-150 ease-out hover:text-gold"
     >
       <Icon className="size-4" aria-hidden="true" />
     </button>

@@ -62,7 +62,7 @@ export function FinishPurchase({
       <Button
         asChild
         size="xl"
-        className="w-full bg-buy text-white hover:bg-buy-hover"
+        className="w-full bg-buy text-on-buy hover:bg-buy-hover"
         onClick={onNavigate}
       >
         <Link href="/checkout">Finalizar compra</Link>

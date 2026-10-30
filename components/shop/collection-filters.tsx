@@ -205,7 +205,7 @@ export function CollectionFilters({
                 aria-pressed={activeSizes.includes(size)}
                 className={`h-9 min-w-9 rounded-md border px-3 text-xs font-medium uppercase transition-colors duration-150 ease-out ${
                   activeSizes.includes(size)
-                    ? "border-cta bg-cta text-white"
+                    ? "border-cta bg-cta text-bg"
                     : "border-line text-fg hover:border-cta"
                 }`}
               >
@@ -299,7 +299,7 @@ export function CollectionFilters({
         <SheetContent
           side="left"
           showCloseButton={false}
-          className="storefront-theme w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-white p-6 text-fg sm:max-w-sm"
+          className="storefront-theme w-full max-w-full gap-0 overflow-y-auto border-r border-line bg-card p-6 text-fg sm:max-w-sm"
         >
           <SheetTitle className="sr-only">Filtros</SheetTitle>
           <div className="mb-6 flex items-center justify-between">

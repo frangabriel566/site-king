@@ -145,7 +145,9 @@ export function ProductGallery({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex gap-4">
-        <div className="hidden w-20 shrink-0 flex-col gap-3 md:flex">
+        {/* Thumbnails off: the gallery is a swipe carousel with dots on every
+            screen size (store owner's choice, out/2026). */}
+        <div className="hidden">
           {slides.map((slide, index) => (
             <button
               key={slide.id}
@@ -175,7 +177,7 @@ export function ProductGallery({
 
         <div className="relative min-w-0 flex-1">
           {discountPercent > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-lg bg-buy py-1.5 text-center text-sm font-bold text-white">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 rounded-b-lg bg-buy py-1.5 text-center text-sm font-bold text-on-buy">
               -{discountPercent}% OFF
             </div>
           )}
@@ -183,7 +185,7 @@ export function ProductGallery({
               photo's own button underneath. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-white/90 text-fg shadow-sm"
+            className="pointer-events-none absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-card/90 text-fg shadow-sm"
           >
             <Expand className="size-4" />
           </span>
@@ -269,7 +271,7 @@ export function ProductGallery({
 
       {/* The dots stay 6px, but each sits in a 24px button: a dot-sized
           target can't be hit with a thumb. */}
-      <div className="mt-2 flex justify-center md:hidden">
+      <div className="mt-2 flex justify-center">
         {slides.map((slide, index) => (
           <button
             key={slide.id}
@@ -284,8 +286,8 @@ export function ProductGallery({
             className="flex size-6 touch-manipulation items-center justify-center"
           >
             <span
-              className={`size-1.5 rounded-full transition-colors duration-200 ease-out ${
-                selected === index ? "bg-fg" : "bg-ink-muted/40"
+              className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ease-out ${
+                selected === index ? "w-5 bg-gold" : "w-1.5 bg-ink-muted/40"
               }`}
             />
           </button>

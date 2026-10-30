@@ -23,7 +23,7 @@ export function DensityToggle() {
         aria-label="Grade compacta"
         aria-pressed={density === "compacto"}
         className={`flex size-7 items-center justify-center rounded-sm ${
-          density === "compacto" ? "bg-cta text-white" : "text-muted-foreground hover:text-fg"
+          density === "compacto" ? "bg-cta text-bg" : "text-muted-foreground hover:text-fg"
         }`}
       >
         <Grid3x3 className="size-4" />
@@ -34,7 +34,7 @@ export function DensityToggle() {
         aria-label="Grade confortável"
         aria-pressed={density === "confortavel"}
         className={`flex size-7 items-center justify-center rounded-sm ${
-          density === "confortavel" ? "bg-cta text-white" : "text-muted-foreground hover:text-fg"
+          density === "confortavel" ? "bg-cta text-bg" : "text-muted-foreground hover:text-fg"
         }`}
       >
         <LayoutGrid className="size-4" />

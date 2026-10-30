@@ -60,7 +60,7 @@ export function BenefitsStrip({ settings }: { settings: SiteSettings }) {
         {benefits.map((benefit) => {
           const content = (
             <>
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-gold-text shadow-sm">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card text-gold-text shadow-sm">
                 {benefit.icon}
               </span>
               <span className="text-xs font-semibold leading-tight text-fg md:text-sm">

@@ -62,19 +62,19 @@ export function ProductCard({ product }: { product: ProductListItem }) {
   // One status badge at most, most useful first. Every one of them comes
   // from the product row or the store's own rules (Configurações → Vitrine).
   const status = !product.inStock
-    ? { label: "Esgotado", className: "bg-fg/80 text-white" }
+    ? { label: "Esgotado", className: "bg-fg/80 text-bg" }
     : isLowStock(product.totalStock, config.lowStockUnits)
       ? { label: "Últimas unidades", className: "bg-alert text-white" }
       : isNewProduct(product.createdAt, config.newProductDays, config.now)
-        ? { label: "Novo", className: "bg-fg text-white" }
+        ? { label: "Novo", className: "bg-fg text-bg" }
         : product.badge
-          ? { label: BADGE_LABEL[product.badge], className: "bg-gold text-fg" }
+          ? { label: BADGE_LABEL[product.badge], className: "bg-gold text-on-buy" }
           : null;
 
   return (
     <Link
       href={`/produto/${product.slug}`}
-      className="group block overflow-hidden rounded-lg border border-line bg-white transition-[box-shadow,transform] duration-200 ease-out hover:shadow-lg active:scale-[0.98]"
+      className="group block overflow-hidden rounded-lg border border-line bg-card transition-[box-shadow,transform] duration-200 ease-out hover:shadow-lg active:scale-[0.98]"
       onMouseEnter={(event) => {
         const link = event.currentTarget;
         if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -140,7 +140,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           // two or three presses each. The pseudo-element widens the hit
           // area to 44px without drawing anything, the same trade the
           // header icons make with padding.
-          className="absolute right-2 top-2 flex size-8 touch-manipulation items-center justify-center rounded-full bg-white/90 text-fg shadow-sm transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-white"
+          className="absolute right-2 top-2 flex size-8 touch-manipulation items-center justify-center rounded-full bg-card/90 text-fg shadow-sm transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-card"
         >
           <Heart
             className="size-4"
@@ -152,7 +152,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
 
       <div className="flex flex-col gap-1 p-3">
         {product.brand && (
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="font-label text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             {product.brand.name}
           </p>
         )}
@@ -166,7 +166,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
               <span className="text-xs text-muted-foreground line-through">
                 {formatCurrency(product.compare_at_price)}
               </span>
-              <span className="rounded bg-buy px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+              <span className="rounded bg-buy px-1.5 py-0.5 text-[11px] font-bold leading-none text-on-buy">
                 -{discount}%
               </span>
             </p>

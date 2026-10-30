@@ -207,7 +207,7 @@ function FeedbackCard({
     // lost its picture.
     <article
       className={`flex h-full flex-col overflow-hidden rounded-lg border border-line ${
-        hasImages ? "bg-white" : "bg-surface"
+        hasImages ? "bg-card" : "bg-surface"
       }`}
     >
       {hasImages ? (
@@ -312,7 +312,7 @@ function FeedbackImages({
       )}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-white/90 text-fg shadow-sm"
+        className="pointer-events-none absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-card/90 text-fg shadow-sm"
       >
         <Expand className="size-4" />
       </span>

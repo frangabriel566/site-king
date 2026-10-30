@@ -453,7 +453,7 @@ export function CheckoutWizard({
               </Button>
               <Button
                 size="lg"
-                className="bg-buy text-white hover:bg-buy-hover"
+                className="bg-buy text-on-buy hover:bg-buy-hover"
                 onClick={requestFinish}
                 disabled={submitting || revising || !charge}
               >
@@ -465,7 +465,7 @@ export function CheckoutWizard({
       </div>
 
       <Dialog open={couponAsk} onOpenChange={setCouponAsk}>
-        <DialogContent className="storefront-theme bg-white text-fg sm:max-w-md">
+        <DialogContent className="storefront-theme bg-card text-fg sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Você tem cupom de desconto?</DialogTitle>
             <DialogDescription>Se tiver, adicione aqui antes de finalizar.</DialogDescription>
@@ -475,7 +475,7 @@ export function CheckoutWizard({
             {coupon.applied ? (
               <Button
                 size="lg"
-                className="w-full bg-buy text-white hover:bg-buy-hover"
+                className="w-full bg-buy text-on-buy hover:bg-buy-hover"
                 onClick={() => void handleFinish()}
                 disabled={submitting}
               >

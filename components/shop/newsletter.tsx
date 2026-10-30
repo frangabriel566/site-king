@@ -27,7 +27,7 @@ export function Newsletter({ variant = "light" }: { variant?: "light" | "dark" }
       <div className="flex-1">
         <label
           htmlFor="newsletter-email"
-          className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${dark ? "text-bg/60" : "text-muted-foreground"}`}
+          className={`mb-2 block text-xs font-semibold uppercase tracking-wide ${dark ? "text-fg/60" : "text-muted-foreground"}`}
         >
           Newsletter
         </label>
@@ -39,7 +39,7 @@ export function Newsletter({ variant = "light" }: { variant?: "light" | "dark" }
           placeholder="seu@email.com"
           className={`w-full border-b py-3 text-sm outline-none focus:border-gold ${
             dark
-              ? "border-white/20 bg-transparent text-bg placeholder:text-bg/40"
+              ? "border-white/20 bg-transparent text-fg placeholder:text-fg/40"
               : "border-line bg-transparent text-fg placeholder:text-muted-foreground"
           }`}
         />
@@ -56,7 +56,7 @@ export function Newsletter({ variant = "light" }: { variant?: "light" | "dark" }
           className={`text-xs ${
             state.status === "success"
               ? dark
-                ? "text-bg/60"
+                ? "text-fg/60"
                 : "text-muted-foreground"
               : "text-alert"
           }`}

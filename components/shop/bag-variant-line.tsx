@@ -55,7 +55,7 @@ export function BagVariantLine({
             value={item.variantId}
             onChange={(event) => switchTo(event.target.value)}
             aria-label={`Tamanho de ${item.name}`}
-            className="h-9 min-w-16 appearance-none rounded-md border border-line bg-white py-0 pr-8 pl-3 text-sm font-semibold text-fg transition-colors hover:border-ink-muted focus-visible:border-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg/20"
+            className="h-9 min-w-16 appearance-none rounded-md border border-line bg-card py-0 pr-8 pl-3 text-sm font-semibold text-fg transition-colors hover:border-ink-muted focus-visible:border-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg/20"
           >
             {sizes.map((size) => (
               <option

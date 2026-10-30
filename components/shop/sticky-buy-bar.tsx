@@ -90,7 +90,7 @@ export function StickyBuyBar({
       ref={barRef}
       inert={!visible}
       aria-hidden={!visible}
-      className={`fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 pt-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm transition-transform duration-200 ease-out motion-reduce:transition-none lg:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 px-4 pt-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm transition-transform duration-200 ease-out motion-reduce:transition-none lg:hidden ${
         visible ? "translate-y-0" : "translate-y-full"
       }`}
       style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
@@ -109,7 +109,7 @@ export function StickyBuyBar({
         </div>
         <Button
           size="lg"
-          className="h-12 shrink-0 bg-buy px-8 text-base text-white hover:bg-buy-hover"
+          className="h-12 shrink-0 bg-buy px-8 text-base text-on-buy hover:bg-buy-hover"
           onClick={onBuy}
           disabled={pending}
         >

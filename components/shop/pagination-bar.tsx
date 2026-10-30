@@ -41,7 +41,7 @@ export function PaginationBar({
               href={buildHref(searchParams, p)}
               aria-current={p === page ? "page" : undefined}
               className={`flex size-8 items-center justify-center rounded-md text-sm ${
-                p === page ? "bg-cta text-white" : "text-muted-foreground hover:text-fg"
+                p === page ? "bg-cta text-bg" : "text-muted-foreground hover:text-fg"
               }`}
             >
               {p}

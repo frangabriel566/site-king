@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /** How far the pointer has to travel before a press counts as a drag
  * rather than a click. Below it, a shaky hand still opens the product. */
@@ -9,7 +8,6 @@ const DRAG_THRESHOLD = 6;
 
 /** A nudge, not a page: leaving part of the previous card visible is what
  * tells the shopper the row kept going rather than jumped. */
-const SCROLL_STEP = 0.8;
 
 /**
  * A horizontal row that a mouse can drag, not only a finger.
@@ -32,8 +30,7 @@ export function ScrollRail({
   children: ReactNode;
   /** Extra classes for the scrolling row itself (gap, padding, widths). */
   className?: string;
-  /** Names the row for screen readers on the arrow buttons, e.g. "Mais
-   * vendidos" -> "Ver anteriores de Mais vendidos". */
+  /** Names the row for screen readers, e.g. "Mais vendidos". */
   label?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -182,16 +179,13 @@ export function ScrollRail({
     drag.current.moved = false;
   }
 
-  function step(direction: 1 | -1) {
-    const el = ref.current;
-    if (!el) return;
-    el.scrollBy({ left: direction * el.clientWidth * SCROLL_STEP, behavior: "smooth" });
-  }
 
   return (
     <div className="relative">
       <div
         ref={ref}
+        role={label ? "group" : undefined}
+        aria-label={label}
         onScroll={syncEdges}
         onPointerDown={handlePointerDown}
         onClickCapture={handleClickCapture}
@@ -205,55 +199,9 @@ export function ScrollRail({
         {children}
       </div>
 
-      {scrollable && (
-        <>
-          <RailArrow
-            side="left"
-            hidden={atStart}
-            onClick={() => step(-1)}
-            label={label ? `Ver anteriores de ${label}` : "Ver anteriores"}
-          />
-          <RailArrow
-            side="right"
-            hidden={atEnd}
-            onClick={() => step(1)}
-            label={label ? `Ver mais de ${label}` : "Ver mais"}
-          />
-        </>
-      )}
+      {/* No arrows: rows scroll by swipe or drag, with "Ver tudo" beside
+          the title (store owner's choice, out/2026). */}
     </div>
   );
 }
 
-/** Pointer-only: a touch device scrolls by swiping and would just lose
- * screen width to a control it never needs. */
-function RailArrow({
-  side,
-  hidden,
-  onClick,
-  label,
-}: {
-  side: "left" | "right";
-  hidden: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  const Icon = side === "left" ? ChevronLeft : ChevronRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      // Untabbable and inert once it runs out of row, rather than removed:
-      // a button that vanishes shifts nothing, but one that unmounts and
-      // remounts flickers on every scroll that touches an edge.
-      tabIndex={hidden ? -1 : 0}
-      aria-hidden={hidden}
-      className={`absolute top-[38%] z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-bg text-fg shadow-md transition-opacity duration-200 ease-out hover:bg-surface-2 md:flex ${
-        side === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2"
-      } ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`}
-    >
-      <Icon className="size-5" aria-hidden="true" />
-    </button>
-  );
-}

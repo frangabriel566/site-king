@@ -200,7 +200,7 @@ export function BuyBox({
       {(product.badge || product.category) && (
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           {product.badge && (
-            <span className="inline-block rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-fg">
+            <span className="inline-block rounded-full bg-gold px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-on-buy">
               {BADGE_LABEL[product.badge]}
             </span>
           )}
@@ -231,7 +231,7 @@ export function BuyBox({
             <span className="text-sm text-muted-foreground line-through">
               {formatCurrency(product.compare_at_price)}
             </span>
-            <span className="rounded bg-buy px-1.5 py-0.5 text-xs font-bold text-white">
+            <span className="rounded bg-buy px-1.5 py-0.5 text-xs font-bold text-on-buy">
               -{discount}%
             </span>
           </p>
@@ -357,7 +357,7 @@ export function BuyBox({
                     outOfStock
                       ? "cursor-not-allowed border-line bg-surface text-muted-foreground/70"
                       : selectedSize === variant.size
-                        ? "border-fg bg-fg text-white"
+                        ? "border-fg bg-fg text-bg"
                         : "border-line text-fg hover:border-fg"
                   }`}
                 >
@@ -386,7 +386,7 @@ export function BuyBox({
         <Button
           ref={buyButtonRef}
           size="xl"
-          className="w-full bg-buy text-white hover:bg-buy-hover"
+          className="w-full bg-buy text-on-buy hover:bg-buy-hover"
           onClick={handleBuyNow}
           disabled={isPending || allOutOfStock}
         >

@@ -27,11 +27,11 @@ export function FooterAccordionSection({
         aria-controls={contentId}
         className="flex w-full items-center justify-between py-3.5 text-left lg:pointer-events-none lg:justify-start lg:py-0 lg:mb-4"
       >
-        <span className="text-xs font-semibold uppercase tracking-wide text-bg/60">
+        <span className="text-xs font-semibold uppercase tracking-wide text-fg/60">
           {title}
         </span>
         <span
-          className="text-lg leading-none text-bg/50 lg:hidden"
+          className="text-lg leading-none text-fg/50 lg:hidden"
           aria-hidden="true"
         >
           {open ? "−" : "+"}

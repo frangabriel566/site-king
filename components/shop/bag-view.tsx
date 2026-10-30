@@ -108,7 +108,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px] lg:gap-12">
         <div>
-          <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-line bg-white px-5 py-3 md:px-6">
+          <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-line bg-card px-5 py-3 md:px-6">
             <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Checkbox
                 checked={allSelected}
@@ -128,7 +128,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
               </button>
             )}
           </div>
-          <ul className="divide-y divide-line rounded-b-lg border border-line bg-white">
+          <ul className="divide-y divide-line rounded-b-lg border border-line bg-card">
             {items.map((item) => (
               <li key={item.variantId} className="flex gap-3 p-4 sm:gap-4 sm:p-5 md:p-6">
                 <Checkbox
@@ -232,7 +232,7 @@ export function BagView({ whatsappEnabled }: { whatsappEnabled: boolean }) {
           </ul>
         </div>
 
-        <div className="h-fit rounded-lg border border-line bg-white p-6 lg:sticky lg:top-24">
+        <div className="h-fit rounded-lg border border-line bg-card p-6 lg:sticky lg:top-24">
           <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resumo do pedido
           </p>

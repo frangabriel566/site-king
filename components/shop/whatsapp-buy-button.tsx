@@ -194,7 +194,7 @@ export function WhatsAppBuyButton({
         disabled={disabled || pending}
         className={`w-full ${
           appearance === "buy"
-            ? "bg-buy text-white hover:bg-buy-hover"
+            ? "bg-buy text-on-buy hover:bg-buy-hover"
             : "border-[#25D366] text-[#0E7A3E] hover:bg-[#25D366]/10 hover:text-[#0E7A3E]"
         } ${className}`}
       >
@@ -203,7 +203,7 @@ export function WhatsAppBuyButton({
       </Button>
 
       <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
-        <DialogContent className="storefront-theme bg-white text-fg sm:max-w-md">
+        <DialogContent className="storefront-theme bg-card text-fg sm:max-w-md">
           <form onSubmit={handleSend} className="flex flex-col gap-5">
             <DialogHeader>
               <DialogTitle>Finalizar pelo WhatsApp</DialogTitle>

@@ -10,7 +10,7 @@ const block = "animate-pulse rounded bg-surface-2 motion-reduce:animate-none";
 
 export function ProductCardSkeleton() {
   return (
-    <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line bg-white">
+    <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line bg-card">
       <div className={`aspect-[3/4] ${block} rounded-none`} />
       <div className="flex flex-col gap-2 p-3">
         <div className={`h-3 w-1/3 ${block}`} />

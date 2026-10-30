@@ -69,6 +69,22 @@ export default async function HomePage() {
     .filter((price) => price > 0);
   const fromPrice = shelfPrices.length > 0 ? Math.min(...shelfPrices) : null;
   const heroBanner = banners.find((banner) => banner.image_url) ?? null;
+  // The card over the hero photo: the banner's own featured product, else
+  // the first launch, so the card is there as in the approved layout even
+  // before a product is picked in the panel.
+  const firstLaunch = launches[0] ?? bestSellers[0] ?? null;
+  const heroFeatured =
+    heroBanner?.featured_product ??
+    (firstLaunch
+      ? {
+          id: firstLaunch.id,
+          slug: firstLaunch.slug,
+          name: firstLaunch.name,
+          description: null,
+          price: firstLaunch.price,
+          compare_at_price: firstLaunch.compare_at_price,
+        }
+      : null);
   const whatsappDigits = settings.whatsapp?.replace(/\D/g, "") ?? "";
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`
@@ -84,7 +100,7 @@ export default async function HomePage() {
         fromPrice={fromPrice}
         imageUrl={heroBanner?.image_url ?? null}
         imageAlt={heroBanner?.headline_line1 ?? "King Store"}
-        featured={heroBanner?.featured_product ?? null}
+        featured={heroFeatured}
         whatsappHref={whatsappHref}
       />
       <BenefitsStrip settings={settings} />

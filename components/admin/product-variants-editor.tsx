@@ -234,7 +234,7 @@ export function ProductVariantsEditor({
                   aria-pressed={simpleSize === size}
                   className={`flex h-10 min-w-11 items-center justify-center rounded-lg border px-2.5 text-sm font-medium uppercase transition-colors duration-150 ease-out ${
                     simpleSize === size
-                      ? "border-accent-solid bg-accent-solid text-white"
+                      ? "border-accent-solid bg-accent-solid text-on-accent"
                       : "border-line text-ink-muted hover:border-ink-muted hover:text-fg"
                   }`}
                 >

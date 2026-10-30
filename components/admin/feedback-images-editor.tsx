@@ -204,7 +204,7 @@ export function FeedbackImagesEditor({
                       onClick={() => setKind(index, kind)}
                       aria-pressed={image.kind === kind}
                       className={`px-2 py-1 ${
-                        image.kind === kind ? "bg-accent-solid text-white" : "text-ink-muted hover:text-fg"
+                        image.kind === kind ? "bg-accent-solid text-on-accent" : "text-ink-muted hover:text-fg"
                       }`}
                     >
                       {kind === "photo" ? "Foto" : "Print"}

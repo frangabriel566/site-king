@@ -17,65 +17,66 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* :root — admin panel palette. Dark, soft-cornered, blue accent. This */
-/* is ONLY the admin theme (and the pre-hydration default) — the       */
-/* public storefront overrides every one of these tokens inside        */
-/* .storefront-theme below. Do not add public-storefront styling here; */
-/* add it to the scoped block instead.                                 */
+/* :root — admin panel palette. King Store logo colours (out/2026):    */
+/* graphite grounds and brushed gold, the same family as the shop, kept */
+/* in the panel's soft-cornered dense layout. Gold fills carry dark ink */
+/* (--on-accent), never white. This is ONLY the admin theme (and the    */
+/* pre-hydration default) — the public storefront overrides every one   */
+/* of these tokens inside .storefront-theme below. Do not add public-   */
+/* storefront styling here; add it to the scoped block instead.         */
 /* ------------------------------------------------------------------ */
 :root {
   /* ---- grounds ---------------------------------------------------- */
-  --bg: #080d16;
-  --sidebar-bg: #0c1220;
-  --header-bg: #0a101c;
+  --bg: #0e1113;
+  --sidebar-bg: #121619;
+  --header-bg: #101315;
   /* cards, and the nested "card inside a card" one step lighter */
-  --surface: #111827;
-  --surface-2: #151e2e;
+  --surface: #171b1e;
+  --surface-2: #1c2125;
   /* Inputs sit *below* the card they're on, not above it. */
-  --field: #0d1524;
+  --field: #121518;
 
   /* ---- ink -------------------------------------------------------- */
-  --fg: #f8fafc;
-  --on-buy: #ffffff;
-  --muted: #94a3b8;
-  --ink-subtle: #64748b;
+  --fg: #f4efe6;
+  --on-buy: #101315;
+  /* Text on a solid gold fill (selected chips, primary buttons). */
+  --on-accent: #101315;
+  --muted: #aba69c;
+  --ink-subtle: #807b73;
 
   /* ---- lines ------------------------------------------------------ */
-  --line: #263247;
-  --line-soft: #1e293b;
+  --line: #2c3034;
+  --line-soft: #22272b;
   /* One step brighter than --line: secondary-button borders and the
      scrollbar thumb on hover, where a hairline would disappear. */
-  --line-strong: #334155;
+  --line-strong: #3a3f44;
 
-  /* ---- blue ------------------------------------------------------- */
-  --accent: #2563eb;
-  --accent-hover: #3b82f6;
-  --accent-active: #1d4ed8;
-  --accent-light: #60a5fa;
-  /* Translucent blues carry every "this is active/hovered" state. They
-     stay translucent on purpose: over a card (#111827) or the sidebar
-     (#0c1220) each one tints whatever it sits on instead of punching a
-     flat blue rectangle into the layout. */
-  --accent-soft: rgba(37, 99, 235, 0.12);
-  --accent-soft-hover: rgba(37, 99, 235, 0.18);
-  --accent-ring: rgba(37, 99, 235, 0.12);
-  /* The shop's brand gold. Admin markup no longer uses `text-gold` &c. —
-     it asks for the accent by name — but the token stays defined here as
-     the fallback for any storefront component that ends up rendered
-     outside `.storefront-theme` (a portal, say), so `text-gold` never
-     resolves to nothing. The shop sets its own literal value below. */
+  /* ---- gold (the logo's) ------------------------------------------ */
+  --accent: #cda96b;
+  --accent-hover: #ddbb7e;
+  --accent-active: #b8945a;
+  --accent-light: #f0d48e;
+  /* Translucent golds carry every "this is active/hovered" state. They
+     stay translucent on purpose: over a card or the sidebar each one
+     tints whatever it sits on instead of punching a flat gold rectangle
+     into the layout. */
+  --accent-soft: rgba(205, 169, 107, 0.12);
+  --accent-soft-hover: rgba(205, 169, 107, 0.2);
+  --accent-ring: rgba(205, 169, 107, 0.3);
+  /* The shop's brand gold, as a fallback for any storefront component
+     rendered outside `.storefront-theme` (a portal, say). */
   --gold: var(--accent);
 
   /* ---- semantic --------------------------------------------------- */
-  --danger: #ef4444;
+  --danger: #e2685a;
   --success: #22c55e;
-  --warning: #f59e0b;
+  --warning: #e8a23a;
 
-  /* Hover/selected surfaces are a blue wash rather than a lighter grey,
+  /* Hover/selected surfaces are a gold wash rather than a lighter grey,
      which is what makes every hover in the panel read as the same
      gesture — table rows, ghost buttons and dropdown items all land on
      `bg-muted` / `bg-accent`. */
-  --surface-muted: rgba(37, 99, 235, 0.1);
+  --surface-muted: rgba(205, 169, 107, 0.08);
   --surface-hover: var(--accent-soft-hover);
 
   --background: var(--bg);
@@ -85,7 +86,7 @@
   --popover: var(--surface);
   --popover-foreground: var(--fg);
   --primary: var(--accent);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-accent);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted-surface: var(--surface-muted);
@@ -98,14 +99,14 @@
   --ring: var(--accent);
   --chart-1: var(--accent);
   --chart-2: var(--accent-light);
-  --chart-3: #64748b;
-  --chart-4: #334155;
-  --chart-5: #1e293b;
+  --chart-3: #807b73;
+  --chart-4: #3a3f44;
+  --chart-5: #22272b;
   --radius: 0.5rem;
   --sidebar: var(--sidebar-bg);
   --sidebar-foreground: var(--fg);
   --sidebar-primary: var(--accent);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: var(--on-accent);
   --sidebar-accent: var(--accent-soft);
   --sidebar-accent-foreground: var(--fg);
   --sidebar-border: var(--line);
@@ -263,7 +264,7 @@
 }
 
 /* Secondary buttons: a card-coloured face with a border bright enough to
-   read against it, picking up blue only on hover. Done here, on the
+   read against it, picking up gold only on hover. Done here, on the
    variant's data attribute, instead of in components/ui/button.tsx —
    that file is shared with the storefront, and the shop's outline buttons
    (Adicionar à sacola, filtros) are staying exactly as they are. */
@@ -305,6 +306,7 @@
   --color-buy: var(--buy);
   --color-buy-hover: var(--buy-hover);
   --color-on-buy: var(--on-buy);
+  --color-on-accent: var(--on-accent);
   --color-price: var(--price);
   --color-discount: var(--discount);
   --color-alert: var(--alert);

@@ -37,7 +37,7 @@ function Pill({ href, active, children }: { href: string; active: boolean; child
       aria-current={active ? "page" : undefined}
       className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-out ${
         active
-          ? "border-accent-solid bg-accent-solid text-white"
+          ? "border-accent-solid bg-accent-solid text-on-accent"
           : "border-line text-ink-muted hover:border-ink-muted hover:text-fg"
       }`}
     >

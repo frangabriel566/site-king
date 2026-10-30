@@ -207,7 +207,7 @@ export function MultiImageUploader({
                       <GripVertical className="size-3.5" />
                     </div>
                     {index === 0 && (
-                      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-accent-solid px-2 py-0.5 text-[10px] font-semibold uppercase text-white">
+                      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-accent-solid px-2 py-0.5 text-[10px] font-semibold uppercase text-on-accent">
                         Capa
                       </span>
                     )}

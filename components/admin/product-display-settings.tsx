@@ -146,7 +146,7 @@ export function ProductDisplaySettings({
                 aria-pressed={isActive}
                 className={`flex h-11 items-center justify-center rounded-lg border px-2 text-sm font-medium transition-colors duration-150 ease-out ${
                   isActive
-                    ? "border-accent-solid bg-accent-solid text-white"
+                    ? "border-accent-solid bg-accent-solid text-on-accent"
                     : "border-line text-ink-muted hover:border-ink-muted hover:text-fg"
                 }`}
               >

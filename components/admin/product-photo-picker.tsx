@@ -3,16 +3,8 @@
 import Image from "next/image";
 import { Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ProductSelect } from "@/components/admin/product-select";
 import type { ProductOption } from "@/lib/data/products";
-
-const NONE = "__none__";
 
 /**
  * Painel → Página inicial: pick a product, then one of its photos. Picking
@@ -48,26 +40,16 @@ export function ProductPhotoPicker({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
         <Label htmlFor={id}>{label}</Label>
-        <Select
-          value={productId ?? NONE}
-          onValueChange={(next) => {
-            const picked = next === NONE ? null : next;
+        <ProductSelect
+          id={id}
+          value={productId}
+          noneLabel={noneLabel}
+          productOptions={productOptions}
+          onChange={(picked) => {
             onProductChange(picked);
             if (picked) onChange(photos[picked]?.[0] ?? null);
           }}
-        >
-          <SelectTrigger id={id}>
-            <SelectValue placeholder={noneLabel} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>{noneLabel}</SelectItem>
-            {productOptions.map((product) => (
-              <SelectItem key={product.id} value={product.id}>
-                {product.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
 
       {productId && productPhotos.length === 0 && (

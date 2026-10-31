@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ProductSelect } from "@/components/admin/product-select";
 import { saveHomeSettingsAction, type HomeActionResult } from "@/lib/actions/home";
 import type { HomeImages, HomeSettingsRow } from "@/lib/data/home";
 import { ImageUploader } from "@/components/admin/image-uploader";
@@ -218,21 +212,13 @@ export function HomeSettingsForm({
           <legend className="text-label mb-3">Produto em destaque (card sobre a foto)</legend>
           <div className="flex flex-col gap-2">
             <Label htmlFor="featured_product">Produto</Label>
-            <Select value={featuredProductId} onValueChange={setFeaturedProductId}>
-              <SelectTrigger id="featured_product">
-                <SelectValue placeholder="Automático" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>
-                  Automático (o do banner ou o último lançamento)
-                </SelectItem>
-                {productOptions.map((product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ProductSelect
+              id="featured_product"
+              value={featuredProductId === NONE ? null : featuredProductId}
+              onChange={(picked) => setFeaturedProductId(picked ?? NONE)}
+              noneLabel="Automático (o do banner ou o último lançamento)"
+              productOptions={productOptions}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="featured_label">Nome no card</Label>

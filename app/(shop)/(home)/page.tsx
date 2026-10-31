@@ -5,7 +5,11 @@ import { getCategoriesWithImages } from "@/lib/data/categories";
 import { getSiteSettings } from "@/lib/data/settings";
 import { getHomeSettings, homeText } from "@/lib/data/home";
 import { formatCurrency } from "@/lib/format";
-import { getBestSellersShelf, getSectionProducts } from "@/lib/data/products";
+import {
+  getBestSellersShelf,
+  getProductListItemById,
+  getSectionProducts,
+} from "@/lib/data/products";
 import { sectionHref } from "@/lib/sections";
 import { getHomeFeedbacks } from "@/lib/data/feedbacks";
 import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
@@ -58,6 +62,11 @@ export default async function HomePage() {
       getSectionProducts("kits", HOME_RAIL_LIMIT),
       getHomeFeedbacks(),
     ]);
+
+  // The KITS block: the product picked in Página inicial, else the
+  // shelf's first.
+  const pickedKit = home.kit_product_id ? await getProductListItemById(home.kit_product_id) : null;
+  const kit = pickedKit ?? kits[0] ?? null;
 
   // Over the products marked for Ofertas only — one marked without a
   // promotional price simply doesn't count.
@@ -136,9 +145,9 @@ export default async function HomePage() {
       />
       <ProductRail title="Novidades" products={newest} seeAllHref={sectionHref("novidades")} />
       <ProductRail title="Mais vendidos" products={bestSellers} />
-      {kits.length > 0 && (
+      {kit && (
         <KitBanner
-          kit={kits[0]}
+          kit={kit}
           kitCount={kits.length}
           seeAllHref={sectionHref("kits")}
           installmentsMax={settings.installments_max}

@@ -17,6 +17,7 @@ import {
 import { saveHomeSettingsAction, type HomeActionResult } from "@/lib/actions/home";
 import type { HomeImages, HomeSettingsRow } from "@/lib/data/home";
 import { ImageUploader } from "@/components/admin/image-uploader";
+import { ProductPhotoPicker } from "@/components/admin/product-photo-picker";
 import type { ProductOption } from "@/lib/data/products";
 import { formatCurrency } from "@/lib/format";
 
@@ -41,6 +42,8 @@ export function HomeSettingsForm({
   row,
   images,
   kitTitle: initialKitTitle,
+  kitProductId: initialKitProductId,
+  productPhotos,
   defaults,
   productOptions,
   autoPrice,
@@ -49,6 +52,9 @@ export function HomeSettingsForm({
   /** The photos fixed today; null is "automatic". */
   images: HomeImages;
   kitTitle: string | null;
+  kitProductId: string | null;
+  /** Every photo of each product, by product id. */
+  productPhotos: Record<string, string[]>;
   defaults: Defaults;
   productOptions: ProductOption[];
   /** The lowest shelf price, shown when the gold highlight is left empty. */
@@ -73,6 +79,14 @@ export function HomeSettingsForm({
   const [heroImage, setHeroImage] = useState<string | null>(images.hero_image_url);
   const [kitTitle, setKitTitle] = useState(initialKitTitle ?? "");
   const [kitImage, setKitImage] = useState<string | null>(images.kit_image_url);
+  const [kitProductId, setKitProductId] = useState<string | null>(initialKitProductId);
+  // Only picks which photos to show; what is saved is the photo itself.
+  const [heroProductId, setHeroProductId] = useState<string | null>(() => {
+    const url = images.hero_image_url;
+    if (!url) return null;
+    return Object.keys(productPhotos).find((id) => productPhotos[id].includes(url)) ?? null;
+  });
+  const kitProduct = productOptions.find((p) => p.id === kitProductId) ?? null;
   // Keeps the uploaders from deleting a just-saved photo (image-uploader.tsx).
   const savingRef = useRef(false);
 
@@ -100,6 +114,7 @@ export function HomeSettingsForm({
       >
         <input type="hidden" name="hero_image_url" value={heroImage ?? ""} />
         <input type="hidden" name="kit_image_url" value={kitImage ?? ""} />
+        <input type="hidden" name="kit_product_id" value={kitProductId ?? ""} />
         <input
           type="hidden"
           name="featured_product_id"
@@ -235,21 +250,47 @@ export function HomeSettingsForm({
           </div>
         </fieldset>
 
-        <fieldset className="flex flex-col gap-4">
-          <legend className="text-label mb-3">Fotos</legend>
+        <fieldset className="flex flex-col gap-5">
+          <legend className="text-label mb-3">Foto do topo</legend>
+          <ProductPhotoPicker
+            id="hero_photo_product"
+            label="Pegar a foto de um produto"
+            noneLabel="Nenhum (enviar foto própria)"
+            productId={heroProductId}
+            onProductChange={setHeroProductId}
+            value={heroImage}
+            onChange={setHeroImage}
+            productOptions={productOptions}
+            photos={productPhotos}
+          />
           <div className="flex flex-col gap-2">
             <ImageUploader
-              label="Foto do topo"
+              label="Foto escolhida (ou envie outra)"
               value={heroImage}
               onChange={setHeroImage}
               folder="banners"
-              aspect="aspect-[4/5] max-w-[280px]"
+              aspect="aspect-[4/5] max-w-[240px]"
               savingRef={savingRef}
             />
             <p className="text-xs text-ink-muted">
               Fica fixa até você trocar. Sem foto aqui, o site usa a do primeiro banner ativo.
             </p>
           </div>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-5">
+          <legend className="text-label mb-3">Bloco KITS (Monte o look)</legend>
+          <ProductPhotoPicker
+            id="kit_product"
+            label="Produto do kit"
+            noneLabel="Automático (o primeiro da vitrine KITS)"
+            productId={kitProductId}
+            onProductChange={setKitProductId}
+            value={kitImage}
+            onChange={setKitImage}
+            productOptions={productOptions}
+            photos={productPhotos}
+          />
           <div className="flex flex-col gap-2">
             <Label htmlFor="kit_title">Nome no bloco KITS</Label>
             <Input
@@ -257,7 +298,7 @@ export function HomeSettingsForm({
               name="kit_title"
               value={kitTitle}
               maxLength={80}
-              placeholder="Automático: o nome do kit"
+              placeholder={kitProduct ? kitProduct.name : "Automático: o nome do kit"}
               onChange={(e) => setKitTitle(e.target.value)}
             />
             <p className="text-xs text-ink-muted">
@@ -266,11 +307,11 @@ export function HomeSettingsForm({
           </div>
           <div className="flex flex-col gap-2">
             <ImageUploader
-              label="Foto do bloco KITS (Monte o look)"
+              label="Foto escolhida (ou envie outra)"
               value={kitImage}
               onChange={setKitImage}
               folder="banners"
-              aspect="aspect-[4/5] max-w-[280px]"
+              aspect="aspect-[4/5] max-w-[240px]"
               savingRef={savingRef}
             />
             <p className="text-xs text-ink-muted">

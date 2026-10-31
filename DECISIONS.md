@@ -1886,3 +1886,13 @@ bloco KITS ("Monte o look"), e ela ficar a escolhida.
   O título agora quebra linha mesmo sem espaço (`overflow-wrap:anywhere`),
   porque nomes como "BROOKSFIELD+SARJA+BONÉ" saíam da tela no celular.
   Lido à parte, como as fotos, para não derrubar os textos sem a migration.
+- **Foto pega de um produto** (pedido do dono da loja): na aba, "Foto do
+  topo" e "Bloco KITS" têm cada um seu seletor de produto; escolhido o
+  produto, a primeira foto dele já entra e as outras aparecem para tocar.
+  Salva a URL da foto do produto (o mesmo arquivo, não uma cópia): como
+  `home_settings` está em `IMAGE_COLUMNS`, tirar a foto do produto ou da
+  home nunca apaga o arquivo enquanto o outro usar. Continua dando para
+  enviar uma foto própria.
+- **Produto do bloco KITS** (migration `0017`, `kit_product_id`): o bloco
+  mostra o produto escolhido (nome, preço, link); vazio, o primeiro da
+  vitrine KITS. Produto despublicado ou apagado volta ao automático.

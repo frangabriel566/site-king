@@ -720,3 +720,41 @@ export async function getPriceRange(): Promise<{ min: number; max: number }> {
     return { min: row.min, max: row.max };
   }, fallback);
 }
+
+/** Public: one active product as a card shows it — the KITS block's
+ * product picked in Painel → Página inicial. Null when it was unpublished
+ * or deleted, so the block falls back to the shelf. */
+export async function getProductListItemById(id: string): Promise<ProductListItem | null> {
+  return safeQuery(async () => {
+    const row = await getDb().query.products.findFirst({
+      columns: LIST_COLUMNS,
+      with: LIST_WITH,
+      where: and(eq(products.id, id), isActive),
+    });
+    return row ? toListItem(row) : null;
+  }, null);
+}
+
+/** Admin: every photo of each product (gallery in order, then the color
+ * photos), for picking one in Painel → Página inicial. */
+export async function getProductPhotosAdmin(): Promise<Record<string, string[]>> {
+  await requireAdminPage();
+  const rows = await getDb().query.products.findMany({
+    columns: { id: true },
+    where: notDeleted,
+    with: {
+      product_images: { columns: { url: true, position: true } },
+      product_variants: { columns: { image_url: true }, where: liveVariant },
+    },
+  });
+  const photos: Record<string, string[]> = {};
+  for (const row of rows) {
+    const urls = [
+      ...[...row.product_images].sort((a, b) => a.position - b.position).map((i) => i.url),
+      ...row.product_variants.map((v) => v.image_url),
+    ].filter((url): url is string => Boolean(url));
+    const unique = [...new Set(urls)];
+    if (unique.length > 0) photos[row.id] = unique;
+  }
+  return photos;
+}

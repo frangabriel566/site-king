@@ -39,7 +39,8 @@ const productActions = await import("@/lib/actions/products");
 const { updateBannerAction } = await import("@/lib/actions/banners");
 const { saveHomeSettingsAction } = await import("@/lib/actions/home");
 const { getHomeSettingsAdmin } = await import("@/lib/data/home");
-const { getAllProductsAdmin, getProductBySlug } = await import("@/lib/data/products");
+const { getAllProductsAdmin, getProductBySlug, getProductPhotosAdmin, getProductListItemById } =
+  await import("@/lib/data/products");
 
 const { products, product_images, product_variants, orders, order_items, banners } = schema;
 
@@ -220,6 +221,26 @@ describe("salvar formulários libera o que saiu", () => {
     titled.set("kit_title", "Kit Brooksfield");
     expect((await saveHomeSettingsAction({ status: "idle" }, titled)).status).toBe("success");
     expect((await getHomeSettingsAdmin()).kit_title).toBe("Kit Brooksfield");
+  });
+
+  it("foto pega de um produto e produto do kit: salvar não apaga a foto do produto", async () => {
+    const photo = await upload();
+    const id = "00000000-0000-4000-a000-000000000031";
+    await insertProduct(id, "kit-brooksfield", [photo.url]);
+
+    expect((await getProductPhotosAdmin())[id]).toEqual([photo.url]);
+
+    const data = new FormData();
+    data.set("hero_image_url", photo.url);
+    data.set("kit_image_url", photo.url);
+    data.set("kit_product_id", id);
+    expect((await saveHomeSettingsAction({ status: "idle" }, data)).status).toBe("success");
+    expect((await getHomeSettingsAdmin()).kit_product_id).toBe(id);
+    expect((await getProductListItemById(id))?.slug).toBe("kit-brooksfield");
+
+    // Taking the photo off the home keeps it: the product still uses it.
+    expect((await saveHomeSettingsAction({ status: "idle" }, new FormData())).status).toBe("success");
+    expect(await stored(photo.key)).toBe(true);
   });
 });
 

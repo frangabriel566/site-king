@@ -921,6 +921,10 @@ export const home_settings = sqliteTable(
     kit_image_url: text("kit_image_url"),
     /** The KITS block's title. Empty: the kit product's name. */
     kit_title: text("kit_title"),
+    /** The KITS block's product. Empty: the first on the KITS shelf. */
+    kit_product_id: text("kit_product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => [check("home_settings_single_row", sql`${t.id} = 1`)],
 );

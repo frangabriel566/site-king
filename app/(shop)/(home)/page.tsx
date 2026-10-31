@@ -121,7 +121,7 @@ export default async function HomePage() {
     <>
       <HomeHero
         texts={heroTexts}
-        imageUrl={heroBanner?.image_url ?? null}
+        imageUrl={home.images.hero_image_url ?? heroBanner?.image_url ?? null}
         imageAlt={heroBanner?.headline_line1 ?? "King Store"}
         featured={heroFeatured}
         featuredLabel={heroFeaturedLabel}
@@ -142,6 +142,7 @@ export default async function HomePage() {
           kitCount={kits.length}
           seeAllHref={sectionHref("kits")}
           installmentsMax={settings.installments_max}
+          imageUrl={home.images.kit_image_url}
         />
       )}
       <ProductRail

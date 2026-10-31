@@ -16,11 +16,12 @@ export default async function AdminHomePage() {
       <p className="text-label mb-2">Painel</p>
       <h1 className="text-heading mb-2 text-3xl">Página inicial</h1>
       <p className="mb-8 max-w-2xl text-sm text-ink-muted">
-        Textos do topo da home e o produto do card sobre a foto. Um campo salvo
+        Textos e fotos do topo da home, a foto do bloco KITS e o produto do card sobre a foto. Um campo salvo
         vazio volta ao texto padrão.
       </p>
       <HomeSettingsForm
         row={home.row}
+        images={home.images}
         defaults={HOME_DEFAULTS}
         productOptions={productOptions}
         autoPrice={null}

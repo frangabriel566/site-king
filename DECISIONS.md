@@ -1865,3 +1865,19 @@ pagamento" e não liberavam o envio.
   Passo Endereço pede CPF (validado pelos dígitos), o servidor recusa sem
   ele, fica em `customer_snapshot.document` (JSON, sem migration), aparece
   no painel e já vem preenchido na etiqueta.
+
+## Fotos fixas na Página inicial (out/2026)
+
+Pedido do dono da loja: escolher pelo painel a foto do topo da home e a do
+bloco KITS ("Monte o look"), e ela ficar a escolhida.
+
+- Dois campos novos em `home_settings` (migration `0015`):
+  `hero_image_url` e `kit_image_url`, com upload na aba **Página
+  inicial**. Vazio volta ao automático: a foto do primeiro banner ativo no
+  topo; a primeira foto do kit no bloco KITS.
+- As fotos são lidas numa consulta à parte (`loadHomeImages`): com o banco
+  ainda sem a `0015`, o site só perde as fotos fixas, nunca os textos da
+  aba; salvar avisa para aplicar a migration.
+- Trocar ou remover uma foto apaga a antiga do KV quando nada mais a usa
+  (`releaseImages`); as duas colunas entram em `IMAGE_COLUMNS`, então a
+  faxina não as vê como sobra. Teste em `tests/images.d1.test.ts`.

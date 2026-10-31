@@ -14,12 +14,16 @@ export function KitBanner({
   kitCount,
   seeAllHref,
   installmentsMax,
+  imageUrl,
 }: {
   kit: ProductListItem;
   kitCount: number;
   seeAllHref: string;
   installmentsMax: number | null;
+  /** Photo fixed in Painel → Página inicial; null uses the kit's own. */
+  imageUrl: string | null;
 }) {
+  const image = imageUrl ? { url: imageUrl, alt: kit.name } : kit.image;
   const installments = installmentText(kit.price, installmentsMax);
   const href = kitCount > 1 ? seeAllHref : `/produto/${kit.slug}`;
 
@@ -33,7 +37,8 @@ export function KitBanner({
             O look completo de uma vez.{" "}
             {kit.compare_at_price ? (
               <>
-                De <span className="line-through">{formatCurrency(kit.compare_at_price)}</span> por{" "}
+                De <span className="line-through">{formatCurrency(kit.compare_at_price)}</span>{" "}
+                por{" "}
               </>
             ) : (
               "Por "
@@ -48,14 +53,14 @@ export function KitBanner({
             {kitCount > 1 ? "VER KITS" : "VER O KIT"}
           </Link>
         </div>
-        {kit.image && (
+        {image && (
           <Link
             href={`/produto/${kit.slug}`}
             className="relative aspect-[4/5] min-w-0 flex-[1_1_300px] overflow-hidden rounded-xl border border-line bg-black md:aspect-[16/10]"
           >
             <SafeImage
-              src={kit.image.url}
-              alt={kit.image.alt ?? kit.name}
+              src={image.url}
+              alt={image.alt ?? kit.name}
               fill
               sizes="(min-width: 1024px) 40vw, 100vw"
               className="object-contain"

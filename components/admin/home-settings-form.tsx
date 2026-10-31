@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveHomeSettingsAction, type HomeActionResult } from "@/lib/actions/home";
-import type { HomeSettingsRow } from "@/lib/data/home";
+import type { HomeImages, HomeSettingsRow } from "@/lib/data/home";
+import { ImageUploader } from "@/components/admin/image-uploader";
 import type { ProductOption } from "@/lib/data/products";
 import { formatCurrency } from "@/lib/format";
 
@@ -38,11 +39,14 @@ type Defaults = {
  */
 export function HomeSettingsForm({
   row,
+  images,
   defaults,
   productOptions,
   autoPrice,
 }: {
   row: HomeSettingsRow | null;
+  /** The photos fixed today; null is "automatic". */
+  images: HomeImages;
   defaults: Defaults;
   productOptions: ProductOption[];
   /** The lowest shelf price, shown when the gold highlight is left empty. */
@@ -64,19 +68,35 @@ export function HomeSettingsForm({
   );
   const [featuredProductId, setFeaturedProductId] = useState(row?.featured_product_id ?? NONE);
   const [featuredLabel, setFeaturedLabel] = useState(row?.featured_label ?? "");
+  const [heroImage, setHeroImage] = useState<string | null>(images.hero_image_url);
+  const [kitImage, setKitImage] = useState<string | null>(images.kit_image_url);
+  // Keeps the uploaders from deleting a just-saved photo (image-uploader.tsx).
+  const savingRef = useRef(false);
 
   useEffect(() => {
-    if (state.status === "error" && state.message) toast.error(state.message);
+    if (state.status === "error" && state.message) {
+      toast.error(state.message);
+      savingRef.current = false;
+    }
     if (state.status === "success") toast.success(state.message ?? "Salvo.");
   }, [state]);
 
   const featuredProduct = productOptions.find((p) => p.id === featuredProductId) ?? null;
   const previewHighlight =
-    headlineHighlight.trim() || (autoPrice !== null ? formatCurrency(autoPrice) : "R$ (menor preço)");
+    headlineHighlight.trim() ||
+    (autoPrice !== null ? formatCurrency(autoPrice) : "R$ (menor preço)");
 
   return (
     <div className="grid grid-cols-1 gap-10 xl:grid-cols-[460px_1fr]">
-      <form action={formAction} className="flex flex-col gap-6">
+      <form
+        action={formAction}
+        onSubmit={() => {
+          savingRef.current = true;
+        }}
+        className="flex flex-col gap-6"
+      >
+        <input type="hidden" name="hero_image_url" value={heroImage ?? ""} />
+        <input type="hidden" name="kit_image_url" value={kitImage ?? ""} />
         <input
           type="hidden"
           name="featured_product_id"
@@ -185,7 +205,9 @@ export function HomeSettingsForm({
                 <SelectValue placeholder="Automático" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>Automático (o do banner ou o último lançamento)</SelectItem>
+                <SelectItem value={NONE}>
+                  Automático (o do banner ou o último lançamento)
+                </SelectItem>
                 {productOptions.map((product) => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}
@@ -210,9 +232,35 @@ export function HomeSettingsForm({
           </div>
         </fieldset>
 
-        <p className="text-xs text-ink-muted">
-          A foto do topo vem de Banners (o primeiro banner ativo com imagem).
-        </p>
+        <fieldset className="flex flex-col gap-4">
+          <legend className="text-label mb-3">Fotos</legend>
+          <div className="flex flex-col gap-2">
+            <ImageUploader
+              label="Foto do topo"
+              value={heroImage}
+              onChange={setHeroImage}
+              folder="banners"
+              aspect="aspect-[4/5] max-w-[280px]"
+              savingRef={savingRef}
+            />
+            <p className="text-xs text-ink-muted">
+              Fica fixa até você trocar. Sem foto aqui, o site usa a do primeiro banner ativo.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <ImageUploader
+              label="Foto do bloco KITS (Monte o look)"
+              value={kitImage}
+              onChange={setKitImage}
+              folder="banners"
+              aspect="aspect-[4/5] max-w-[280px]"
+              savingRef={savingRef}
+            />
+            <p className="text-xs text-ink-muted">
+              Fica fixa até você trocar. Sem foto aqui, o site usa a primeira foto do kit.
+            </p>
+          </div>
+        </fieldset>
 
         <div>
           <Button type="submit" size="lg" disabled={pending}>
@@ -228,7 +276,9 @@ export function HomeSettingsForm({
             <span aria-hidden="true" className="h-0.5 w-10 shrink-0 bg-gold-text" />
             {eyebrow || defaults.eyebrow}
             {(eyebrowHighlight || defaults.eyebrow_highlight) && (
-              <span className="text-gold-text">{eyebrowHighlight || defaults.eyebrow_highlight}</span>
+              <span className="text-gold-text">
+                {eyebrowHighlight || defaults.eyebrow_highlight}
+              </span>
             )}
           </p>
           <p className="font-display text-3xl font-black uppercase leading-tight">

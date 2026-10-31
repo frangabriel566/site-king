@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { imageUrlSchema } from "./image-url";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -22,6 +23,8 @@ export const homeSettingsSchema = z.object({
   // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
   featured_product_id: z.guid().optional().nullable(),
   featured_label: optionalText(80),
+  hero_image_url: imageUrlSchema().optional().or(z.literal("")),
+  kit_image_url: imageUrlSchema().optional().or(z.literal("")),
 });
 
 export type HomeSettingsInput = z.infer<typeof homeSettingsSchema>;

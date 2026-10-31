@@ -26,35 +26,74 @@ export const HOME_DEFAULTS = {
 } as const;
 
 export type HomeSettings = {
+  /** The texts. The two photo columns are read apart (`images`). */
   row: HomeSettingsRow | null;
   featured_product: FeaturedBannerProduct | null;
+  /** Photos fixed in the panel; null means "automatic". */
+  images: HomeImages;
 };
 
-const EMPTY: HomeSettings = { row: null, featured_product: null };
+export type HomeImages = {
+  hero_image_url: string | null;
+  kit_image_url: string | null;
+};
+
+const NO_IMAGES: HomeImages = { hero_image_url: null, kit_image_url: null };
+const EMPTY: HomeSettings = {
+  row: null,
+  featured_product: null,
+  images: NO_IMAGES,
+};
+
+/**
+ * The photo columns come from migration 0015. Read on their own, so a
+ * database still without them only loses the fixed photos (the site goes
+ * back to the banner's and the kit's), never the panel's texts.
+ */
+async function loadHomeImages(): Promise<HomeImages> {
+  const row = await getDb()
+    .select({
+      hero_image_url: schema.home_settings.hero_image_url,
+      kit_image_url: schema.home_settings.kit_image_url,
+    })
+    .from(schema.home_settings)
+    .where(eq(schema.home_settings.id, 1))
+    .get();
+  return {
+    hero_image_url: row?.hero_image_url || null,
+    kit_image_url: row?.kit_image_url || null,
+  };
+}
 
 async function loadHomeSettings(): Promise<HomeSettings> {
-  const row = await getDb().query.home_settings.findFirst({
-    where: eq(schema.home_settings.id, 1),
-    with: {
-      featured_product: {
-        columns: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          price: true,
-          compare_at_price: true,
-          deleted_at: true,
+  const [row, images] = await Promise.all([
+    getDb().query.home_settings.findFirst({
+      where: eq(schema.home_settings.id, 1),
+      // Read apart, in loadHomeImages (migration 0015).
+      columns: { hero_image_url: false, kit_image_url: false },
+      with: {
+        featured_product: {
+          columns: {
+            id: true,
+            slug: true,
+            name: true,
+            description: true,
+            price: true,
+            compare_at_price: true,
+            deleted_at: true,
+          },
         },
       },
-    },
-  });
-  if (!row) return EMPTY;
+    }),
+    safeQuery(loadHomeImages, NO_IMAGES),
+  ]);
+  if (!row) return { ...EMPTY, images };
   const { featured_product, ...rest } = row;
   // A product moved to the trash keeps its id; the card skips it.
   const product = featured_product && !featured_product.deleted_at ? featured_product : null;
   return {
-    row: rest,
+    row: { ...rest, hero_image_url: null, kit_image_url: null },
+    images,
     featured_product: product
       ? {
           id: product.id,
@@ -70,8 +109,8 @@ async function loadHomeSettings(): Promise<HomeSettings> {
 
 /** Public. Falls back to the default texts on any error — including before
  * the home_settings table exists in the database. */
-export const getHomeSettings = cache(
-  (): Promise<HomeSettings> => safeQuery(loadHomeSettings, EMPTY),
+export const getHomeSettings = cache((): Promise<HomeSettings> =>
+  safeQuery(loadHomeSettings, EMPTY),
 );
 
 /** Admin form. Same read, but behind the admin guard. */

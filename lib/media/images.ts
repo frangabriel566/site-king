@@ -29,6 +29,8 @@ const IMAGE_COLUMNS: { table: SQLiteTable; column: SQLiteColumn }[] = [
   { table: schema.banners, column: schema.banners.image_url },
   { table: schema.banners, column: schema.banners.cutout_url },
   { table: schema.site_settings, column: schema.site_settings.logo_url },
+  { table: schema.home_settings, column: schema.home_settings.hero_image_url },
+  { table: schema.home_settings, column: schema.home_settings.kit_image_url },
   { table: schema.feedback_images, column: schema.feedback_images.url },
   { table: schema.user, column: schema.user.image },
 ];

@@ -37,6 +37,8 @@ const { releaseImages } = await import("@/lib/media/images");
 const { findOrphanUploads, deleteOrphanUploads } = await import("@/lib/media/cleanup");
 const productActions = await import("@/lib/actions/products");
 const { updateBannerAction } = await import("@/lib/actions/banners");
+const { saveHomeSettingsAction } = await import("@/lib/actions/home");
+const { getHomeSettingsAdmin } = await import("@/lib/data/home");
 const { getAllProductsAdmin, getProductBySlug } = await import("@/lib/data/products");
 
 const { products, product_images, product_variants, orders, order_items, banners } = schema;
@@ -56,6 +58,7 @@ beforeEach(async () => {
   await state.db.delete(order_items);
   await state.db.delete(orders);
   await state.db.delete(banners);
+  await state.db.delete(schema.home_settings);
   await state.db.delete(products);
   const { keys } = await state.kv.list();
   await Promise.all(keys.map((key) => state.kv.delete(key.name)));
@@ -188,6 +191,30 @@ describe("salvar formulários libera o que saiu", () => {
 
     expect(await stored(before.key)).toBe(false);
     expect(await stored(after.key)).toBe(true);
+  });
+
+  it("fotos da Página inicial ficam salvas; trocar apaga a antiga e a faxina não as vê como sobra", async () => {
+    const hero = await upload("banners");
+    const kit = await upload("banners");
+    const newHero = await upload("banners");
+    const save = (heroUrl: string, kitUrl: string) => {
+      const data = new FormData();
+      data.set("hero_image_url", heroUrl);
+      data.set("kit_image_url", kitUrl);
+      return saveHomeSettingsAction({ status: "idle" }, data);
+    };
+
+    expect((await save(hero.url, kit.url)).status).toBe("success");
+    expect((await getHomeSettingsAdmin()).images).toEqual({
+      hero_image_url: hero.url,
+      kit_image_url: kit.url,
+    });
+    expect((await findOrphanUploads()).orphans.map((o) => o.key)).not.toContain(kit.key);
+
+    expect((await save(newHero.url, kit.url)).status).toBe("success");
+    expect((await getHomeSettingsAdmin()).images.hero_image_url).toBe(newHero.url);
+    expect(await stored(hero.key)).toBe(false);
+    expect(await stored(kit.key)).toBe(true);
   });
 });
 

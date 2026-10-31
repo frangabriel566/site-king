@@ -915,6 +915,10 @@ export const home_settings = sqliteTable(
     }),
     /** Shown on the card instead of the product's name; the product keeps it. */
     featured_label: text("featured_label"),
+    /** The top photo, fixed from the panel. Empty: the first active banner's. */
+    hero_image_url: text("hero_image_url"),
+    /** The KITS block's photo. Empty: the kit product's first photo. */
+    kit_image_url: text("kit_image_url"),
   },
   (t) => [check("home_settings_single_row", sql`${t.id} = 1`)],
 );

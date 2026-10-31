@@ -32,6 +32,7 @@ export async function saveHomeSettingsAction(
     featured_label: text("featured_label"),
     hero_image_url: text("hero_image_url"),
     kit_image_url: text("kit_image_url"),
+    kit_title: text("kit_title"),
   });
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
@@ -53,6 +54,7 @@ export async function saveHomeSettingsAction(
     featured_label: data.featured_label || null,
     hero_image_url: data.hero_image_url || null,
     kit_image_url: data.kit_image_url || null,
+    kit_title: data.kit_title || null,
   };
 
   let before: { hero_image_url: string | null; kit_image_url: string | null } | undefined;
@@ -78,7 +80,7 @@ export async function saveHomeSettingsAction(
       message: missingTable
         ? "O banco ainda não tem a tabela da Página inicial. Aplique a migration 0014 (npm run db:migrate:remote)."
         : missingColumn
-          ? "O banco ainda não tem as fotos da Página inicial. Aplique a migration 0015 (npm run db:migrate:remote)."
+          ? "O banco ainda não tem as fotos da Página inicial. Aplique as migrations 0015 e 0016 (npm run db:migrate:remote)."
           : "Não foi possível salvar a página inicial.",
     };
   }

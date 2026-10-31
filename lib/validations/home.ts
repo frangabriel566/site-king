@@ -24,6 +24,7 @@ export const homeSettingsSchema = z.object({
   featured_product_id: z.guid().optional().nullable(),
   featured_label: optionalText(80),
   hero_image_url: imageUrlSchema().optional().or(z.literal("")),
+  kit_title: optionalText(80),
   kit_image_url: imageUrlSchema().optional().or(z.literal("")),
 });
 

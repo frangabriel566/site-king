@@ -113,6 +113,13 @@
       "when": 1793450000000,
       "tag": "0015_home_images",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793455000000,
+      "tag": "0016_home_kit_title",
+      "breakpoints": true
     }
   ]
 }

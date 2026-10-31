@@ -40,6 +40,7 @@ type Defaults = {
 export function HomeSettingsForm({
   row,
   images,
+  kitTitle: initialKitTitle,
   defaults,
   productOptions,
   autoPrice,
@@ -47,6 +48,7 @@ export function HomeSettingsForm({
   row: HomeSettingsRow | null;
   /** The photos fixed today; null is "automatic". */
   images: HomeImages;
+  kitTitle: string | null;
   defaults: Defaults;
   productOptions: ProductOption[];
   /** The lowest shelf price, shown when the gold highlight is left empty. */
@@ -69,6 +71,7 @@ export function HomeSettingsForm({
   const [featuredProductId, setFeaturedProductId] = useState(row?.featured_product_id ?? NONE);
   const [featuredLabel, setFeaturedLabel] = useState(row?.featured_label ?? "");
   const [heroImage, setHeroImage] = useState<string | null>(images.hero_image_url);
+  const [kitTitle, setKitTitle] = useState(initialKitTitle ?? "");
   const [kitImage, setKitImage] = useState<string | null>(images.kit_image_url);
   // Keeps the uploaders from deleting a just-saved photo (image-uploader.tsx).
   const savingRef = useRef(false);
@@ -245,6 +248,20 @@ export function HomeSettingsForm({
             />
             <p className="text-xs text-ink-muted">
               Fica fixa até você trocar. Sem foto aqui, o site usa a do primeiro banner ativo.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="kit_title">Nome no bloco KITS</Label>
+            <Input
+              id="kit_title"
+              name="kit_title"
+              value={kitTitle}
+              maxLength={80}
+              placeholder="Automático: o nome do kit"
+              onChange={(e) => setKitTitle(e.target.value)}
+            />
+            <p className="text-xs text-ink-muted">
+              Só muda o título na home. O nome do produto continua o mesmo.
             </p>
           </div>
           <div className="flex flex-col gap-2">

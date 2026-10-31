@@ -1881,3 +1881,8 @@ bloco KITS ("Monte o look"), e ela ficar a escolhida.
 - Trocar ou remover uma foto apaga a antiga do KV quando nada mais a usa
   (`releaseImages`); as duas colunas entram em `IMAGE_COLUMNS`, então a
   faxina não as vê como sobra. Teste em `tests/images.d1.test.ts`.
+- **Nome no bloco KITS** (migration `0016`, `kit_title`): o título do bloco
+  "Monte o look" pode ser escrito no painel; vazio mostra o nome do kit.
+  O título agora quebra linha mesmo sem espaço (`overflow-wrap:anywhere`),
+  porque nomes como "BROOKSFIELD+SARJA+BONÉ" saíam da tela no celular.
+  Lido à parte, como as fotos, para não derrubar os textos sem a migration.

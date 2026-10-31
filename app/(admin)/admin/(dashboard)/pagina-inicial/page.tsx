@@ -22,6 +22,7 @@ export default async function AdminHomePage() {
       <HomeSettingsForm
         row={home.row}
         images={home.images}
+        kitTitle={home.kit_title}
         defaults={HOME_DEFAULTS}
         productOptions={productOptions}
         autoPrice={null}

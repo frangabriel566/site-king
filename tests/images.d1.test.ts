@@ -215,6 +215,11 @@ describe("salvar formulários libera o que saiu", () => {
     expect((await getHomeSettingsAdmin()).images.hero_image_url).toBe(newHero.url);
     expect(await stored(hero.key)).toBe(false);
     expect(await stored(kit.key)).toBe(true);
+
+    const titled = new FormData();
+    titled.set("kit_title", "Kit Brooksfield");
+    expect((await saveHomeSettingsAction({ status: "idle" }, titled)).status).toBe("success");
+    expect((await getHomeSettingsAdmin()).kit_title).toBe("Kit Brooksfield");
   });
 });
 

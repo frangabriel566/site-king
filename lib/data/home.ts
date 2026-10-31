@@ -31,6 +31,8 @@ export type HomeSettings = {
   featured_product: FeaturedBannerProduct | null;
   /** Photos fixed in the panel; null means "automatic". */
   images: HomeImages;
+  /** Title of the KITS block from the panel; null is the kit's name. */
+  kit_title: string | null;
 };
 
 export type HomeImages = {
@@ -43,7 +45,18 @@ const EMPTY: HomeSettings = {
   row: null,
   featured_product: null,
   images: NO_IMAGES,
+  kit_title: null,
 };
+
+/** Migration 0016, read apart for the same reason as the photos. */
+async function loadKitTitle(): Promise<string | null> {
+  const row = await getDb()
+    .select({ kit_title: schema.home_settings.kit_title })
+    .from(schema.home_settings)
+    .where(eq(schema.home_settings.id, 1))
+    .get();
+  return row?.kit_title?.trim() || null;
+}
 
 /**
  * The photo columns come from migration 0015. Read on their own, so a
@@ -66,11 +79,11 @@ async function loadHomeImages(): Promise<HomeImages> {
 }
 
 async function loadHomeSettings(): Promise<HomeSettings> {
-  const [row, images] = await Promise.all([
+  const [row, images, kit_title] = await Promise.all([
     getDb().query.home_settings.findFirst({
       where: eq(schema.home_settings.id, 1),
       // Read apart, in loadHomeImages (migration 0015).
-      columns: { hero_image_url: false, kit_image_url: false },
+      columns: { hero_image_url: false, kit_image_url: false, kit_title: false },
       with: {
         featured_product: {
           columns: {
@@ -86,14 +99,16 @@ async function loadHomeSettings(): Promise<HomeSettings> {
       },
     }),
     safeQuery(loadHomeImages, NO_IMAGES),
+    safeQuery(loadKitTitle, null),
   ]);
-  if (!row) return { ...EMPTY, images };
+  if (!row) return { ...EMPTY, images, kit_title };
   const { featured_product, ...rest } = row;
   // A product moved to the trash keeps its id; the card skips it.
   const product = featured_product && !featured_product.deleted_at ? featured_product : null;
   return {
-    row: { ...rest, hero_image_url: null, kit_image_url: null },
+    row: { ...rest, hero_image_url: null, kit_image_url: null, kit_title: null },
     images,
+    kit_title,
     featured_product: product
       ? {
           id: product.id,

@@ -143,6 +143,7 @@ export default async function HomePage() {
           seeAllHref={sectionHref("kits")}
           installmentsMax={settings.installments_max}
           imageUrl={home.images.kit_image_url}
+          title={home.kit_title}
         />
       )}
       <ProductRail

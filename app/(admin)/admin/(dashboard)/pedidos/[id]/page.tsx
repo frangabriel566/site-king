@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getOrderByIdAdmin } from "@/lib/data/orders";
+import { getOrderByIdAdmin, getOrderItemPhotos } from "@/lib/data/orders";
+import { OrderItemThumb } from "@/components/admin/order-item-thumb";
 import { getSiteSettings } from "@/lib/data/settings";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
@@ -21,6 +22,7 @@ export default async function AdminOrderDetailPage({
   const { id } = await params;
   const [order, settings] = await Promise.all([getOrderByIdAdmin(id), getSiteSettings()]);
   if (!order) notFound();
+  const photos = await getOrderItemPhotos(order.order_items);
   // Without Melhor Envio every quote and label fails; a label already
   // bought is still shown.
   const showLabel =
@@ -52,6 +54,13 @@ export default async function AdminOrderDetailPage({
           <h1 className="text-heading text-3xl">Pedido #{order.code ?? order.order_number}</h1>
           <p className="mt-2 text-sm text-ink-muted">{formatDateTime(order.created_at)}</p>
         </div>
+        <Link
+          href={`/admin/imprimir/pedido/${order.id}`}
+          target="_blank"
+          className="rounded-md border border-line px-4 py-2 text-sm hover:border-accent-light hover:text-accent-light print:hidden"
+        >
+          Imprimir pedido
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
@@ -64,12 +73,17 @@ export default async function AdminOrderDetailPage({
                   {order.order_items.map((item) => (
                     <tr key={item.id} className="border-b border-line last:border-0">
                       <td className="p-3">
-                        {item.name}
-                        <span className="block text-xs text-ink-muted">
-                          {[formatVariantLabel(item.color, item.size), `Qtd. ${item.qty}`]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <OrderItemThumb url={photos.get(item.id)} alt={item.name} />
+                          <div>
+                            {item.name}
+                            <span className="block text-xs text-ink-muted">
+                              {[formatVariantLabel(item.color, item.size), `Qtd. ${item.qty}`]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-3 text-right">
                         {formatCurrency(item.unit_price * item.qty)}

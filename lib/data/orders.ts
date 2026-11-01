@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, like, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, sql, type SQL } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import type { OrderStatus, Tables } from "@/lib/database.types";
 import { ORDER_STATUSES } from "@/lib/db/schema";
@@ -31,7 +31,9 @@ export type OrderAdminFilters = {
 };
 
 /** Admin listing — every order. */
-export async function getAllOrdersAdmin(filters: OrderAdminFilters = {}): Promise<Order[]> {
+export async function getAllOrdersAdmin(
+  filters: OrderAdminFilters = {},
+): Promise<OrderWithItems[]> {
   await requireAdminPage();
   const conditions: SQL[] = [];
 
@@ -50,10 +52,59 @@ export async function getAllOrdersAdmin(filters: OrderAdminFilters = {}): Promis
     }
   }
 
+  // Com os itens: a lista mostra o que foi comprado sem abrir o pedido.
   return getDb().query.orders.findMany({
     where: and(...conditions),
     orderBy: desc(orders.created_at),
+    with: { order_items: true },
   });
+}
+
+/** D1 aceita no máximo 100 parâmetros por consulta. */
+function chunks<T>(list: T[], size = 90): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/**
+ * A foto de cada item de pedido, para o atendente reconhecer a peça sem
+ * abrir o produto: a foto da cor comprada (variação) quando existe, senão
+ * a primeira foto do produto. Item cujo produto foi apagado fica sem foto.
+ * Chave: id do item do pedido.
+ */
+export async function getOrderItemPhotos(items: OrderItem[]): Promise<Map<string, string>> {
+  const db = getDb();
+  const variantIds = [...new Set(items.map((i) => i.variant_id).filter((v): v is string => !!v))];
+  const productIds = [...new Set(items.map((i) => i.product_id).filter((v): v is string => !!v))];
+
+  const variantPhoto = new Map<string, string>();
+  for (const ids of chunks(variantIds)) {
+    const rows = await db
+      .select({ id: schema.product_variants.id, url: schema.product_variants.image_url })
+      .from(schema.product_variants)
+      .where(inArray(schema.product_variants.id, ids));
+    for (const row of rows) if (row.url) variantPhoto.set(row.id, row.url);
+  }
+
+  const productPhoto = new Map<string, string>();
+  for (const ids of chunks(productIds)) {
+    const rows = await db
+      .select({ productId: schema.product_images.product_id, url: schema.product_images.url })
+      .from(schema.product_images)
+      .where(inArray(schema.product_images.product_id, ids))
+      .orderBy(asc(schema.product_images.position));
+    for (const row of rows) if (!productPhoto.has(row.productId)) productPhoto.set(row.productId, row.url);
+  }
+
+  const photos = new Map<string, string>();
+  for (const item of items) {
+    const url =
+      (item.variant_id && variantPhoto.get(item.variant_id)) ||
+      (item.product_id && productPhoto.get(item.product_id));
+    if (url) photos.set(item.id, url);
+  }
+  return photos;
 }
 
 export async function getOrdersByCustomerAdmin(customerId: string): Promise<Order[]> {

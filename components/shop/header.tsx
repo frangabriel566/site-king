@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { HeaderSearch } from "@/components/shop/header-search";
 import { AnnouncementBar } from "@/components/shop/announcement-bar";
 import { WhatsAppIcon } from "@/components/shop/whatsapp-icon";
+import { ScrollRail } from "@/components/shop/scroll-rail";
 import type { CategoryShowcase } from "@/lib/data/categories";
 import type { SiteSettings } from "@/lib/data/settings";
 import { announcementMessages } from "@/lib/shop-config";
@@ -258,7 +259,8 @@ export function Header({
       {/* On phones too, as a row that scrolls sideways (King Store layout,
           out/2026); the wide Michroma labels are the look's signature. */}
       <nav aria-label="Categorias" className="border-t border-white/10 bg-black text-fg">
-        <div className="scrollbar-hide mx-auto flex h-12 max-w-[1400px] items-center gap-7 overflow-x-auto px-4 font-label text-[11px] uppercase tracking-[0.1em] md:px-8">
+        {/* ScrollRail: a mouse can drag the row too, not only a finger. */}
+        <ScrollRail className="mx-auto h-12 max-w-[1400px] items-center gap-7 px-4 font-label text-[11px] uppercase tracking-[0.1em] md:px-8">
           {categories.map((category) => (
             <Link
               key={category.id}
@@ -268,7 +270,7 @@ export function Header({
               {category.name}
             </Link>
           ))}
-        </div>
+        </ScrollRail>
       </nav>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

@@ -192,6 +192,9 @@ export function ScrollRail({
         // Dragging across a photo would otherwise start a native image
         // drag and abandon the scroll halfway.
         onDragStart={(event) => event.preventDefault()}
+        // A row with scroll-snap would snap on every move of the drag and
+        // jump in steps; snapping comes back on release.
+        style={dragging ? { scrollSnapType: "none" } : undefined}
         className={`scrollbar-hide flex overflow-x-auto ${className} ${
           scrollable ? (dragging ? "cursor-grabbing select-none" : "cursor-grab") : ""
         }`}

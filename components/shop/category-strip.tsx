@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SafeImage } from "@/components/shop/safe-image";
+import { ScrollRail } from "@/components/shop/scroll-rail";
 import type { CategoryShowcase } from "@/lib/data/categories";
 
 /**
@@ -14,7 +15,7 @@ export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }
   return (
     <section className="mx-auto max-w-[1400px] pt-12 pb-2">
       <h2 className="mb-5 px-4 text-2xl md:px-8 md:text-[30px]">Compre por categoria</h2>
-      <div className="scrollbar-hide snap-x snap-mandatory overflow-x-auto">
+      <ScrollRail className="snap-x snap-mandatory" label="Compre por categoria">
         <ul className="flex w-max gap-3.5 px-4 md:px-8">
           {categories.map((category) => (
             <li key={category.id} className="snap-start">
@@ -43,7 +44,7 @@ export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }
             </li>
           ))}
         </ul>
-      </div>
+      </ScrollRail>
     </section>
   );
 }

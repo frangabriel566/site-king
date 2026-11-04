@@ -29,8 +29,10 @@ const IMAGE_COLUMNS: { table: SQLiteTable; column: SQLiteColumn }[] = [
   { table: schema.brands, column: schema.brands.logo_url },
   { table: schema.banners, column: schema.banners.image_url },
   { table: schema.banners, column: schema.banners.cutout_url },
-  // Migration 0018: callers below run ensureBannerColumns() first.
+  // Migrations 0018/0019: callers below run ensureBannerColumns() first.
   { table: schema.banners, column: schema.banners.mobile_image_url },
+  // A JSON array of URLs: the queries match any URL inside the text.
+  { table: schema.banners, column: schema.banners.extra_images },
   { table: schema.site_settings, column: schema.site_settings.logo_url },
   { table: schema.home_settings, column: schema.home_settings.hero_image_url },
   { table: schema.home_settings, column: schema.home_settings.kit_image_url },

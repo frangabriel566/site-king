@@ -10,6 +10,7 @@ import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
 import { releaseImages, removedUrls } from "@/lib/media/images";
 import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
+import { parseExtraImages } from "@/lib/banner-style";
 
 type BannerInput = z.infer<typeof bannerSchema>;
 
@@ -31,6 +32,11 @@ function parseStyle(raw: FormDataEntryValue | null): unknown {
   }
 }
 
+function parseList(raw: FormDataEntryValue | null): unknown {
+  const value = parseStyle(raw);
+  return Array.isArray(value) ? value : [];
+}
+
 function parseFormData(formData: FormData) {
   return bannerSchema.safeParse({
     kind: formData.get("kind") || "editavel",
@@ -46,6 +52,7 @@ function parseFormData(formData: FormData) {
     badge: formData.get("badge") ?? "",
     image_url: formData.get("image_url") ?? "",
     mobile_image_url: formData.get("mobile_image_url") ?? "",
+    extra_images: parseList(formData.get("extra_images")),
     wordmark: formData.get("wordmark") ?? "",
     cutout_url: formData.get("cutout_url") ?? "",
     featured_product_id: formData.get("featured_product_id") || null,
@@ -70,6 +77,11 @@ function toRow(data: BannerInput) {
     badge: data.badge || null,
     image_url: data.image_url || null,
     mobile_image_url: data.mobile_image_url || null,
+    // A finished image has no photo carousel.
+    extra_images:
+      data.kind === "pronto" || data.extra_images.length === 0
+        ? null
+        : JSON.stringify(data.extra_images),
     wordmark: data.wordmark || null,
     cutout_url: data.cutout_url || null,
     featured_product_id: data.featured_product_id || null,
@@ -83,7 +95,18 @@ const IMAGE_FIELDS = {
   image_url: banners.image_url,
   cutout_url: banners.cutout_url,
   mobile_image_url: banners.mobile_image_url,
+  extra_images: banners.extra_images,
 };
+
+/** Every image URL a banner row holds. */
+function imageUrlsOf(row: {
+  image_url: string | null;
+  cutout_url: string | null;
+  mobile_image_url: string | null;
+  extra_images: string | null;
+}): (string | null)[] {
+  return [row.image_url, row.cutout_url, row.mobile_image_url, ...parseExtraImages(row.extra_images)];
+}
 
 export async function createBannerAction(
   _prev: ActionResult,
@@ -135,10 +158,7 @@ export async function updateBannerAction(
   // A swapped or removed background/cutout leaves KV (if nothing else uses it).
   if (before) {
     await releaseImages(
-      removedUrls(
-        [before.image_url, before.cutout_url, before.mobile_image_url],
-        [row.image_url, row.cutout_url, row.mobile_image_url],
-      ),
+      removedUrls(imageUrlsOf(before), imageUrlsOf(row)),
     );
   }
 
@@ -154,7 +174,7 @@ export async function deleteBannerAction(id: string): Promise<{ ok: boolean; mes
     .where(eq(banners.id, id))
     .returning(IMAGE_FIELDS);
   if (removed) {
-    await releaseImages([removed.image_url, removed.cutout_url, removed.mobile_image_url]);
+    await releaseImages(imageUrlsOf(removed));
   }
   revalidateStorefront();
   return { ok: true };

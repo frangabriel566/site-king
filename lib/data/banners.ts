@@ -6,6 +6,7 @@ import { requireAdminPage } from "@/lib/auth/guards";
 import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
 import {
   parseBannerStyle,
+  parseExtraImages,
   type BannerKind,
   type HeroBannerData,
 } from "@/lib/banner-style";
@@ -65,6 +66,7 @@ export function toHeroBanner(row: Tables<"banners">): HeroBannerData {
     badge: row.badge ?? "",
     imageUrl: row.image_url,
     mobileImageUrl: row.mobile_image_url,
+    extraImages: row.kind === "pronto" ? [] : parseExtraImages(row.extra_images),
     style: parseBannerStyle(row.style),
   };
 }

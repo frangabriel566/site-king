@@ -1925,3 +1925,10 @@ trocados pelo painel, ativado ou desativado, e também banners prontos.
   reduzidos para caber.
 - **Fontes**: as três do site (Saira, Michroma, Archivo) e onze do Google
   Fonts, carregadas só quando um banner ativo as usa.
+- **Mais fotos no mesmo banner** (migration `0019`, `extra_images`, JSON
+  com as URLs; também aplicada sozinha): no banner editável, "Adicionar
+  foto" põe até 8 fotos que se revezam a cada 5 s atrás das mesmas frases.
+  O campo de foto passou a ser um só para celular e computador (pedido do
+  dono da loja); a foto só do celular aparece apenas em banner que já tem.
+- **Banner antigo ativado** (sem `style` salvo) mostra a foto dele com as
+  frases do topo padrão, e abre no painel com as frases da arte.

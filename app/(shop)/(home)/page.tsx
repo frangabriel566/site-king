@@ -102,6 +102,7 @@ export default async function HomePage() {
     badge: DEFAULT_BANNER_TEXTS.badge,
     imageUrl: home.images.hero_image_url,
     mobileImageUrl: null,
+    extraImages: [],
     style: DEFAULT_BANNER_STYLE,
   };
   // A banner from before the full-screen ones (no style saved yet) only
@@ -117,6 +118,7 @@ export default async function HomePage() {
             id: banner.id,
             imageUrl: banner.imageUrl,
             mobileImageUrl: banner.mobileImageUrl,
+            extraImages: banner.extraImages,
           };
         })
       : [fallbackBanner];

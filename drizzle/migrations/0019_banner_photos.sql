@@ -1,0 +1,1 @@
+ALTER TABLE `banners` ADD `extra_images` text;

@@ -20,8 +20,10 @@ aparece o topo padrão com os textos e a foto da aba **Página inicial**.
 
 1. `/admin/banners` → **Novo banner** (ou o lápis de um existente).
 2. Escolha o tipo:
-   - **Banner editável** — envie a foto de fundo (a do celular é
-     opcional), escreva as frases e escolha fontes e cores. Os controles
+   - **Banner editável** — envie a foto de fundo (uma só, serve para
+     celular e computador), escreva as frases e escolha fontes e cores.
+     **Adicionar foto** põe mais fotos que passam uma de cada vez atrás
+     das mesmas frases. Os controles
      "Altura da foto" sobem ou descem a foto; "Escurecer a foto" ajuda o
      texto a aparecer em fotos claras. **Voltar fontes e cores ao padrão**
      retorna à arte aprovada (grafite e dourado).

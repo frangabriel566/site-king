@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, MessageCircle, Truck } from "lucide-react";
-import { SafeImage } from "@/components/shop/safe-image";
+import { BannerPhotos, type BannerPhoto } from "@/components/shop/banner-photos";
 import { cn } from "@/lib/utils";
 import { BANNER_FONTS, HEADLINE_SIZES, type HeroBannerData } from "@/lib/banner-style";
 
@@ -47,6 +47,10 @@ export function HeroBanner({
   const desktopImage = banner.imageUrl ?? banner.mobileImageUrl;
   const mobileImage = banner.mobileImageUrl ?? banner.imageUrl;
   const split = style.desktopLayout === "split";
+  const photos: BannerPhoto[] = [
+    ...(desktopImage && mobileImage ? [{ mobile: mobileImage, desktop: desktopImage }] : []),
+    ...banner.extraImages.map((url) => ({ mobile: url, desktop: url })),
+  ];
   const alt = [banner.headline, banner.highlight].filter(Boolean).join(" ") || "King Store";
   const Heading = asHeading ? "h1" : "h2";
 
@@ -59,21 +63,14 @@ export function HeroBanner({
           frameClass,
         )}
       >
-        {mobileImage && (
-          <div className="absolute inset-x-0 top-0 -z-10 h-[78%] [mask-image:linear-gradient(to_bottom,#000_60%,transparent_100%)] @3xl:hidden">
-            <SafeImage
-              src={mobileImage}
-              alt=""
-              fill
-              priority={priority}
-              sizes="100vw"
-              fallbackLabel=""
-              className="object-cover"
-              style={{ objectPosition: `50% ${style.focusMobile}%` }}
-            />
-          </div>
-        )}
-        {mobileImage && (
+        <BannerPhotos
+          photos={photos}
+          split={split}
+          focusMobile={style.focusMobile}
+          focusDesktop={style.focusDesktop}
+          priority={priority}
+        />
+        {photos.length > 0 && (
           // Phone: the texts sit over the lower part of the photo; this
           // fades it into the background under them so they always read.
           <div
@@ -85,27 +82,6 @@ export function HeroBanner({
             }}
           />
         )}
-        {desktopImage && (
-          <div
-            className={cn(
-              "absolute inset-y-0 right-0 -z-10 hidden @3xl:block",
-              split
-                ? "w-[62%] [mask-image:linear-gradient(to_right,transparent_0%,#000_30%)]"
-                : "w-full",
-            )}
-          >
-            <SafeImage
-              src={desktopImage}
-              alt=""
-              fill
-              priority={priority}
-              sizes={split ? "62vw" : "100vw"}
-              fallbackLabel=""
-              className="object-cover"
-              style={{ objectPosition: `50% ${style.focusDesktop}%` }}
-            />
-          </div>
-        )}
         {style.overlay > 0 && (
           <div
             aria-hidden="true"
@@ -113,7 +89,7 @@ export function HeroBanner({
             style={{ opacity: style.overlay / 100 }}
           />
         )}
-        {!split && desktopImage && (
+        {!split && photos.length > 0 && (
           <div
             aria-hidden="true"
             className="absolute inset-0 -z-10 hidden @3xl:block"

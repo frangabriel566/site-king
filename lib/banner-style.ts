@@ -117,8 +117,27 @@ export type HeroBannerData = {
   imageUrl: string | null;
   /** Phone image; null uses imageUrl. */
   mobileImageUrl: string | null;
+  /** More background photos ("editavel"): they take turns with the first
+   * one behind the same texts. */
+  extraImages: string[];
   style: BannerStyle;
 };
+
+/** Most photos one banner takes turns with, the first one included. */
+export const MAX_BANNER_PHOTOS = 8;
+
+/** banners.extra_images (JSON array of URLs) → the URLs. */
+export function parseExtraImages(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value)
+      ? value.filter((url): url is string => typeof url === "string" && url.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 /** The approved art's copy, used for a new banner. */
 export const DEFAULT_BANNER_TEXTS = {

@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ImageIcon, Monitor, Palette, RotateCcw, Smartphone, Type } from "lucide-react";
+import { ImageIcon, Monitor, Plus, Palette, RotateCcw, Smartphone, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,8 +24,10 @@ import {
   DEFAULT_BANNER_STYLE,
   DEFAULT_BANNER_TEXTS,
   HEADLINE_SIZES,
+  MAX_BANNER_PHOTOS,
   googleFontsHref,
   parseBannerStyle,
+  parseExtraImages,
   type BannerFontKey,
   type BannerKind,
   type BannerStyle,
@@ -95,6 +97,13 @@ export function BannerForm({
   const [mobileImageUrl, setMobileImageUrl] = useState<string | null>(
     banner?.mobile_image_url ?? null,
   );
+  // More photos that take turns behind the texts; each slot has a stable
+  // key so removing one doesn't remount (and clean up) the others.
+  const [extraSlots, setExtraSlots] = useState<{ key: number; url: string | null }[]>(() =>
+    parseExtraImages(banner?.extra_images).map((url, index) => ({ key: index, url })),
+  );
+  const nextSlotKey = useRef(extraSlots.length);
+  const extraImages = extraSlots.map((slot) => slot.url).filter((url): url is string => !!url);
   const [style, setStyle] = useState<BannerStyle>(() => parseBannerStyle(banner?.style));
   const [active, setActive] = useState(banner?.active ?? true);
   const [position, setPosition] = useState(banner?.position ?? 0);
@@ -129,6 +138,7 @@ export function BannerForm({
     badge,
     imageUrl,
     mobileImageUrl,
+    extraImages: kind === "pronto" ? [] : extraImages,
     style,
   };
   const fontsHref = googleFontsHref([style]);
@@ -155,6 +165,7 @@ export function BannerForm({
         <input type="hidden" name="badge" value={badge} />
         <input type="hidden" name="image_url" value={imageUrl ?? ""} />
         <input type="hidden" name="mobile_image_url" value={mobileImageUrl ?? ""} />
+        <input type="hidden" name="extra_images" value={JSON.stringify(extraImages)} />
         <input type="hidden" name="style" value={JSON.stringify(style)} />
         {/* Fields of the earlier banner form, kept as they were. */}
         <input type="hidden" name="wordmark" value={banner?.wordmark ?? ""} />
@@ -237,25 +248,78 @@ export function BannerForm({
             <Section title="Foto de fundo">
               <div className="grid grid-cols-2 gap-4">
                 <ImageUploader
-                  label="Computador"
+                  label="Foto (celular e computador)"
                   value={imageUrl}
                   onChange={setImageUrl}
                   folder="banners"
                   aspect="aspect-[4/5]"
                   savingRef={savingRef}
                 />
-                <ImageUploader
-                  label="Celular (opcional)"
-                  value={mobileImageUrl}
-                  onChange={setMobileImageUrl}
-                  folder="banners"
-                  aspect="aspect-[4/5]"
-                  savingRef={savingRef}
-                />
+                {/* Older banners may have a phone-only photo; it shows here so
+                    it can be removed. New banners use one photo for both. */}
+                {mobileImageUrl && (
+                  <ImageUploader
+                    label="Foto só do celular"
+                    value={mobileImageUrl}
+                    onChange={setMobileImageUrl}
+                    folder="banners"
+                    aspect="aspect-[4/5]"
+                    savingRef={savingRef}
+                  />
+                )}
               </div>
               <p className="text-xs text-ink-muted">
-                Fotos com fundo escuro combinam melhor. Sem a do celular, ele usa a do computador.
+                Uma foto serve para as duas versões: no celular ela fica em cima, com as frases
+                embaixo; no computador, à direita, com as frases à esquerda, como na arte. Fotos
+                com fundo escuro combinam melhor.
               </p>
+
+              <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
+                <div>
+                  <p className="text-sm font-semibold">Mais fotos (carrossel)</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    As fotos passam uma de cada vez atrás das mesmas frases, a cada 5 segundos.
+                    Cada foto serve para celular e computador.
+                  </p>
+                </div>
+                {extraSlots.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {extraSlots.map((slot, index) => (
+                      <ImageUploader
+                        key={slot.key}
+                        label={`Foto ${index + 2}`}
+                        value={slot.url}
+                        onChange={(url) =>
+                          setExtraSlots((slots) =>
+                            url
+                              ? slots.map((s) => (s.key === slot.key ? { ...s, url } : s))
+                              : slots.filter((s) => s.key !== slot.key),
+                          )
+                        }
+                        folder="banners"
+                        aspect="aspect-[4/5]"
+                        savingRef={savingRef}
+                      />
+                    ))}
+                  </div>
+                )}
+                {extraSlots.length < MAX_BANNER_PHOTOS - 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="self-start"
+                    disabled={extraSlots.some((slot) => !slot.url)}
+                    onClick={() =>
+                      setExtraSlots((slots) => [
+                        ...slots,
+                        { key: nextSlotKey.current++, url: null },
+                      ])
+                    }
+                  >
+                    <Plus className="size-4" aria-hidden="true" /> Adicionar foto
+                  </Button>
+                )}
+              </div>
               <RangeField
                 id="focusMobile"
                 label="Altura da foto no celular"

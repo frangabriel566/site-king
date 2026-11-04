@@ -408,6 +408,9 @@ export const banners = sqliteTable(
     show_whatsapp: bool("show_whatsapp").notNull().default(true),
     badge: text("badge"),
     style: text("style"),
+    // Migration 0019: more background photos for an "editavel" banner,
+    // a JSON array of URLs that take turns behind the same texts.
+    extra_images: text("extra_images"),
     active: bool("active").notNull().default(false),
     position: integer("position").notNull().default(0),
     created_at: createdAt(),

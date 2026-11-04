@@ -104,7 +104,22 @@ export default async function HomePage() {
     mobileImageUrl: null,
     style: DEFAULT_BANNER_STYLE,
   };
-  const heroBanners = banners.length > 0 ? banners.map(toHeroBanner) : [fallbackBanner];
+  // A banner from before the full-screen ones (no style saved yet) only
+  // had a photo: it shows that photo with the default banner's texts
+  // until it is saved again in the panel.
+  const heroBanners =
+    banners.length > 0
+      ? banners.map((row) => {
+          const banner = toHeroBanner(row);
+          if (banner.kind === "pronto" || row.style) return banner;
+          return {
+            ...fallbackBanner,
+            id: banner.id,
+            imageUrl: banner.imageUrl,
+            mobileImageUrl: banner.mobileImageUrl,
+          };
+        })
+      : [fallbackBanner];
   const whatsappDigits = settings.whatsapp?.replace(/\D/g, "") ?? "";
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`

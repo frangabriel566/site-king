@@ -60,30 +60,37 @@ export function BannerForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
   const isNew = !banner;
+  // A banner from before the full-screen banners (never saved by this
+  // form, so no style): it only had a photo, so it opens with the
+  // approved art's texts instead of empty fields.
+  const legacy = !!banner && banner.kind !== "pronto" && !banner.style;
+  const fill = isNew || legacy;
+  const text = (value: string | null | undefined, fallback: string) =>
+    legacy ? fallback : (value ?? (fill ? fallback : ""));
 
   const [kind, setKind] = useState<BannerKind>(banner?.kind === "pronto" ? "pronto" : "editavel");
-  const [eyebrow, setEyebrow] = useState(banner?.eyebrow ?? (isNew ? DEFAULT_BANNER_TEXTS.eyebrow : ""));
+  const [eyebrow, setEyebrow] = useState(text(banner?.eyebrow, DEFAULT_BANNER_TEXTS.eyebrow));
   const [eyebrowHighlight, setEyebrowHighlight] = useState(
-    banner?.eyebrow_highlight ?? (isNew ? DEFAULT_BANNER_TEXTS.eyebrowHighlight : ""),
+    text(banner?.eyebrow_highlight, DEFAULT_BANNER_TEXTS.eyebrowHighlight),
   );
   const [headline, setHeadline] = useState(
-    banner?.headline_line1 ?? (isNew ? DEFAULT_BANNER_TEXTS.headline : ""),
+    text(banner?.headline_line1, DEFAULT_BANNER_TEXTS.headline),
   );
   const [highlight, setHighlight] = useState(
-    banner?.headline_line2 ?? (isNew ? DEFAULT_BANNER_TEXTS.highlight : ""),
+    text(banner?.headline_line2, DEFAULT_BANNER_TEXTS.highlight),
   );
   const [subtitle, setSubtitle] = useState(
-    banner?.subtitle ?? (isNew ? DEFAULT_BANNER_TEXTS.subtitle : ""),
+    text(banner?.subtitle, DEFAULT_BANNER_TEXTS.subtitle),
   );
   const [ctaLabel, setCtaLabel] = useState(
-    banner?.cta_label ?? (isNew ? DEFAULT_BANNER_TEXTS.ctaLabel : ""),
+    text(banner?.cta_label, DEFAULT_BANNER_TEXTS.ctaLabel),
   );
   const [ctaHref, setCtaHref] = useState(banner?.cta_href ?? DEFAULT_BANNER_TEXTS.ctaHref);
   const [showWhatsapp, setShowWhatsapp] = useState(banner?.show_whatsapp ?? true);
   const [whatsappLabel, setWhatsappLabel] = useState(
     banner?.whatsapp_label ?? DEFAULT_BANNER_TEXTS.whatsappLabel,
   );
-  const [badge, setBadge] = useState(banner?.badge ?? (isNew ? DEFAULT_BANNER_TEXTS.badge : ""));
+  const [badge, setBadge] = useState(text(banner?.badge, DEFAULT_BANNER_TEXTS.badge));
   const [imageUrl, setImageUrl] = useState<string | null>(banner?.image_url ?? null);
   const [mobileImageUrl, setMobileImageUrl] = useState<string | null>(
     banner?.mobile_image_url ?? null,

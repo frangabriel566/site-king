@@ -1,48 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import { cn } from "@/lib/utils";
-
-const PHOTO_MS = 5000;
 
 export type BannerPhoto = { mobile: string; desktop: string };
 
 /**
- * The background photos of an editable banner. With more than one, they
- * fade into each other every few seconds behind the same texts (a carousel
- * of photos inside the banner). Laid out like the rest of the banner with
- * container queries: the phone version on top, fading down; the computer
+ * The background photos of an editable banner's slides, stacked: the
+ * `current` one shows and the others fade out (HeroBanner moves it).
+ * Laid out like the rest of the banner with container queries: the phone version on top, fading down; the computer
  * one on the right ("split") or across the whole banner.
  */
 export function BannerPhotos({
   photos,
+  current,
   split,
   focusMobile,
   focusDesktop,
   priority,
 }: {
-  photos: BannerPhoto[];
+  photos: (BannerPhoto | null)[];
+  current: number;
   split: boolean;
   focusMobile: number;
   focusDesktop: number;
   priority: boolean;
 }) {
-  const [current, setCurrent] = useState(0);
-  const count = photos.length;
-
-  useEffect(() => {
-    setCurrent(0);
-    if (count < 2) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = setInterval(() => setCurrent((index) => (index + 1) % count), PHOTO_MS);
-    return () => clearInterval(timer);
-  }, [count]);
-
   return (
     <>
       {photos.map((photo, index) => {
-        const visible = index === current % Math.max(count, 1);
+        if (!photo) return null;
+        const visible = index === current;
         const layer = cn(
           "transition-opacity duration-1000 ease-in-out motion-reduce:transition-none",
           visible ? "opacity-100" : "opacity-0",

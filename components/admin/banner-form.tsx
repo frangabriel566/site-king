@@ -9,7 +9,16 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ImageIcon, Monitor, Plus, Palette, RotateCcw, Smartphone, Type } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  Palette,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Type,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,12 +33,13 @@ import {
   DEFAULT_BANNER_STYLE,
   DEFAULT_BANNER_TEXTS,
   HEADLINE_SIZES,
-  MAX_BANNER_PHOTOS,
+  MAX_BANNER_SLIDES,
   googleFontsHref,
   parseBannerStyle,
-  parseExtraImages,
+  parseExtraSlides,
   type BannerFontKey,
   type BannerKind,
+  type BannerSlide,
   type BannerStyle,
   type HeroBannerData,
 } from "@/lib/banner-style";
@@ -52,6 +62,19 @@ const COLOR_FIELDS: { key: keyof BannerStyle; label: string }[] = [
 /** A sample WhatsApp link, only so the preview shows the button. */
 const PREVIEW_WHATSAPP = "#whatsapp";
 
+/** A slide in the form: a stable key so its photo field never remounts. */
+type SlideDraft = BannerSlide & { key: number };
+
+const TEXT_KEYS = [
+  "eyebrow",
+  "eyebrowHighlight",
+  "headline",
+  "highlight",
+  "subtitle",
+  "ctaLabel",
+  "ctaHref",
+] as const;
+
 export function BannerForm({
   banner,
   action,
@@ -71,43 +94,39 @@ export function BannerForm({
     legacy ? fallback : (value ?? (fill ? fallback : ""));
 
   const [kind, setKind] = useState<BannerKind>(banner?.kind === "pronto" ? "pronto" : "editavel");
-  const [eyebrow, setEyebrow] = useState(text(banner?.eyebrow, DEFAULT_BANNER_TEXTS.eyebrow));
-  const [eyebrowHighlight, setEyebrowHighlight] = useState(
-    text(banner?.eyebrow_highlight, DEFAULT_BANNER_TEXTS.eyebrowHighlight),
-  );
-  const [headline, setHeadline] = useState(
-    text(banner?.headline_line1, DEFAULT_BANNER_TEXTS.headline),
-  );
-  const [highlight, setHighlight] = useState(
-    text(banner?.headline_line2, DEFAULT_BANNER_TEXTS.highlight),
-  );
-  const [subtitle, setSubtitle] = useState(
-    text(banner?.subtitle, DEFAULT_BANNER_TEXTS.subtitle),
-  );
-  const [ctaLabel, setCtaLabel] = useState(
-    text(banner?.cta_label, DEFAULT_BANNER_TEXTS.ctaLabel),
-  );
-  const [ctaHref, setCtaHref] = useState(banner?.cta_href ?? DEFAULT_BANNER_TEXTS.ctaHref);
+  const [slides, setSlides] = useState<SlideDraft[]>(() => {
+    const first: Omit<BannerSlide, "image"> = {
+      eyebrow: text(banner?.eyebrow, DEFAULT_BANNER_TEXTS.eyebrow),
+      eyebrowHighlight: text(banner?.eyebrow_highlight, DEFAULT_BANNER_TEXTS.eyebrowHighlight),
+      headline: text(banner?.headline_line1, DEFAULT_BANNER_TEXTS.headline),
+      highlight: text(banner?.headline_line2, DEFAULT_BANNER_TEXTS.highlight),
+      subtitle: text(banner?.subtitle, DEFAULT_BANNER_TEXTS.subtitle),
+      ctaLabel: text(banner?.cta_label, DEFAULT_BANNER_TEXTS.ctaLabel),
+      ctaHref: banner?.cta_href ?? DEFAULT_BANNER_TEXTS.ctaHref,
+    };
+    const extra = banner?.kind === "pronto" ? [] : parseExtraSlides(banner?.extra_images, first);
+    return [{ ...first, image: banner?.image_url ?? null }, ...extra].map((slide, key) => ({
+      ...slide,
+      key,
+    }));
+  });
+  const nextKey = useRef(slides.length);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const current = Math.min(currentSlide, slides.length - 1);
+  const slide = slides[current];
+  const first = slides[0];
+
   const [showWhatsapp, setShowWhatsapp] = useState(banner?.show_whatsapp ?? true);
   const [whatsappLabel, setWhatsappLabel] = useState(
     banner?.whatsapp_label ?? DEFAULT_BANNER_TEXTS.whatsappLabel,
   );
   const [badge, setBadge] = useState(text(banner?.badge, DEFAULT_BANNER_TEXTS.badge));
-  const [imageUrl, setImageUrl] = useState<string | null>(banner?.image_url ?? null);
   const [mobileImageUrl, setMobileImageUrl] = useState<string | null>(
     banner?.mobile_image_url ?? null,
   );
-  // More photos that take turns behind the texts; each slot has a stable
-  // key so removing one doesn't remount (and clean up) the others.
-  const [extraSlots, setExtraSlots] = useState<{ key: number; url: string | null }[]>(() =>
-    parseExtraImages(banner?.extra_images).map((url, index) => ({ key: index, url })),
-  );
-  const nextSlotKey = useRef(extraSlots.length);
-  const extraImages = extraSlots.map((slot) => slot.url).filter((url): url is string => !!url);
   const [style, setStyle] = useState<BannerStyle>(() => parseBannerStyle(banner?.style));
   const [active, setActive] = useState(banner?.active ?? true);
   const [position, setPosition] = useState(banner?.position ?? 0);
-  const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
 
   // Suppresses the ImageUploaders' unmount cleanup once a real submit is
   // underway, so a successful save doesn't delete the image it just set.
@@ -121,24 +140,47 @@ export function BannerForm({
   }, [state]);
 
   const setStyleField = <K extends keyof BannerStyle>(key: K, value: BannerStyle[K]) =>
-    setStyle((current) => ({ ...current, [key]: value }));
+    setStyle((currentStyle) => ({ ...currentStyle, [key]: value }));
+
+  const updateSlide = (key: number, patch: Partial<BannerSlide>) =>
+    setSlides((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+
+  const addSlide = () => {
+    // The new photo starts with this one's texts: change only what differs.
+    const copy: SlideDraft = { ...slide, image: null, key: nextKey.current++ };
+    setSlides((list) => [...list, copy]);
+    setCurrentSlide(slides.length);
+  };
+
+  const removeSlide = () => {
+    if (slides.length < 2) return;
+    setSlides((list) => list.filter((item) => item.key !== slide.key));
+    setCurrentSlide(Math.max(0, current - 1));
+  };
+
+  const strip = (item: SlideDraft): BannerSlide => {
+    const { key, ...rest } = item;
+    void key;
+    return rest;
+  };
+  const extraSlides = kind === "pronto" ? [] : slides.slice(1).map(strip);
 
   const preview: HeroBannerData = {
     id: banner?.id ?? "novo",
     kind,
-    eyebrow,
-    eyebrowHighlight,
-    headline,
-    highlight,
-    subtitle,
-    ctaLabel,
-    ctaHref: ctaHref || "/colecao",
+    eyebrow: first.eyebrow,
+    eyebrowHighlight: first.eyebrowHighlight,
+    headline: first.headline,
+    highlight: first.highlight,
+    subtitle: first.subtitle,
+    ctaLabel: first.ctaLabel,
+    ctaHref: first.ctaHref || "/colecao",
     showWhatsapp,
     whatsappLabel,
     badge,
-    imageUrl,
+    imageUrl: first.image,
     mobileImageUrl,
-    extraImages: kind === "pronto" ? [] : extraImages,
+    extraSlides,
     style,
   };
   const fontsHref = googleFontsHref([style]);
@@ -154,18 +196,22 @@ export function BannerForm({
         className="flex min-w-0 flex-col gap-8"
       >
         <input type="hidden" name="kind" value={kind} />
-        <input type="hidden" name="eyebrow" value={eyebrow} />
-        <input type="hidden" name="eyebrow_highlight" value={eyebrowHighlight} />
-        <input type="hidden" name="headline_line1" value={headline} />
-        <input type="hidden" name="headline_line2" value={highlight} />
-        <input type="hidden" name="subtitle" value={subtitle} />
-        <input type="hidden" name="cta_label" value={ctaLabel} />
-        <input type="hidden" name="cta_href" value={ctaHref} />
+        <input type="hidden" name="eyebrow" value={first.eyebrow} />
+        <input type="hidden" name="eyebrow_highlight" value={first.eyebrowHighlight} />
+        <input type="hidden" name="headline_line1" value={first.headline} />
+        <input type="hidden" name="headline_line2" value={first.highlight} />
+        <input type="hidden" name="subtitle" value={first.subtitle} />
+        <input type="hidden" name="cta_label" value={first.ctaLabel} />
+        <input type="hidden" name="cta_href" value={first.ctaHref} />
         <input type="hidden" name="whatsapp_label" value={whatsappLabel} />
         <input type="hidden" name="badge" value={badge} />
-        <input type="hidden" name="image_url" value={imageUrl ?? ""} />
+        <input type="hidden" name="image_url" value={first.image ?? ""} />
         <input type="hidden" name="mobile_image_url" value={mobileImageUrl ?? ""} />
-        <input type="hidden" name="extra_images" value={JSON.stringify(extraImages)} />
+        <input
+          type="hidden"
+          name="extra_slides"
+          value={JSON.stringify(extraSlides.filter((item) => item.image || item.headline))}
+        />
         <input type="hidden" name="style" value={JSON.stringify(style)} />
         {/* Fields of the earlier banner form, kept as they were. */}
         <input type="hidden" name="wordmark" value={banner?.wordmark ?? ""} />
@@ -178,7 +224,7 @@ export function BannerForm({
             <Label htmlFor="active">{active ? "Ativado no site" : "Desativado"}</Label>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="position">Ordem no carrossel</Label>
+            <Label htmlFor="position">Ordem entre banners</Label>
             <Input
               id="position"
               name="position"
@@ -199,7 +245,7 @@ export function BannerForm({
               onSelect={() => setKind("editavel")}
               icon={<Type className="size-5" aria-hidden="true" />}
               title="Banner editável"
-              text="Foto de fundo, frases, fontes e cores pelo painel."
+              text="Fotos com frases, fontes e cores pelo painel."
             />
             <KindOption
               selected={kind === "pronto"}
@@ -214,112 +260,246 @@ export function BannerForm({
         {kind === "pronto" ? (
           <Section title="Imagens do banner pronto">
             <p className="text-sm text-ink-muted">
-              A imagem aparece inteira, sem cortes. Tamanhos sugeridos: celular 1080 × 1350
-              (em pé) e computador 1920 × 800 (deitada). Sem a do celular, ele usa a do
-              computador.
+              Uma imagem só, para celular e computador. Ela aparece inteira, sem cortes; no
+              computador fica centralizada, na altura da tela.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <ImageUploader
-                label="Celular"
-                value={mobileImageUrl}
-                onChange={setMobileImageUrl}
+                label="Imagem (celular e computador)"
+                value={first.image}
+                onChange={(url) => updateSlide(first.key, { image: url })}
                 folder="banners"
                 aspect="aspect-[4/5]"
                 savingRef={savingRef}
               />
-              <ImageUploader
-                label="Computador"
-                value={imageUrl}
-                onChange={setImageUrl}
-                folder="banners"
-                aspect="aspect-[12/5]"
-                savingRef={savingRef}
-              />
-            </div>
-            <Field id="ctaHref" label="Ao tocar, abre (link)">
-              <Input id="ctaHref" value={ctaHref} onChange={(e) => setCtaHref(e.target.value)} placeholder="/colecao" />
-            </Field>
-            <Field id="headline" label="Descrição da imagem (para o Google e leitores de tela)">
-              <Input id="headline" value={headline} onChange={(e) => setHeadline(e.target.value)} />
-            </Field>
-          </Section>
-        ) : (
-          <>
-            <Section title="Foto de fundo">
-              <div className="grid grid-cols-2 gap-4">
+              {/* An older ready banner may have a phone-only image; it
+                  shows here so it can be removed. */}
+              {mobileImageUrl && (
                 <ImageUploader
-                  label="Foto (celular e computador)"
-                  value={imageUrl}
-                  onChange={setImageUrl}
+                  label="Imagem só do celular"
+                  value={mobileImageUrl}
+                  onChange={setMobileImageUrl}
                   folder="banners"
                   aspect="aspect-[4/5]"
                   savingRef={savingRef}
                 />
-                {/* Older banners may have a phone-only photo; it shows here so
-                    it can be removed. New banners use one photo for both. */}
-                {mobileImageUrl && (
-                  <ImageUploader
-                    label="Foto só do celular"
-                    value={mobileImageUrl}
-                    onChange={setMobileImageUrl}
-                    folder="banners"
-                    aspect="aspect-[4/5]"
-                    savingRef={savingRef}
-                  />
-                )}
-              </div>
+              )}
+            </div>
+            <Field id="readyHref" label="Ao tocar, abre (link)">
+              <Input
+                id="readyHref"
+                value={first.ctaHref}
+                onChange={(e) => updateSlide(first.key, { ctaHref: e.target.value })}
+                placeholder="/colecao"
+              />
+            </Field>
+            <Field id="readyAlt" label="Descrição da imagem (para o Google e leitores de tela)">
+              <Input
+                id="readyAlt"
+                value={first.headline}
+                onChange={(e) => updateSlide(first.key, { headline: e.target.value })}
+              />
+            </Field>
+          </Section>
+        ) : (
+          <>
+            <Section title="Fotos e frases">
               <p className="text-xs text-ink-muted">
-                Uma foto serve para as duas versões: no celular ela fica em cima, com as frases
-                embaixo; no computador, à direita, com as frases à esquerda, como na arte. Fotos
-                com fundo escuro combinam melhor.
+                Cada foto tem as suas frases e elas passam em carrossel, uma a cada 6 segundos.
+                No computador o banner aparece com a foto à direita e as frases à esquerda,
+                como na arte.
               </p>
 
-              <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
-                <div>
-                  <p className="text-sm font-semibold">Mais fotos (carrossel)</p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    As fotos passam uma de cada vez atrás das mesmas frases, a cada 5 segundos.
-                    Cada foto serve para celular e computador.
-                  </p>
+              <div className="flex items-center gap-2 rounded-lg border border-line bg-card p-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Foto anterior"
+                  disabled={current === 0}
+                  onClick={() => setCurrentSlide(current - 1)}
+                >
+                  <ChevronLeft className="size-5" />
+                </Button>
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+                  {slides.map((item, index) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-label={`Foto ${index + 1}`}
+                      aria-current={index === current}
+                      onClick={() => setCurrentSlide(index)}
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-md border text-sm font-semibold transition-colors",
+                        index === current
+                          ? "border-gold bg-bg text-gold-text"
+                          : "border-line text-ink-muted hover:border-line-strong",
+                      )}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
                 </div>
-                {extraSlots.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    {extraSlots.map((slot, index) => (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Próxima foto"
+                  disabled={current === slides.length - 1}
+                  onClick={() => setCurrentSlide(current + 1)}
+                >
+                  <ChevronRight className="size-5" />
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {slides.length < MAX_BANNER_SLIDES && (
+                  <Button type="button" variant="outline" onClick={addSlide}>
+                    <Plus className="size-4" aria-hidden="true" /> Adicionar foto
+                  </Button>
+                )}
+                {slides.length > 1 && (
+                  <Button type="button" variant="ghost" onClick={removeSlide}>
+                    <Trash2 className="size-4" aria-hidden="true" /> Remover foto {current + 1}
+                  </Button>
+                )}
+              </div>
+
+              {/* Every slide's photo field stays mounted (only the current
+                  one shows): unmounting one would delete a photo uploaded
+                  in this visit before it was saved. */}
+              {slides.map((item, index) => (
+                <div key={item.key} className={cn(index !== current && "hidden")}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ImageUploader
+                      label={`Foto ${index + 1}`}
+                      value={item.image}
+                      onChange={(url) => updateSlide(item.key, { image: url })}
+                      folder="banners"
+                      aspect="aspect-[4/5]"
+                      savingRef={savingRef}
+                    />
+                    {/* Older banners may have a phone-only photo; it shows
+                        here so it can be removed. */}
+                    {index === 0 && mobileImageUrl && (
                       <ImageUploader
-                        key={slot.key}
-                        label={`Foto ${index + 2}`}
-                        value={slot.url}
-                        onChange={(url) =>
-                          setExtraSlots((slots) =>
-                            url
-                              ? slots.map((s) => (s.key === slot.key ? { ...s, url } : s))
-                              : slots.filter((s) => s.key !== slot.key),
-                          )
-                        }
+                        label="Foto só do celular"
+                        value={mobileImageUrl}
+                        onChange={setMobileImageUrl}
                         folder="banners"
                         aspect="aspect-[4/5]"
                         savingRef={savingRef}
                       />
-                    ))}
+                    )}
                   </div>
-                )}
-                {extraSlots.length < MAX_BANNER_PHOTOS - 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="self-start"
-                    disabled={extraSlots.some((slot) => !slot.url)}
-                    onClick={() =>
-                      setExtraSlots((slots) => [
-                        ...slots,
-                        { key: nextSlotKey.current++, url: null },
-                      ])
-                    }
-                  >
-                    <Plus className="size-4" aria-hidden="true" /> Adicionar foto
-                  </Button>
+                </div>
+              ))}
+
+              <div className="grid grid-cols-[1fr_120px] gap-3">
+                <Field id="eyebrow" label="Frase pequena">
+                  <Input
+                    id="eyebrow"
+                    value={slide.eyebrow}
+                    onChange={(e) => updateSlide(slide.key, { eyebrow: e.target.value })}
+                  />
+                </Field>
+                <Field id="eyebrowHighlight" label="Em destaque">
+                  <Input
+                    id="eyebrowHighlight"
+                    value={slide.eyebrowHighlight}
+                    onChange={(e) => updateSlide(slide.key, { eyebrowHighlight: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-[1fr_140px] gap-3">
+                <Field id="headline" label="Título">
+                  <Input
+                    id="headline"
+                    value={slide.headline}
+                    onChange={(e) => updateSlide(slide.key, { headline: e.target.value })}
+                  />
+                </Field>
+                <Field id="highlight" label="Final em destaque">
+                  <Input
+                    id="highlight"
+                    value={slide.highlight}
+                    onChange={(e) => updateSlide(slide.key, { highlight: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field id="subtitle" label="Texto de apoio">
+                <Textarea
+                  id="subtitle"
+                  rows={3}
+                  value={slide.subtitle}
+                  onChange={(e) => updateSlide(slide.key, { subtitle: e.target.value })}
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field id="ctaLabel" label="Botão principal">
+                  <Input
+                    id="ctaLabel"
+                    value={slide.ctaLabel}
+                    onChange={(e) => updateSlide(slide.key, { ctaLabel: e.target.value })}
+                  />
+                </Field>
+                <Field id="ctaHref" label="Link do botão">
+                  <Input
+                    id="ctaHref"
+                    value={slide.ctaHref}
+                    onChange={(e) => updateSlide(slide.key, { ctaHref: e.target.value })}
+                    placeholder="/colecao"
+                  />
+                </Field>
+              </div>
+              {slides.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="self-start"
+                  onClick={() =>
+                    setSlides((list) =>
+                      list.map((item) =>
+                        item.key === slide.key
+                          ? item
+                          : {
+                              ...item,
+                              ...Object.fromEntries(TEXT_KEYS.map((key) => [key, slide[key]])),
+                            },
+                      ),
+                    )
+                  }
+                >
+                  Usar estas frases em todas as fotos
+                </Button>
+              )}
+            </Section>
+
+            <Section title="Botão do WhatsApp e selo">
+              <div className="flex flex-col gap-3 rounded-lg border border-line p-3">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="show_whatsapp"
+                    name="show_whatsapp"
+                    checked={showWhatsapp}
+                    onCheckedChange={setShowWhatsapp}
+                  />
+                  <Label htmlFor="show_whatsapp">Botão do WhatsApp</Label>
+                </div>
+                {showWhatsapp && (
+                  <Input
+                    aria-label="Texto do botão do WhatsApp"
+                    value={whatsappLabel}
+                    onChange={(e) => setWhatsappLabel(e.target.value)}
+                  />
                 )}
               </div>
+              <Field id="badge" label="Selo no canto (vazio esconde)">
+                <Input id="badge" value={badge} onChange={(e) => setBadge(e.target.value)} />
+              </Field>
+            </Section>
+
+            <Section title="Ajustes das fotos">
               <RangeField
                 id="focusMobile"
                 label="Altura da foto no celular"
@@ -346,82 +526,6 @@ export function BannerForm({
                 suffix="%"
                 onChange={(value) => setStyleField("overlay", value)}
               />
-              <Field id="desktopLayout" label="Foto no computador">
-                <NativeSelect
-                  id="desktopLayout"
-                  value={style.desktopLayout}
-                  onChange={(value) => setStyleField("desktopLayout", value as BannerStyle["desktopLayout"])}
-                  options={[
-                    ["split", "À direita, textos à esquerda"],
-                    ["full", "No fundo inteiro"],
-                  ]}
-                />
-              </Field>
-            </Section>
-
-            <Section title="Frases">
-              <div className="grid grid-cols-[1fr_120px] gap-3">
-                <Field id="eyebrow" label="Frase pequena">
-                  <Input id="eyebrow" value={eyebrow} onChange={(e) => setEyebrow(e.target.value)} />
-                </Field>
-                <Field id="eyebrowHighlight" label="Em destaque">
-                  <Input
-                    id="eyebrowHighlight"
-                    value={eyebrowHighlight}
-                    onChange={(e) => setEyebrowHighlight(e.target.value)}
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-[1fr_140px] gap-3">
-                <Field id="headline" label="Título">
-                  <Input id="headline" value={headline} onChange={(e) => setHeadline(e.target.value)} />
-                </Field>
-                <Field id="highlight" label="Final em destaque">
-                  <Input id="highlight" value={highlight} onChange={(e) => setHighlight(e.target.value)} />
-                </Field>
-              </div>
-              <Field id="subtitle" label="Texto de apoio">
-                <Textarea
-                  id="subtitle"
-                  rows={3}
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field id="ctaLabel" label="Botão principal">
-                  <Input id="ctaLabel" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} />
-                </Field>
-                <Field id="ctaHref" label="Link do botão">
-                  <Input
-                    id="ctaHref"
-                    value={ctaHref}
-                    onChange={(e) => setCtaHref(e.target.value)}
-                    placeholder="/colecao"
-                  />
-                </Field>
-              </div>
-              <div className="flex flex-col gap-3 rounded-lg border border-line p-3">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="show_whatsapp"
-                    name="show_whatsapp"
-                    checked={showWhatsapp}
-                    onCheckedChange={setShowWhatsapp}
-                  />
-                  <Label htmlFor="show_whatsapp">Botão do WhatsApp</Label>
-                </div>
-                {showWhatsapp && (
-                  <Input
-                    aria-label="Texto do botão do WhatsApp"
-                    value={whatsappLabel}
-                    onChange={(e) => setWhatsappLabel(e.target.value)}
-                  />
-                )}
-              </div>
-              <Field id="badge" label="Selo no canto (vazio esconde)">
-                <Input id="badge" value={badge} onChange={(e) => setBadge(e.target.value)} />
-              </Field>
             </Section>
 
             <Section title="Fontes">
@@ -466,10 +570,10 @@ export function BannerForm({
                 variant="outline"
                 className="self-start"
                 onClick={() =>
-                  setStyle((current) => ({
+                  setStyle((currentStyle) => ({
                     ...DEFAULT_BANNER_STYLE,
-                    focusMobile: current.focusMobile,
-                    focusDesktop: current.focusDesktop,
+                    focusMobile: currentStyle.focusMobile,
+                    focusDesktop: currentStyle.focusDesktop,
                   }))
                 }
               >
@@ -490,18 +594,15 @@ export function BannerForm({
       </form>
 
       <div className="min-w-0 2xl:sticky 2xl:top-6 2xl:self-start">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-label">Como fica no site</p>
-          <div className="flex rounded-lg border border-line p-1" role="group" aria-label="Ver como">
-            <DeviceButton active={device === "mobile"} onClick={() => setDevice("mobile")} icon={<Smartphone className="size-4" aria-hidden="true" />} label="Celular" />
-            <DeviceButton active={device === "desktop"} onClick={() => setDevice("desktop")} icon={<Monitor className="size-4" aria-hidden="true" />} label="Computador" />
-          </div>
-        </div>
-        <ScaledPreview width={device === "mobile" ? 390 : 1440} maxWidth={device === "mobile" ? 360 : undefined}>
+        <p className="text-label mb-3">
+          Como fica no site{kind === "editavel" && slides.length > 1 ? ` — foto ${current + 1}` : ""}
+        </p>
+        <ScaledPreview width={390} maxWidth={360}>
           <HeroBanner
             banner={preview}
             whatsappHref={showWhatsapp ? PREVIEW_WHATSAPP : null}
-            frameClass={device === "mobile" ? "h-[760px]" : "h-[760px]"}
+            frameClass="h-[760px]"
+            slide={current}
           />
         </ScaledPreview>
         <p className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
@@ -587,33 +688,6 @@ function KindOption({
       <span className={selected ? "text-gold-text" : "text-ink-muted"}>{icon}</span>
       <span className="text-sm font-semibold">{title}</span>
       <span className="text-xs text-ink-muted">{text}</span>
-    </button>
-  );
-}
-
-function DeviceButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm transition-colors",
-        active ? "bg-card text-fg" : "text-ink-muted hover:text-fg",
-      )}
-    >
-      {icon}
-      {label}
     </button>
   );
 }

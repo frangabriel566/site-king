@@ -89,7 +89,7 @@ export function HeroBanners({
           ))}
         </CarouselContent>
       </Carousel>
-      <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
+      <div className="absolute inset-x-0 top-2 flex justify-center gap-1">
         {banners.map((banner, index) => (
           <button
             key={banner.id}

@@ -10,7 +10,7 @@ import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
 import { releaseImages, removedUrls } from "@/lib/media/images";
 import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
-import { parseExtraImages } from "@/lib/banner-style";
+import { extraSlideImages } from "@/lib/banner-style";
 
 type BannerInput = z.infer<typeof bannerSchema>;
 
@@ -52,7 +52,7 @@ function parseFormData(formData: FormData) {
     badge: formData.get("badge") ?? "",
     image_url: formData.get("image_url") ?? "",
     mobile_image_url: formData.get("mobile_image_url") ?? "",
-    extra_images: parseList(formData.get("extra_images")),
+    extra_slides: parseList(formData.get("extra_slides")),
     wordmark: formData.get("wordmark") ?? "",
     cutout_url: formData.get("cutout_url") ?? "",
     featured_product_id: formData.get("featured_product_id") || null,
@@ -77,11 +77,11 @@ function toRow(data: BannerInput) {
     badge: data.badge || null,
     image_url: data.image_url || null,
     mobile_image_url: data.mobile_image_url || null,
-    // A finished image has no photo carousel.
+    // A finished image has no slides.
     extra_images:
-      data.kind === "pronto" || data.extra_images.length === 0
+      data.kind === "pronto" || data.extra_slides.length === 0
         ? null
-        : JSON.stringify(data.extra_images),
+        : JSON.stringify(data.extra_slides),
     wordmark: data.wordmark || null,
     cutout_url: data.cutout_url || null,
     featured_product_id: data.featured_product_id || null,
@@ -105,7 +105,7 @@ function imageUrlsOf(row: {
   mobile_image_url: string | null;
   extra_images: string | null;
 }): (string | null)[] {
-  return [row.image_url, row.cutout_url, row.mobile_image_url, ...parseExtraImages(row.extra_images)];
+  return [row.image_url, row.cutout_url, row.mobile_image_url, ...extraSlideImages(row.extra_images)];
 }
 
 export async function createBannerAction(

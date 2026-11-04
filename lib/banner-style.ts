@@ -117,26 +117,94 @@ export type HeroBannerData = {
   imageUrl: string | null;
   /** Phone image; null uses imageUrl. */
   mobileImageUrl: string | null;
-  /** More background photos ("editavel"): they take turns with the first
-   * one behind the same texts. */
-  extraImages: string[];
+  /** More slides ("editavel"): each one a photo with its own texts,
+   * taking turns with the first (the fields above). */
+  extraSlides: BannerSlide[];
   style: BannerStyle;
 };
 
-/** Most photos one banner takes turns with, the first one included. */
-export const MAX_BANNER_PHOTOS = 8;
+/** One photo of an editable banner with the texts shown over it. */
+export type BannerSlide = {
+  image: string | null;
+  eyebrow: string;
+  eyebrowHighlight: string;
+  headline: string;
+  highlight: string;
+  subtitle: string;
+  ctaLabel: string;
+  ctaHref: string;
+};
 
-/** banners.extra_images (JSON array of URLs) → the URLs. */
-export function parseExtraImages(raw: string | null | undefined): string[] {
+/** Most slides one banner holds, the first one included. */
+export const MAX_BANNER_SLIDES = 8;
+
+const slideText = (max: number) => z.string().trim().max(max).catch("");
+
+export const bannerSlideSchema = z.object({
+  image: z.string().trim().max(500).nullable().catch(null),
+  eyebrow: slideText(120),
+  eyebrowHighlight: slideText(40),
+  headline: slideText(120),
+  highlight: slideText(60),
+  subtitle: slideText(400),
+  ctaLabel: slideText(60),
+  ctaHref: slideText(300),
+});
+
+/** The first slide, from a banner's own fields. */
+export function mainSlide(banner: HeroBannerData): BannerSlide {
+  return {
+    image: banner.imageUrl ?? banner.mobileImageUrl,
+    eyebrow: banner.eyebrow,
+    eyebrowHighlight: banner.eyebrowHighlight,
+    headline: banner.headline,
+    highlight: banner.highlight,
+    subtitle: banner.subtitle,
+    ctaLabel: banner.ctaLabel,
+    ctaHref: banner.ctaHref,
+  };
+}
+
+/**
+ * banners.extra_images → the extra slides. Each entry is a slide object;
+ * a bare URL (the first version, photos only) becomes a slide with the
+ * first slide's texts.
+ */
+export function parseExtraSlides(
+  raw: string | null | undefined,
+  first: Omit<BannerSlide, "image">,
+): BannerSlide[] {
   if (!raw) return [];
+  let value: unknown;
   try {
-    const value: unknown = JSON.parse(raw);
-    return Array.isArray(value)
-      ? value.filter((url): url is string => typeof url === "string" && url.length > 0)
-      : [];
+    value = JSON.parse(raw);
   } catch {
     return [];
   }
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): BannerSlide | null => {
+      if (typeof entry === "string") return entry ? { ...first, image: entry } : null;
+      const parsed = bannerSlideSchema.safeParse(entry);
+      return parsed.success ? parsed.data : null;
+    })
+    .filter((slide): slide is BannerSlide => slide !== null);
+}
+
+/** Every image URL in banners.extra_images, whatever its version. */
+export function extraSlideImages(raw: string | null | undefined): string[] {
+  const empty = {
+    eyebrow: "",
+    eyebrowHighlight: "",
+    headline: "",
+    highlight: "",
+    subtitle: "",
+    ctaLabel: "",
+    ctaHref: "",
+  };
+  return parseExtraSlides(raw, empty)
+    .map((slide) => slide.image)
+    .filter((url): url is string => !!url);
 }
 
 /** The approved art's copy, used for a new banner. */

@@ -1932,3 +1932,16 @@ trocados pelo painel, ativado ou desativado, e também banners prontos.
   dono da loja); a foto só do celular aparece apenas em banner que já tem.
 - **Banner antigo ativado** (sem `style` salvo) mostra a foto dele com as
   frases do topo padrão, e abre no painel com as frases da arte.
+- **Cada foto com as suas frases** (pedido do dono da loja): o banner
+  editável vira uma lista de slides, cada um com foto, frase pequena,
+  título, preço, texto e botão; passam a cada 6 s (foto e frases juntas),
+  com pontos para escolher. `extra_images` guarda os slides depois do
+  primeiro (o primeiro continua nas colunas do banner); a versão anterior,
+  só com URLs, é lida como slides com as frases do primeiro. No painel:
+  setas e números para ir de uma foto a outra, "Adicionar foto" (copia as
+  frases da atual), "Remover foto" e "Usar estas frases em todas as
+  fotos". Fontes, cores, WhatsApp e selo valem para o banner todo.
+- **Uma área só de imagem**, também no banner pronto: a mesma imagem no
+  celular (largura toda) e no computador (centralizada, na altura da
+  tela). O preview do painel mostra o celular; o computador segue a arte
+  sozinho.

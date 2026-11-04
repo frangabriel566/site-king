@@ -16,7 +16,12 @@ import { FeedbackCarousel } from "@/components/shop/feedback-carousel";
 import { HOME_RAIL_LIMIT } from "@/lib/constants";
 import { discountPercent } from "@/lib/shop-config";
 import { HeroBanners } from "@/components/shop/hero-banners";
-import { DEFAULT_BANNER_STYLE, DEFAULT_BANNER_TEXTS, type HeroBannerData } from "@/lib/banner-style";
+import {
+  DEFAULT_BANNER_STYLE,
+  DEFAULT_BANNER_TEXTS,
+  mainSlide,
+  type HeroBannerData,
+} from "@/lib/banner-style";
 import { BenefitsStrip } from "@/components/shop/benefits-strip";
 import { CategoryStrip } from "@/components/shop/category-strip";
 import { ProductRail } from "@/components/shop/product-rail";
@@ -102,7 +107,7 @@ export default async function HomePage() {
     badge: DEFAULT_BANNER_TEXTS.badge,
     imageUrl: home.images.hero_image_url,
     mobileImageUrl: null,
-    extraImages: [],
+    extraSlides: [],
     style: DEFAULT_BANNER_STYLE,
   };
   // A banner from before the full-screen ones (no style saved yet) only
@@ -118,7 +123,11 @@ export default async function HomePage() {
             id: banner.id,
             imageUrl: banner.imageUrl,
             mobileImageUrl: banner.mobileImageUrl,
-            extraImages: banner.extraImages,
+            // Their extra photos (first version) carry the default texts.
+            extraSlides: banner.extraSlides.map((slide) => ({
+              ...mainSlide(fallbackBanner),
+              image: slide.image,
+            })),
           };
         })
       : [fallbackBanner];

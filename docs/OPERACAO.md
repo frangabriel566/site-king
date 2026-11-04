@@ -20,18 +20,20 @@ aparece o topo padrão com os textos e a foto da aba **Página inicial**.
 
 1. `/admin/banners` → **Novo banner** (ou o lápis de um existente).
 2. Escolha o tipo:
-   - **Banner editável** — envie a foto de fundo (uma só, serve para
-     celular e computador), escreva as frases e escolha fontes e cores.
-     **Adicionar foto** põe mais fotos que passam uma de cada vez atrás
-     das mesmas frases. Os controles
+   - **Banner editável** — envie a foto (uma só, serve para celular e
+     computador), escreva as frases e escolha fontes e cores. **Adicionar
+     foto** cria mais um slide, já com as frases da foto atual: troque só
+     o que for diferente. As setas e os números passam de uma foto a outra
+     no painel; no site elas passam sozinhas, a cada 6 segundos. Os controles
      "Altura da foto" sobem ou descem a foto; "Escurecer a foto" ajuda o
      texto a aparecer em fotos claras. **Voltar fontes e cores ao padrão**
      retorna à arte aprovada (grafite e dourado).
-   - **Banner pronto** — uma imagem já feita (Canva, designer). Envie a do
-     celular (em pé, 1080 × 1350) e a do computador (deitada, 1920 × 800)
-     e o link que abre ao tocar. A imagem aparece inteira, sem cortes.
-3. Use **Celular / Computador** no "Como fica no site" para conferir as
-   duas versões antes de salvar.
+   - **Banner pronto** — uma imagem já feita (Canva, designer), uma só
+     para celular e computador, e o link que abre ao tocar. A imagem
+     aparece inteira, sem cortes.
+3. O "Como fica no site" mostra o banner no celular, na foto que você
+   está editando; no computador ele aparece no formato da arte (foto à
+   direita, frases à esquerda).
 4. **Ativado no site** liga ou desliga o banner; na lista dá para fazer o
    mesmo pelo botão ao lado de cada um, sem abrir.
 

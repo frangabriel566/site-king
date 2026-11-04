@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { BANNER_KINDS, MAX_BANNER_PHOTOS, bannerStyleSchema } from "@/lib/banner-style";
+import {
+  BANNER_KINDS,
+  MAX_BANNER_SLIDES,
+  bannerSlideSchema,
+  bannerStyleSchema,
+} from "@/lib/banner-style";
 import { imageUrlSchema } from "./image-url";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -19,9 +24,9 @@ export const bannerSchema = z
     badge: optionalText(80),
     image_url: imageUrlSchema().optional().or(z.literal("")),
     mobile_image_url: imageUrlSchema().optional().or(z.literal("")),
-    extra_images: z
-      .array(imageUrlSchema())
-      .max(MAX_BANNER_PHOTOS - 1, `No máximo ${MAX_BANNER_PHOTOS} fotos por banner.`)
+    extra_slides: z
+      .array(bannerSlideSchema.extend({ image: imageUrlSchema().nullable() }))
+      .max(MAX_BANNER_SLIDES - 1, `No máximo ${MAX_BANNER_SLIDES} fotos por banner.`)
       .default([]),
     // Kept from the earlier banner form; the new one passes them through.
     wordmark: optionalText(40),

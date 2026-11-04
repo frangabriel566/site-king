@@ -6,7 +6,7 @@ import { requireAdminPage } from "@/lib/auth/guards";
 import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
 import {
   parseBannerStyle,
-  parseExtraImages,
+  parseExtraSlides,
   type BannerKind,
   type HeroBannerData,
 } from "@/lib/banner-style";
@@ -51,6 +51,15 @@ export async function getActiveBanners(): Promise<Banner[]> {
 /** A row as the banner component wants it. Empty texts stay empty: in a
  * banner the panel controls, an empty field hides that line. */
 export function toHeroBanner(row: Tables<"banners">): HeroBannerData {
+  const first = {
+    eyebrow: row.eyebrow ?? "",
+    eyebrowHighlight: row.eyebrow_highlight ?? "",
+    headline: row.headline_line1 ?? "",
+    highlight: row.headline_line2 ?? "",
+    subtitle: row.subtitle ?? "",
+    ctaLabel: row.cta_label ?? "",
+    ctaHref: row.cta_href || "/colecao",
+  };
   return {
     id: row.id,
     kind: (row.kind === "pronto" ? "pronto" : "editavel") satisfies BannerKind,
@@ -66,7 +75,7 @@ export function toHeroBanner(row: Tables<"banners">): HeroBannerData {
     badge: row.badge ?? "",
     imageUrl: row.image_url,
     mobileImageUrl: row.mobile_image_url,
-    extraImages: row.kind === "pronto" ? [] : parseExtraImages(row.extra_images),
+    extraSlides: row.kind === "pronto" ? [] : parseExtraSlides(row.extra_images, first),
     style: parseBannerStyle(row.style),
   };
 }

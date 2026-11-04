@@ -80,7 +80,7 @@ export const bannerStyleSchema = z.object({
   overlay: z.number().int().min(0).max(80).catch(0),
   /** Vertical focus of the photo, 0 (top) – 100 (bottom). */
   focusMobile: z.number().int().min(0).max(100).catch(18),
-  focusDesktop: z.number().int().min(0).max(100).catch(30),
+  focusDesktop: z.number().int().min(0).max(100).catch(50),
   /** Computer: photo on the right ("split") or across the whole banner. */
   desktopLayout: z.enum(["split", "full"]).catch("split"),
 });

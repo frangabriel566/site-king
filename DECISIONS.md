@@ -1945,3 +1945,11 @@ trocados pelo painel, ativado ou desativado, e também banners prontos.
   celular (largura toda) e no computador (centralizada, na altura da
   tela). O preview do painel mostra o celular; o computador segue a arte
   sozinho.
+- **Foto inteira no computador** (pedido do dono da loja: a foto em pé
+  cortava cabeça e estampa): com "foto à direita", a foto ocupa a altura
+  do banner com a largura dela (até 2/3 do banner), sem corte; só foto
+  deitada mais larga que isso é aparada, pela posição escolhida. Em tela
+  muito larga o banner segue a largura do site (1440 px), para a foto não
+  ir para a borda. A prévia do computador voltou ao painel, ao lado da do
+  celular, e a opção "Foto no computador" (à direita ou no fundo todo)
+  voltou a aparecer.

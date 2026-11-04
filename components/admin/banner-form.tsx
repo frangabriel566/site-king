@@ -13,9 +13,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageIcon,
+  Monitor,
   Palette,
   Plus,
   RotateCcw,
+  Smartphone,
   Trash2,
   Type,
 } from "lucide-react";
@@ -127,6 +129,7 @@ export function BannerForm({
   const [style, setStyle] = useState<BannerStyle>(() => parseBannerStyle(banner?.style));
   const [active, setActive] = useState(banner?.active ?? true);
   const [position, setPosition] = useState(banner?.position ?? 0);
+  const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
 
   // Suppresses the ImageUploaders' unmount cleanup once a real submit is
   // underway, so a successful save doesn't delete the image it just set.
@@ -509,9 +512,31 @@ export function BannerForm({
                 max={100}
                 onChange={(value) => setStyleField("focusMobile", value)}
               />
+              <Field id="desktopLayout" label="Foto no computador">
+                <NativeSelect
+                  id="desktopLayout"
+                  value={style.desktopLayout}
+                  onChange={(value) =>
+                    setStyleField("desktopLayout", value as BannerStyle["desktopLayout"])
+                  }
+                  options={[
+                    ["split", "Inteira à direita, frases à esquerda (como na arte)"],
+                    ["full", "Ocupando o fundo todo"],
+                  ]}
+                />
+              </Field>
               <RangeField
                 id="focusDesktop"
-                label="Altura da foto no computador"
+                label={
+                  style.desktopLayout === "split"
+                    ? "Posição da foto no computador (fotos deitadas)"
+                    : "Altura da foto no computador"
+                }
+                hint={
+                  style.desktopLayout === "split"
+                    ? "Foto em pé aparece inteira; numa foto deitada, escolhe a parte mostrada"
+                    : undefined
+                }
                 value={style.focusDesktop}
                 min={0}
                 max={100}
@@ -594,14 +619,34 @@ export function BannerForm({
       </form>
 
       <div className="min-w-0 2xl:sticky 2xl:top-6 2xl:self-start">
-        <p className="text-label mb-3">
-          Como fica no site{kind === "editavel" && slides.length > 1 ? ` — foto ${current + 1}` : ""}
-        </p>
-        <ScaledPreview width={390} maxWidth={360}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-label">
+            Como fica no site
+            {kind === "editavel" && slides.length > 1 ? ` — foto ${current + 1}` : ""}
+          </p>
+          <div className="flex rounded-lg border border-line p-1" role="group" aria-label="Ver como">
+            <DeviceButton
+              active={device === "mobile"}
+              onClick={() => setDevice("mobile")}
+              icon={<Smartphone className="size-4" aria-hidden="true" />}
+              label="Celular"
+            />
+            <DeviceButton
+              active={device === "desktop"}
+              onClick={() => setDevice("desktop")}
+              icon={<Monitor className="size-4" aria-hidden="true" />}
+              label="Computador"
+            />
+          </div>
+        </div>
+        <ScaledPreview
+          width={device === "mobile" ? 390 : 1440}
+          maxWidth={device === "mobile" ? 360 : undefined}
+        >
           <HeroBanner
             banner={preview}
             whatsappHref={showWhatsapp ? PREVIEW_WHATSAPP : null}
-            frameClass="h-[760px]"
+            frameClass={device === "mobile" ? "h-[760px]" : "h-[760px]"}
             slide={current}
           />
         </ScaledPreview>
@@ -688,6 +733,33 @@ function KindOption({
       <span className={selected ? "text-gold-text" : "text-ink-muted"}>{icon}</span>
       <span className="text-sm font-semibold">{title}</span>
       <span className="text-xs text-ink-muted">{text}</span>
+    </button>
+  );
+}
+
+function DeviceButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm transition-colors",
+        active ? "bg-card text-fg" : "text-ink-muted hover:text-fg",
+      )}
+    >
+      {icon}
+      {label}
     </button>
   );
 }

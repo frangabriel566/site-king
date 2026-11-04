@@ -2,6 +2,7 @@
 
 import { SafeImage } from "@/components/shop/safe-image";
 import { cn } from "@/lib/utils";
+import imageLoader from "@/lib/image-loader";
 
 export type BannerPhoto = { mobile: string; desktop: string };
 
@@ -54,26 +55,38 @@ export function BannerPhotos({
                 style={{ objectPosition: `50% ${focusMobile}%` }}
               />
             </div>
-            <div
-              className={cn(
-                "absolute inset-y-0 right-0 -z-10 hidden @3xl:block",
-                split
-                  ? "w-[62%] [mask-image:linear-gradient(to_right,transparent_0%,#000_30%)]"
-                  : "w-full",
-                layer,
-              )}
-            >
-              <SafeImage
-                src={photo.desktop}
+            {split ? (
+              // Computer, photo on the right: the whole photo at the
+              // banner's height, nothing cut off — a portrait photo shows
+              // head to hem. Only a photo wider than two thirds of the
+              // banner is trimmed at the sides (by `focusDesktop`).
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageLoader({ src: photo.desktop, width: 1600 })}
                 alt=""
-                fill
-                priority={priority && index === 0}
-                sizes={split ? "62vw" : "100vw"}
-                fallbackLabel=""
-                className="object-cover"
-                style={{ objectPosition: `50% ${focusDesktop}%` }}
+                loading={priority && index === 0 ? "eager" : "lazy"}
+                className={cn(
+                  "absolute inset-y-0 right-0 -z-10 hidden h-full w-auto max-w-[66%] object-cover [mask-image:linear-gradient(to_right,transparent_0%,#000_22%,#000_94%,transparent_100%)] @3xl:block",
+                  layer,
+                )}
+                style={{ objectPosition: `${focusDesktop}% 50%` }}
               />
-            </div>
+            ) : (
+              <div
+                className={cn("absolute inset-0 -z-10 hidden @3xl:block", layer)}
+              >
+                <SafeImage
+                  src={photo.desktop}
+                  alt=""
+                  fill
+                  priority={priority && index === 0}
+                  sizes="100vw"
+                  fallbackLabel=""
+                  className="object-cover"
+                  style={{ objectPosition: `50% ${focusDesktop}%` }}
+                />
+              </div>
+            )}
           </div>
         );
       })}

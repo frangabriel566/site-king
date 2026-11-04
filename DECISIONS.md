@@ -1953,3 +1953,20 @@ trocados pelo painel, ativado ou desativado, e também banners prontos.
   ir para a borda. A prévia do computador voltou ao painel, ao lado da do
   celular, e a opção "Foto no computador" (à direita ou no fundo todo)
   voltou a aparecer.
+
+## Relatórios de vendas (nov/2026)
+
+Pedido do dono da loja: puxar o relatório de vendas de 1 semana, 3, 6, 8,
+10 meses ou 1 ano, escolhendo site, loja física ou os dois.
+
+- **Aba Relatórios** (`/admin/relatorios`): origem (Site + loja física,
+  Site, Loja física) e período (1 semana, 3, 6, 8, 10 meses, 1 ano), na
+  URL. O período termina hoje, no relógio da loja (UTC-3); "N meses"
+  começa no mesmo dia N meses atrás (`lib/reports/period.ts`).
+- Site = pedidos confirmados (pago em diante, como no Dashboard); loja =
+  "Vendas na loja" sem as desfeitas. Cartões (faturamento, vendas, ticket
+  médio, peças, com a divisão site/loja), gráfico por dia ou por mês com
+  as duas origens empilhadas, formas de pagamento, 10 mais vendidos e a
+  lista de vendas (100 na tela).
+- **Baixar planilha**: CSV com `;`, vírgula decimal e BOM UTF-8, que o
+  Excel em português abre em colunas; resumo no topo e todas as vendas.

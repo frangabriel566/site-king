@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
 import { releaseImages, removedUrls } from "@/lib/media/images";
+import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
 
 type BannerInput = z.infer<typeof bannerSchema>;
 
@@ -21,37 +22,68 @@ function revalidateStorefront() {
   revalidatePath("/admin/banners");
 }
 
+function parseStyle(raw: FormDataEntryValue | null): unknown {
+  if (typeof raw !== "string" || !raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 function parseFormData(formData: FormData) {
   return bannerSchema.safeParse({
-    eyebrow: formData.get("eyebrow"),
-    headline_line1: formData.get("headline_line1"),
-    headline_line2: formData.get("headline_line2"),
-    wordmark: formData.get("wordmark"),
-    cta_label: formData.get("cta_label"),
-    cta_href: formData.get("cta_href"),
-    image_url: formData.get("image_url"),
-    cutout_url: formData.get("cutout_url"),
+    kind: formData.get("kind") || "editavel",
+    eyebrow: formData.get("eyebrow") ?? "",
+    eyebrow_highlight: formData.get("eyebrow_highlight") ?? "",
+    headline_line1: formData.get("headline_line1") ?? "",
+    headline_line2: formData.get("headline_line2") ?? "",
+    subtitle: formData.get("subtitle") ?? "",
+    cta_label: formData.get("cta_label") ?? "",
+    cta_href: formData.get("cta_href") ?? "",
+    whatsapp_label: formData.get("whatsapp_label") ?? "",
+    show_whatsapp: formData.get("show_whatsapp") === "on",
+    badge: formData.get("badge") ?? "",
+    image_url: formData.get("image_url") ?? "",
+    mobile_image_url: formData.get("mobile_image_url") ?? "",
+    wordmark: formData.get("wordmark") ?? "",
+    cutout_url: formData.get("cutout_url") ?? "",
     featured_product_id: formData.get("featured_product_id") || null,
+    style: parseStyle(formData.get("style")),
     active: formData.get("active") === "on",
-    position: formData.get("position"),
+    position: formData.get("position") ?? 0,
   });
 }
 
 function toRow(data: BannerInput) {
   return {
+    kind: data.kind,
     eyebrow: data.eyebrow || null,
+    eyebrow_highlight: data.eyebrow_highlight || null,
     headline_line1: data.headline_line1 || null,
     headline_line2: data.headline_line2 || null,
-    wordmark: data.wordmark || null,
+    subtitle: data.subtitle || null,
     cta_label: data.cta_label || null,
     cta_href: data.cta_href || null,
+    whatsapp_label: data.whatsapp_label || null,
+    show_whatsapp: data.show_whatsapp,
+    badge: data.badge || null,
     image_url: data.image_url || null,
+    mobile_image_url: data.mobile_image_url || null,
+    wordmark: data.wordmark || null,
     cutout_url: data.cutout_url || null,
     featured_product_id: data.featured_product_id || null,
+    style: JSON.stringify(data.style),
     active: data.active,
     position: data.position,
   };
 }
+
+const IMAGE_FIELDS = {
+  image_url: banners.image_url,
+  cutout_url: banners.cutout_url,
+  mobile_image_url: banners.mobile_image_url,
+};
 
 export async function createBannerAction(
   _prev: ActionResult,
@@ -64,6 +96,7 @@ export async function createBannerAction(
 
   await requireAdmin();
   try {
+    await ensureBannerColumns();
     await getDb().insert(banners).values(toRow(parsed.data));
   } catch (error) {
     console.error("[createBannerAction]", error);
@@ -85,9 +118,10 @@ export async function updateBannerAction(
   }
 
   await requireAdmin();
+  await ensureBannerColumns();
   const db = getDb();
   const [before] = await db
-    .select({ image_url: banners.image_url, cutout_url: banners.cutout_url })
+    .select(IMAGE_FIELDS)
     .from(banners)
     .where(eq(banners.id, id));
   const row = toRow(parsed.data);
@@ -101,7 +135,10 @@ export async function updateBannerAction(
   // A swapped or removed background/cutout leaves KV (if nothing else uses it).
   if (before) {
     await releaseImages(
-      removedUrls([before.image_url, before.cutout_url], [row.image_url, row.cutout_url]),
+      removedUrls(
+        [before.image_url, before.cutout_url, before.mobile_image_url],
+        [row.image_url, row.cutout_url, row.mobile_image_url],
+      ),
     );
   }
 
@@ -111,11 +148,14 @@ export async function updateBannerAction(
 
 export async function deleteBannerAction(id: string): Promise<{ ok: boolean; message?: string }> {
   await requireAdmin();
+  await ensureBannerColumns();
   const [removed] = await getDb()
     .delete(banners)
     .where(eq(banners.id, id))
-    .returning({ image_url: banners.image_url, cutout_url: banners.cutout_url });
-  if (removed) await releaseImages([removed.image_url, removed.cutout_url]);
+    .returning(IMAGE_FIELDS);
+  if (removed) {
+    await releaseImages([removed.image_url, removed.cutout_url, removed.mobile_image_url]);
+  }
   revalidateStorefront();
   return { ok: true };
 }

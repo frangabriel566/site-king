@@ -127,6 +127,13 @@
       "when": 1793456000000,
       "tag": "0017_home_kit_product",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793805928675,
+      "tag": "0018_banner_designer",
+      "breakpoints": true
     }
   ]
 }

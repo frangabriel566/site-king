@@ -20,6 +20,10 @@ export default async function AdminBannersPage() {
         <div>
           <p className="text-label mb-2">Painel</p>
           <h1 className="text-heading text-3xl">Banners</h1>
+          <p className="mt-2 max-w-2xl text-sm text-ink-muted">
+            O topo da home, em tela cheia. Os ativados passam em carrossel, na ordem da posição.
+            Sem nenhum ativado, aparece o topo padrão com os textos da Página inicial.
+          </p>
         </div>
         <Button asChild size="lg">
           <Link href="/admin/banners/novo">
@@ -38,9 +42,9 @@ export default async function AdminBannersPage() {
               className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-card p-4 transition-colors duration-150 ease-out hover:border-line-strong md:gap-5"
             >
               <div className="relative h-20 w-32 shrink-0 overflow-hidden bg-field">
-                {banner.image_url && (
+                {(banner.image_url ?? banner.mobile_image_url) && (
                   <SafeImage
-                    src={banner.image_url}
+                    src={(banner.image_url ?? banner.mobile_image_url) as string}
                     alt=""
                     fill
                     sizes="128px"
@@ -49,11 +53,12 @@ export default async function AdminBannersPage() {
                 )}
               </div>
               <div className="min-w-0 flex-1 basis-40">
-                <p className="truncate text-sm">
-                  {banner.wordmark || "(sem wordmark)"}
+                <p className="text-label mb-1 text-[10px]">
+                  {banner.kind === "pronto" ? "Banner pronto" : "Banner editável"}
                 </p>
-                <p className="truncate text-xs text-ink-muted">
-                  {banner.headline_line1} {banner.headline_line2}
+                <p className="truncate text-sm">
+                  {[banner.headline_line1, banner.headline_line2].filter(Boolean).join(" ") ||
+                    "(sem título)"}
                 </p>
                 <p className="mt-1 text-xs text-ink-muted">
                   Posição {banner.position}

@@ -13,26 +13,25 @@ configurado, quem tem acesso ao projeto define uma senha nova com
 
 ## Trocar o banner da home
 
-O banner que aparece na home é o que estiver **ativo** com a **menor
-posição** — dá pra deixar vários cadastrados e só ativar um por vez, ou
-usar a posição para decidir qual aparece primeiro.
+O topo da home é um banner em tela cheia. Os banners **ativados** em
+`/admin/banners` aparecem ali; com mais de um ativado, eles passam em
+carrossel na ordem do campo **Ordem no carrossel**. Sem nenhum ativado,
+aparece o topo padrão com os textos e a foto da aba **Página inicial**.
 
-1. `/admin/banners` → **Novo banner** (ou clique no lápis de um existente).
-2. Preencha eyebrow, headline (duas linhas), wordmark e o texto/link do
-   botão principal.
-3. Envie a **imagem de fundo** e, se tiver, o **recorte** (PNG do modelo
-   com fundo transparente) — o painel converte tudo para WebP
-   automaticamente. Sem recorte, a wordmark gigante aparece com opacidade
-   reduzida em vez de "atrás" de alguém; com recorte, ela aparece atrás da
-   pessoa.
-4. Escolha o **produto em destaque** (opcional) — ele aparece no card do
-   canto inferior direito do hero, com preço e um botão que já adiciona a
-   primeira variação com estoque à sacola.
-5. O **preview ao vivo** à direita do formulário mostra exatamente como o
-   hero vai ficar, atualizando a cada campo digitado — sem precisar salvar
-   para ver o resultado.
-6. Marque **Ativo** e clique em **Salvar**. A home reflete a mudança na
-   hora, sem precisar de novo deploy.
+1. `/admin/banners` → **Novo banner** (ou o lápis de um existente).
+2. Escolha o tipo:
+   - **Banner editável** — envie a foto de fundo (a do celular é
+     opcional), escreva as frases e escolha fontes e cores. Os controles
+     "Altura da foto" sobem ou descem a foto; "Escurecer a foto" ajuda o
+     texto a aparecer em fotos claras. **Voltar fontes e cores ao padrão**
+     retorna à arte aprovada (grafite e dourado).
+   - **Banner pronto** — uma imagem já feita (Canva, designer). Envie a do
+     celular (em pé, 1080 × 1350) e a do computador (deitada, 1920 × 800)
+     e o link que abre ao tocar. A imagem aparece inteira, sem cortes.
+3. Use **Celular / Computador** no "Como fica no site" para conferir as
+   duas versões antes de salvar.
+4. **Ativado no site** liga ou desliga o banner; na lista dá para fazer o
+   mesmo pelo botão ao lado de cada um, sem abrir.
 
 ## Cadastrar um produto novo
 

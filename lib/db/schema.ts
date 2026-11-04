@@ -397,6 +397,17 @@ export const banners = sqliteTable(
     featured_product_id: text("featured_product_id").references(() => products.id, {
       onDelete: "set null",
     }),
+    // Migration 0018 (nov/2026): the home's full-screen top banners —
+    // "editavel" (photo + texts + fonts/colours in `style`, JSON parsed by
+    // lib/banner-style.ts) or "pronto" (a finished image per screen size).
+    kind: text("kind").notNull().default("editavel"),
+    mobile_image_url: text("mobile_image_url"),
+    eyebrow_highlight: text("eyebrow_highlight"),
+    subtitle: text("subtitle"),
+    whatsapp_label: text("whatsapp_label"),
+    show_whatsapp: bool("show_whatsapp").notNull().default(true),
+    badge: text("badge"),
+    style: text("style"),
     active: bool("active").notNull().default(false),
     position: integer("position").notNull().default(0),
     created_at: createdAt(),

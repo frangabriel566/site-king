@@ -1,19 +1,35 @@
 import { z } from "zod";
+import { BANNER_KINDS, bannerStyleSchema } from "@/lib/banner-style";
 import { imageUrlSchema } from "./image-url";
 
-export const bannerSchema = z.object({
-  eyebrow: z.string().trim().max(120).optional().or(z.literal("")),
-  headline_line1: z.string().trim().max(80).optional().or(z.literal("")),
-  headline_line2: z.string().trim().max(80).optional().or(z.literal("")),
-  wordmark: z.string().trim().max(40).optional().or(z.literal("")),
-  cta_label: z.string().trim().max(60).optional().or(z.literal("")),
-  cta_href: z.string().trim().max(300).optional().or(z.literal("")),
-  image_url: imageUrlSchema("Envie a imagem de fundo").optional().or(z.literal("")),
-  cutout_url: imageUrlSchema().optional().or(z.literal("")),
-  // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
-  featured_product_id: z.guid().optional().nullable(),
-  active: z.boolean().default(false),
-  position: z.coerce.number().int().min(0).default(0),
-});
+const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
+
+export const bannerSchema = z
+  .object({
+    kind: z.enum(BANNER_KINDS).default("editavel"),
+    eyebrow: optionalText(120),
+    eyebrow_highlight: optionalText(40),
+    headline_line1: optionalText(120),
+    headline_line2: optionalText(60),
+    subtitle: optionalText(400),
+    cta_label: optionalText(60),
+    cta_href: optionalText(300),
+    whatsapp_label: optionalText(60),
+    show_whatsapp: z.boolean().default(true),
+    badge: optionalText(80),
+    image_url: imageUrlSchema().optional().or(z.literal("")),
+    mobile_image_url: imageUrlSchema().optional().or(z.literal("")),
+    // Kept from the earlier banner form; the new one passes them through.
+    wordmark: optionalText(40),
+    cutout_url: imageUrlSchema().optional().or(z.literal("")),
+    // z.guid(), not z.uuid() — see lib/validations/product.ts for why.
+    featured_product_id: z.guid().optional().nullable(),
+    style: bannerStyleSchema,
+    active: z.boolean().default(false),
+    position: z.coerce.number().int().min(0).default(0),
+  })
+  .refine((data) => data.kind !== "pronto" || data.image_url || data.mobile_image_url, {
+    message: "Envie a imagem do banner pronto (celular ou computador).",
+  });
 
 export type BannerInput = z.infer<typeof bannerSchema>;

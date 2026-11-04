@@ -3,6 +3,7 @@ import { like, or, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getDb, schema, type Db } from "@/lib/db";
 import { runBatch } from "@/lib/db/batch";
+import { ensureBannerColumns } from "@/lib/db/ensure-banner-columns";
 import { deleteObject } from "@/lib/storage";
 import { keyFromImageUrl, storedKeysFor, uploadKeyFor, uploadKeysIn } from "@/lib/image-url";
 
@@ -28,6 +29,8 @@ const IMAGE_COLUMNS: { table: SQLiteTable; column: SQLiteColumn }[] = [
   { table: schema.brands, column: schema.brands.logo_url },
   { table: schema.banners, column: schema.banners.image_url },
   { table: schema.banners, column: schema.banners.cutout_url },
+  // Migration 0018: callers below run ensureBannerColumns() first.
+  { table: schema.banners, column: schema.banners.mobile_image_url },
   { table: schema.site_settings, column: schema.site_settings.logo_url },
   { table: schema.home_settings, column: schema.home_settings.hero_image_url },
   { table: schema.home_settings, column: schema.home_settings.kit_image_url },
@@ -35,12 +38,23 @@ const IMAGE_COLUMNS: { table: SQLiteTable; column: SQLiteColumn }[] = [
   { table: schema.user, column: schema.user.image },
 ];
 
+/** banners.mobile_image_url is in IMAGE_COLUMNS; make sure it exists.
+ * Outside a Worker request (tests) there is nothing to apply. */
+async function bannerColumnsReady(): Promise<void> {
+  try {
+    await ensureBannerColumns();
+  } catch (error) {
+    console.error("[images] banner columns", error);
+  }
+}
+
 // D1 takes at most 100 bound parameters per statement; one per key.
 const KEYS_PER_STATEMENT = 50;
 
 /** Which of `keys` (upload keys, as uploadKeyFor gives them) some row
  * still points at — one round trip per 50 keys. */
 export async function uploadKeysInUse(db: Db, keys: string[]): Promise<Set<string>> {
+  await bannerColumnsReady();
   const used = new Set<string>();
   for (let start = 0; start < keys.length; start += KEYS_PER_STATEMENT) {
     const chunk = keys.slice(start, start + KEYS_PER_STATEMENT);
@@ -72,6 +86,7 @@ export async function uploadKeysInUse(db: Db, keys: string[]): Promise<Set<strin
 /** Every upload any row points at — what the cleanup page compares the
  * whole of KV against. */
 export async function allUploadKeysInUse(db: Db): Promise<Set<string>> {
+  await bannerColumnsReady();
   const results = (await runBatch(
     db,
     IMAGE_COLUMNS.map(({ table, column }) =>

@@ -1896,3 +1896,32 @@ bloco KITS ("Monte o look"), e ela ficar a escolhida.
 - **Produto do bloco KITS** (migration `0017`, `kit_product_id`): o bloco
   mostra o produto escolhido (nome, preço, link); vazio, o primeiro da
   vitrine KITS. Produto despublicado ou apagado volta ao automático.
+
+## Banners em tela cheia, editáveis ou prontos (nov/2026)
+
+Pedido do dono da loja: o topo da home vira um banner que ocupa a tela,
+na arte aprovada no Claude Design (foto do modelo, "Vista-se como um rei",
+preço em dourado, os dois botões), com fundo, frases, fontes e cores
+trocados pelo painel, ativado ou desativado, e também banners prontos.
+
+- **Aba Banners refeita.** Cada banner é `editavel` (foto + textos +
+  estilo) ou `pronto` (uma imagem por tamanho de tela, mostrada inteira,
+  com link). Os ativados passam em carrossel (7 s, pontos, arrastar);
+  sem nenhum, o topo padrão usa os textos e a foto da **Página inicial**.
+  O `HomeHero` antigo e o card de produto sobre a foto saíram.
+- **Migration `0018_banner_designer`**: `kind`, `mobile_image_url`,
+  `eyebrow_highlight`, `subtitle`, `whatsapp_label`, `show_whatsapp`,
+  `badge` e `style` (JSON: fontes, tamanho, cores, escurecer, altura da
+  foto, foto à direita ou no fundo inteiro — `lib/banner-style.ts`, com
+  padrão por campo). Desliga os banners antigos: só davam a foto do topo
+  anterior e, em tela cheia, mostrariam os textos antigos.
+- **A 0018 se aplica sozinha** (`lib/db/ensure-banner-columns.ts`): na
+  primeira leitura ou gravação de banner, se a coluna `style` não existe,
+  roda os mesmos comandos num batch e registra a migration em
+  `d1_migrations`, para um `db:migrate:remote` depois não falhar. Assim o
+  deploy funciona sem ninguém rodar comando no banco.
+- **Container queries** (`@3xl:`) no lugar de breakpoints: o preview do
+  painel mostra celular e computador no layout real, na largura real,
+  reduzidos para caber.
+- **Fontes**: as três do site (Saira, Michroma, Archivo) e onze do Google
+  Fonts, carregadas só quando um banner ativo as usa.

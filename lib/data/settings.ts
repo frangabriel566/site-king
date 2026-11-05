@@ -7,12 +7,16 @@ import { safeQuery } from "./safe";
 
 export type SiteSettings = Tables<"site_settings">;
 
+/** The store's support address — shown in the footer, Trocas e devoluções
+ * and Política de privacidade whenever Configurações → E-mail is empty. */
+const DEFAULT_SUPPORT_EMAIL = "suporteoficialkingstore@gmail.com";
+
 const FALLBACK_SETTINGS: SiteSettings = {
   id: 1,
   store_name: "King Store",
   logo_url: null,
   whatsapp: null,
-  email: null,
+  email: DEFAULT_SUPPORT_EMAIL,
   instagram: null,
   tiktok: null,
   youtube: null,
@@ -49,6 +53,7 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     const row = await getDb().query.site_settings.findFirst({
       where: eq(schema.site_settings.id, 1),
     });
-    return row ?? FALLBACK_SETTINGS;
+    if (!row) return FALLBACK_SETTINGS;
+    return { ...row, email: row.email?.trim() || DEFAULT_SUPPORT_EMAIL };
   }, FALLBACK_SETTINGS);
 });

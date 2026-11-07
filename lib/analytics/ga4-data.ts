@@ -71,7 +71,9 @@ function failure(error: unknown): Ga4Status {
 
 function config(): { config: Ga4Config } | { status: Ga4Status } {
   const read = readGa4Config();
-  if (!read.ok) return { status: { ok: false, reason: "not_configured", missing: read.missing } };
+  if (!read.ok) {
+    return { status: { ok: false, reason: "not_configured", missing: read.missing, problems: read.problems } };
+  }
   return { config: read.config };
 }
 

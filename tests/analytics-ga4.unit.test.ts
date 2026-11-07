@@ -30,13 +30,49 @@ describe("configuration", () => {
   });
 
   it("says what is missing; a G- measurement id is not a property id", () => {
-    expect(readGa4Config({})).toEqual({ ok: false, missing: ["GA4_PROPERTY_ID", "GA4_SERVICE_ACCOUNT_JSON"] });
+    const none = readGa4Config({});
+    expect(none).toMatchObject({ ok: false, missing: ["GA4_PROPERTY_ID", "GA4_SERVICE_ACCOUNT_JSON"] });
+    if (!none.ok) expect(none.problems.join(" ")).toContain("não chegou ao Worker");
     const wrong = readGa4Config({
       GA4_PROPERTY_ID: "G-NPKKW846TD",
       GA4_CLIENT_EMAIL: "a@b.c",
       GA4_PRIVATE_KEY: privateKey,
     });
-    expect(wrong).toEqual({ ok: false, missing: ["GA4_PROPERTY_ID"] });
+    expect(wrong).toMatchObject({ ok: false, missing: ["GA4_PROPERTY_ID"] });
+    if (!wrong.ok) expect(wrong.problems[0]).toContain("ID de medição");
+  });
+
+  it("accepts the variables saved as type JSON (a number, an object)", () => {
+    const read = readGa4Config({
+      GA4_PROPERTY_ID: 563146303,
+      GA4_SERVICE_ACCOUNT_JSON: { type: "service_account", client_email: "painel@x.iam.gserviceaccount.com", private_key: privateKey },
+    });
+    expect(read.ok).toBe(true);
+    if (read.ok) expect(read.config.propertyId).toBe("563146303");
+  });
+
+  it("accepts a property id in quotes and a key file pasted as an escaped JSON string", () => {
+    const file = JSON.stringify({ client_email: "painel@x.iam.gserviceaccount.com", private_key: privateKey });
+    const read = readGa4Config({ GA4_PROPERTY_ID: ' "563146303" ', GA4_SERVICE_ACCOUNT_JSON: JSON.stringify(file) });
+    expect(read.ok).toBe(true);
+  });
+
+  it("explains a broken key file without ever showing any of it", () => {
+    const broken = `{"client_email": "painel@x.iam.gserviceaccount.com", "private_key": "${privateKey.slice(0, 80)}`;
+    const read = readGa4Config({ GA4_PROPERTY_ID: "563146303", GA4_SERVICE_ACCOUNT_JSON: broken });
+    expect(read.ok).toBe(false);
+    if (!read.ok) {
+      expect(read.missing).toEqual(["GA4_SERVICE_ACCOUNT_JSON"]);
+      expect(read.problems[0]).toContain("não é um JSON válido");
+      const text = read.problems.join(" ");
+      expect(text).not.toContain("painel@");
+      expect(text).not.toContain("MII");
+    }
+    const noKey = readGa4Config({
+      GA4_PROPERTY_ID: "563146303",
+      GA4_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "painel@x.iam.gserviceaccount.com" }),
+    });
+    if (!noKey.ok) expect(noKey.problems[0]).toContain("private_key");
   });
 
   it("accepts 'properties/123' and a key pasted with literal \\n", () => {

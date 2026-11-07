@@ -1,4 +1,5 @@
 import "server-only";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 /**
  * Google Analytics Data API (GA4), from the Worker.
@@ -25,7 +26,7 @@ export type Ga4Config = { propertyId: string; clientEmail: string; privateKey: s
 
 export type Ga4Status =
   | { ok: true }
-  | { ok: false; reason: "not_configured"; missing: string[] }
+  | { ok: false; reason: "not_configured"; missing: string[]; problems: string[] }
   | { ok: false; reason: "error"; message: string };
 
 export class Ga4Error extends Error {
@@ -38,29 +39,111 @@ export class Ga4Error extends Error {
   }
 }
 
-/** The configuration, or which variables are missing. */
-export function readGa4Config(env: Record<string, string | undefined> = process.env):
-  | { ok: true; config: Ga4Config }
-  | { ok: false; missing: string[] } {
-  const propertyId = env.GA4_PROPERTY_ID?.trim().replace(/^properties\//, "") ?? "";
-  let clientEmail = env.GA4_CLIENT_EMAIL?.trim() ?? "";
-  let privateKey = env.GA4_PRIVATE_KEY ?? "";
+/**
+ * The Worker's variables, read straight from the Cloudflare bindings, with
+ * `process.env` as the fallback (tests, `next dev`).
+ *
+ * Not `process.env` alone: OpenNext copies only *string* bindings into it.
+ * A variable saved as type "JSON" in the dashboard (a number, or the key
+ * file as an object) never reaches `process.env` — the panel then said the
+ * variable was missing although it was set.
+ */
+function workerEnv(): Record<string, unknown> {
+  let bindings: Record<string, unknown> = {};
+  try {
+    bindings = getCloudflareContext().env as unknown as Record<string, unknown>;
+  } catch {
+    // Outside the Worker (tests, build): only process.env.
+  }
+  const read = (name: string) => bindings[name] ?? process.env[name];
+  return {
+    GA4_PROPERTY_ID: read("GA4_PROPERTY_ID"),
+    GA4_SERVICE_ACCOUNT_JSON: read("GA4_SERVICE_ACCOUNT_JSON"),
+    GA4_CLIENT_EMAIL: read("GA4_CLIENT_EMAIL"),
+    GA4_PRIVATE_KEY: read("GA4_PRIVATE_KEY"),
+  };
+}
 
-  const json = env.GA4_SERVICE_ACCOUNT_JSON?.trim();
-  if (json) {
-    try {
-      const parsed = JSON.parse(json) as { client_email?: string; private_key?: string };
-      clientEmail = parsed.client_email?.trim() || clientEmail;
-      privateKey = parsed.private_key || privateKey;
-    } catch {
-      // Reported below as missing credentials: a broken paste is the usual cause.
+/** Strips one pair of quotes a paste may have brought along. */
+function unquote(value: string): string {
+  const v = value.trim();
+  const first = v[0];
+  return v.length >= 2 && (first === '"' || first === "'") && v.at(-1) === first ? v.slice(1, -1).trim() : v;
+}
+
+type ServiceAccount = { client_email?: unknown; private_key?: unknown };
+
+/** The key file as text (Secret/Text) or as an object (type JSON). A text
+ * that holds a JSON *string* (pasted already escaped) is unwrapped once. */
+function parseServiceAccount(value: unknown): ServiceAccount | null {
+  if (value && typeof value === "object") return value as ServiceAccount;
+  if (typeof value !== "string") return null;
+  try {
+    let parsed: unknown = JSON.parse(value.trim());
+    if (typeof parsed === "string") parsed = JSON.parse(parsed);
+    return parsed && typeof parsed === "object" ? (parsed as ServiceAccount) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The configuration, or what is wrong with it — by variable name and in
+ * plain words, never with the value itself (the key is a secret, and even
+ * a prefix of it must not reach the page).
+ */
+export function readGa4Config(env: Record<string, unknown> = workerEnv()):
+  | { ok: true; config: Ga4Config }
+  | { ok: false; missing: string[]; problems: string[] } {
+  const missing: string[] = [];
+  const problems: string[] = [];
+
+  // GA4_PROPERTY_ID: text or number.
+  const rawProperty = env.GA4_PROPERTY_ID;
+  let propertyId = "";
+  if (rawProperty === undefined || rawProperty === null || rawProperty === "") {
+    missing.push("GA4_PROPERTY_ID");
+    problems.push("GA4_PROPERTY_ID não chegou ao Worker publicado.");
+  } else if (typeof rawProperty === "number" || typeof rawProperty === "string") {
+    propertyId = unquote(String(rawProperty)).replace(/^properties\//, "");
+    if (!/^\d+$/.test(propertyId)) {
+      missing.push("GA4_PROPERTY_ID");
+      problems.push(
+        /^G-/i.test(propertyId)
+          ? "GA4_PROPERTY_ID está com o ID de medição (G-...). Use o número da propriedade."
+          : "GA4_PROPERTY_ID chegou, mas não é só número.",
+      );
     }
+  } else {
+    missing.push("GA4_PROPERTY_ID");
+    problems.push("GA4_PROPERTY_ID chegou num formato inesperado. Cadastre como Texto.");
   }
 
-  const missing: string[] = [];
-  if (!/^\d+$/.test(propertyId)) missing.push("GA4_PROPERTY_ID");
+  // Credentials: the whole JSON, or e-mail + key separately.
+  const rawJson = env.GA4_SERVICE_ACCOUNT_JSON;
+  let clientEmail = typeof env.GA4_CLIENT_EMAIL === "string" ? env.GA4_CLIENT_EMAIL.trim() : "";
+  let privateKey = typeof env.GA4_PRIVATE_KEY === "string" ? env.GA4_PRIVATE_KEY : "";
+  const hasJson = rawJson !== undefined && rawJson !== null && rawJson !== "";
+  if (hasJson) {
+    const account = parseServiceAccount(rawJson);
+    if (!account) {
+      problems.push(
+        "GA4_SERVICE_ACCOUNT_JSON chegou, mas não é um JSON válido. Cole o conteúdo do arquivo inteiro, de { até }.",
+      );
+    } else {
+      if (typeof account.client_email === "string") clientEmail = account.client_email.trim() || clientEmail;
+      if (typeof account.private_key === "string") privateKey = account.private_key || privateKey;
+      if (!clientEmail) problems.push("GA4_SERVICE_ACCOUNT_JSON não tem o campo client_email.");
+      if (!privateKey.includes("PRIVATE KEY")) {
+        problems.push("GA4_SERVICE_ACCOUNT_JSON não tem a chave privada (private_key). Use a chave JSON da conta de serviço.");
+      }
+    }
+  } else if (!clientEmail && !privateKey) {
+    problems.push("GA4_SERVICE_ACCOUNT_JSON não chegou ao Worker publicado.");
+  }
   if (!clientEmail || !privateKey.includes("PRIVATE KEY")) missing.push("GA4_SERVICE_ACCOUNT_JSON");
-  if (missing.length > 0) return { ok: false, missing };
+
+  if (missing.length > 0) return { ok: false, missing, problems };
   return { ok: true, config: { propertyId, clientEmail, privateKey } };
 }
 

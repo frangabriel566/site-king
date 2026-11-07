@@ -122,7 +122,17 @@ function GaNotice({ status }: { status: Awaited<ReturnType<typeof getGaOverview>
             Vendas, pedidos e faturamento já aparecem (vêm dos pedidos da loja). Visitantes,
             produtos vistos, carrinhos, WhatsApp e tempo real precisam da conexão com o GA4:
             configure no Cloudflare a variável <code>GA4_PROPERTY_ID</code> e o segredo{" "}
-            <code>GA4_SERVICE_ACCOUNT_JSON</code>. Falta agora: {status.missing.join(", ")}.
+            <code>GA4_SERVICE_ACCOUNT_JSON</code>.
+          </p>
+          <ul className="mt-2 list-disc pl-5 text-ink-muted">
+            {status.problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-muted">
+            Elas precisam estar em Workers → site-king → Settings → <strong>Variables and Secrets</strong>{" "}
+            (ambiente Production). As de Settings → Build → Variables só existem durante o build e
+            não chegam ao site.
           </p>
         </div>
       ) : (

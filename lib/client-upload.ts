@@ -4,7 +4,10 @@ import type { UploadFolder } from "@/lib/image-url";
 
 export type { UploadFolder };
 
-export const MAX_SOURCE_FILE_BYTES = 10 * 1024 * 1024; // 10MB, checked before compression
+// Checked before compression. The browser shrinks the photo to ≤500 KB
+// anyway, so this only guards against files a phone cannot decode — a
+// full-resolution phone photo (48 MP, "Máxima" quality) easily passes 10 MB.
+export const MAX_SOURCE_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 
 // The stored photo is the ceiling for every size the storefront shows — the
 // gallery zooms it 1.8x on hover — but Workers KV and a phone on 4G both
@@ -180,7 +183,7 @@ export async function uploadImageToStorage(
     return { ok: false, error: "Envie apenas arquivos de imagem." };
   }
   if (file.size > MAX_SOURCE_FILE_BYTES) {
-    return { ok: false, error: "Arquivo maior que 10MB. Escolha uma foto menor." };
+    return { ok: false, error: "Arquivo maior que 50MB. Escolha uma foto menor." };
   }
 
   let compressed: { full: CompressedImage; thumbnail: CompressedImage };
@@ -405,7 +408,7 @@ export async function uploadLogoToStorage(
     return { ok: false, error: "Envie a logo em PNG (fundo transparente), SVG ou WebP." };
   }
   if (file.size > MAX_SOURCE_FILE_BYTES) {
-    return { ok: false, error: "Arquivo maior que 10MB." };
+    return { ok: false, error: "Arquivo maior que 50MB." };
   }
 
   let processed: Awaited<ReturnType<typeof processLogo>>;

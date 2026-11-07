@@ -255,7 +255,9 @@ export function ProductGallery({
                       onLoad={index === 0 ? releaseRest : undefined}
                       quality={GALLERY_IMAGE_QUALITY}
                       sizes={GALLERY_IMAGE_SIZES}
-                      className="object-cover transition-transform duration-200 ease-out"
+                      // contain, not cover: the whole piece shows, whatever the
+                      // photo's proportions (store owner, nov/2026).
+                      className="object-contain transition-transform duration-200 ease-out"
                       style={
                         zoom && selected === index
                           ? {

@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/data/settings";
 import { getCategoriesWithImages } from "@/lib/data/categories";
@@ -88,6 +89,19 @@ export default async function ShopLayout({
         {/* Before <Header>, so it is listening by the time the header it
             covers has even been parsed. */}
         <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
+        {/* Google Tag Manager (GTM-WZ64DZLP). Só na loja: o painel admin
+            não carrega, para os acessos internos não entrarem nas métricas. */}
+        <Script
+          id="gtm"
+          async
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-WZ64DZLP"
+          strategy="afterInteractive"
+        />
+        <Script id="gtm-init" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());`}
+        </Script>
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>
         <Footer

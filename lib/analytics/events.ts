@@ -237,6 +237,23 @@ export function trackWhatsAppClick(origin: WhatsAppOrigin, product?: { id: strin
 }
 
 /**
+ * Opens the blank tab a WhatsApp order will be sent to, counting the click
+ * first — both inside the shopper's click.
+ *
+ * The order is created after this (a server round trip), and by then the
+ * new tab is in front: on a phone the store's page is already in the
+ * background. GA4 batches its hits and flushes the batch when the page is
+ * hidden; a hit queued *after* that sits on a timer the browser freezes in
+ * a background tab, and is never sent. Pushed here, while the page is
+ * still visible, the tag fires at once and the switch to the new tab is
+ * what sends it.
+ */
+export function openWhatsAppTab(origin: WhatsAppOrigin): Window | null {
+  trackWhatsAppClick(origin);
+  return window.open("", "_blank");
+}
+
+/**
  * A link that opens a chat with the store: wa.me/<number> or
  * api.whatsapp.com/send?phone=. A "share on WhatsApp" link (no number) is
  * the shopper sending the page to someone else, not talking to the store.

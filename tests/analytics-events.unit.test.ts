@@ -203,6 +203,43 @@ describe("click_whatsapp", () => {
     expect(events("click_whatsapp")[0]).toMatchObject({ page_type: "sacola", product_id: undefined });
   });
 
+  it("WhatsApp order: the click is pushed before the new tab opens, once", () => {
+    setPath("/sacola");
+    const order: string[] = [];
+    win.window.dataLayer = [];
+    const layerRef = win.window.dataLayer;
+    const originalPush = layerRef.push.bind(layerRef);
+    layerRef.push = (...entries: unknown[]) => {
+      order.push(`push:${(entries[0] as { event?: string }).event}`);
+      return originalPush(...entries);
+    };
+    const tab = { closed: false } as unknown as Window;
+    (win.window as unknown as { open: () => Window }).open = () => {
+      order.push("open");
+      return tab;
+    };
+    expect(events$.openWhatsAppTab("sacola_finalizar")).toBe(tab);
+    expect(order).toEqual(["push:click_whatsapp", "open"]);
+    expect(events("click_whatsapp")).toHaveLength(1);
+    expect(events("click_whatsapp")[0]).toMatchObject({ link_location: "sacola_finalizar", page_type: "sacola" });
+    expect(layer().some((entry) => entry.event === "purchase")).toBe(false);
+  });
+
+  it("WhatsApp order: a broken tag never stops the tab from opening", () => {
+    win.window.dataLayer = {
+      push: () => {
+        throw new Error("tag quebrada");
+      },
+    } as unknown as unknown[];
+    let opened = 0;
+    (win.window as unknown as { open: () => null }).open = () => {
+      opened += 1;
+      return null;
+    };
+    expect(() => events$.openWhatsAppTab("produto_comprar")).not.toThrow();
+    expect(opened).toBe(1);
+  });
+
   it("is never an e-commerce event", () => {
     events$.trackWhatsAppClick("botao_flutuante");
     expect(layer().some((entry) => entry.event === "purchase")).toBe(false);

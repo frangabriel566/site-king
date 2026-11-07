@@ -89,6 +89,14 @@ export function buildGallerySlides(
   // one-thumbnail column.
   const seen = new Set<string>();
   const list: GallerySlide[] = [];
+  // The cover (first gallery photo, marked CAPA in the admin) always opens
+  // the product page, ahead of the color photos — the store owner picks it
+  // as the product's main shot (nov/2026).
+  const cover = images[0];
+  if (cover) {
+    seen.add(cover.url);
+    list.push({ id: cover.id, url: cover.url, alt: cover.alt });
+  }
   for (const { color, image_url } of colors) {
     if (!image_url || seen.has(image_url)) continue;
     seen.add(image_url);
@@ -104,7 +112,8 @@ export function buildGallerySlides(
   // gallery image, once as that color photo — so appending it to a fully
   // photographed set of colors just shows every color twice, and the two
   // copies have different URLs, so no dedupe can catch them.
-  const everyColorPhotographed = colors.length > 0 && list.length === colors.length;
+  const colorSlides = list.filter((slide) => slide.color).length;
+  const everyColorPhotographed = colors.length > 0 && colorSlides === colors.length;
   if (!everyColorPhotographed) {
     for (const image of images) {
       if (seen.has(image.url)) continue;

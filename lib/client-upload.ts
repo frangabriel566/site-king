@@ -21,7 +21,12 @@ const MAX_SHRINKS = 4;
 // any rendered width up to this). Width, not longest side: product photos
 // are portrait, and a 640px-wide slot needs 640 real pixels across.
 const THUMBNAIL_WIDTH = 640;
-const THUMBNAIL_QUALITY = 0.8;
+const THUMBNAIL_QUALITY_STEPS = [0.8, 0.72, 0.64, 0.56];
+// The thumbnail never needs more than 2x its width in height (cards are
+// portrait at most 3:4); capping it keeps tall screenshots small.
+const THUMBNAIL_MAX_HEIGHT = THUMBNAIL_WIDTH * 2;
+// Server rejects thumbnails over 250 KB (app/api/upload/route.ts).
+const MAX_THUMB_BYTES = 200 * 1024;
 
 export type CompressedImage = { blob: Blob; width: number; height: number };
 
@@ -82,12 +87,25 @@ async function compressFull(bitmap: ImageBitmap, maxDimension = MAX_DIMENSION): 
 }
 
 async function compressThumbnail(bitmap: ImageBitmap, type: string): Promise<CompressedImage> {
-  const scale = Math.min(1, THUMBNAIL_WIDTH / bitmap.width);
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  // Same format as the full-size file: the server stores both under one key.
-  const blob = await encode(draw(bitmap, width, height), type, THUMBNAIL_QUALITY);
-  return { blob, width, height };
+  // Width-limited, but a very tall photo (or a JPEG from Safari, which
+  // cannot encode WebP) could still outgrow the server's thumbnail cap at
+  // a fixed quality — so step quality down, then shrink, until it fits.
+  let scale = Math.min(1, THUMBNAIL_WIDTH / bitmap.width, THUMBNAIL_MAX_HEIGHT / bitmap.height);
+  let last: CompressedImage | null = null;
+  for (let shrink = 0; shrink <= MAX_SHRINKS; shrink++) {
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = draw(bitmap, width, height);
+    for (const quality of THUMBNAIL_QUALITY_STEPS) {
+      // Same format as the full-size file: the server stores both under one key.
+      const blob = await encode(canvas, type, quality);
+      last = { blob, width, height };
+      if (blob.size <= MAX_THUMB_BYTES) return last;
+    }
+    scale *= SHRINK_FACTOR;
+  }
+  if (!last) throw new Error("Falha ao gerar a miniatura.");
+  return last;
 }
 
 /**

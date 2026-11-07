@@ -26,7 +26,7 @@ export type Ga4Config = { propertyId: string; clientEmail: string; privateKey: s
 
 export type Ga4Status =
   | { ok: true }
-  | { ok: false; reason: "not_configured"; missing: string[]; problems: string[] }
+  | { ok: false; reason: "not_configured"; missing: string[]; problems: string[]; bindings?: BindingInfo[] | null }
   | { ok: false; reason: "error"; message: string };
 
 export class Ga4Error extends Error {
@@ -48,20 +48,57 @@ export class Ga4Error extends Error {
  * file as an object) never reaches `process.env` — the panel then said the
  * variable was missing although it was set.
  */
-function workerEnv(): Record<string, unknown> {
-  let bindings: Record<string, unknown> = {};
+function workerBindings(): Record<string, unknown> | null {
   try {
-    bindings = getCloudflareContext().env as unknown as Record<string, unknown>;
+    return getCloudflareContext().env as unknown as Record<string, unknown>;
   } catch {
-    // Outside the Worker (tests, build): only process.env.
+    return null; // Outside the Worker (tests, build).
   }
-  const read = (name: string) => bindings[name] ?? process.env[name];
-  return {
-    GA4_PROPERTY_ID: read("GA4_PROPERTY_ID"),
-    GA4_SERVICE_ACCOUNT_JSON: read("GA4_SERVICE_ACCOUNT_JSON"),
-    GA4_CLIENT_EMAIL: read("GA4_CLIENT_EMAIL"),
-    GA4_PRIVATE_KEY: read("GA4_PRIVATE_KEY"),
+}
+
+const GA4_NAMES = ["GA4_PROPERTY_ID", "GA4_SERVICE_ACCOUNT_JSON", "GA4_CLIENT_EMAIL", "GA4_PRIVATE_KEY"] as const;
+
+/** "GA4_PROPERTY_ID " / "ga4-property-id" → "GA4PROPERTYID". */
+const normalize = (name: string) => name.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+function workerEnv(): Record<string, unknown> {
+  const bindings = workerBindings() ?? {};
+  const names = Object.keys(bindings);
+  const read = (name: string) => {
+    if (bindings[name] !== undefined) return bindings[name];
+    if (process.env[name] !== undefined) return process.env[name];
+    // A name typed with a stray space, a hyphen or another case is still
+    // that variable — as long as only one binding reads that way.
+    const near = names.filter((n) => normalize(n) === normalize(name));
+    return near.length === 1 ? bindings[near[0]] : undefined;
   };
+  return Object.fromEntries(GA4_NAMES.map((name) => [name, read(name)]));
+}
+
+export type BindingInfo = { name: string; kind: "texto" | "número" | "objeto" | "outro" };
+
+/**
+ * What the running Worker actually has, by *name and kind only* — never a
+ * value. Shown to admins when the GA4 variables don't arrive, so it is
+ * plain whether the dashboard's variables reach this version at all.
+ * Null outside the Worker.
+ */
+export function describeBindings(): BindingInfo[] | null {
+  const bindings = workerBindings();
+  if (!bindings) return null;
+  return Object.entries(bindings)
+    .map(([name, value]): BindingInfo => ({
+      name,
+      kind:
+        typeof value === "string"
+          ? "texto"
+          : typeof value === "number"
+            ? "número"
+            : value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype
+              ? "objeto"
+              : "outro",
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Strips one pair of quotes a paste may have brought along. */

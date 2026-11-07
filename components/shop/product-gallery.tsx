@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeImage } from "@/components/shop/safe-image";
 import useEmblaCarousel from "embla-carousel-react";
 import { Expand } from "lucide-react";
@@ -94,8 +94,13 @@ export function ProductGallery({
   }, [emblaApi, onSelect]);
 
   // Picking a color in the buy box moves the gallery to that color's photo.
+  // Only an actual change of color moves the gallery: the color picked by
+  // default on load must not pull the page off the cover photo.
+  const lastColor = useRef(selectedColor);
   useEffect(() => {
     if (!emblaApi || !selectedColor) return;
+    if (selectedColor === lastColor.current) return;
+    lastColor.current = selectedColor;
     const index = slides.findIndex((slide) => slide.color === selectedColor);
     if (index >= 0) {
       emblaApi.scrollTo(index);

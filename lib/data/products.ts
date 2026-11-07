@@ -106,6 +106,8 @@ const LIST_WITH = {
       image_url: true,
     },
     where: isNull(product_variants.archived_at),
+    // Registration order (no position column; saves update rows in place).
+    orderBy: sql`rowid`,
   },
 } as const;
 
@@ -116,7 +118,7 @@ const liveVariant = isNull(product_variants.archived_at);
 
 const DETAIL_WITH = {
   product_images: true,
-  product_variants: { where: liveVariant },
+  product_variants: { where: liveVariant, orderBy: sql`rowid` },
   // size_guide: the product page's "Guia de medidas" (Admin → Categorias).
   category: { columns: { id: true, name: true, slug: true, size_guide: true } },
   brand: { columns: { id: true, name: true, slug: true, logo_url: true } },

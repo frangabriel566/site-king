@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { trackWhatsAppClick } from "@/lib/analytics/events";
+import { openWhatsAppTab } from "@/lib/analytics/events";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,7 +124,12 @@ export function WhatsAppBuyButton({
     // do `await` é o que o bloqueador de pop-up de todo navegador móvel
     // recusa, e era assim que o botão simplesmente não fazia nada no
     // iPhone. Ela fica em branco por um instante e recebe a URL no fim.
-    const tab = window.open("", "_blank");
+    // O clique no WhatsApp é contado aqui também, com a página ainda
+    // visível (lib/analytics/events.ts → openWhatsAppTab): contado depois
+    // do `await`, a aba nova já estava na frente e o GA4 nunca recebia.
+    const tab = openWhatsAppTab(
+      window.location.pathname.startsWith("/produto/") ? "produto_comprar" : "sacola_finalizar",
+    );
 
     setPending(true);
     try {
@@ -161,12 +166,6 @@ export function WhatsAppBuyButton({
         description: "Mande a mensagem que abrimos para a loja confirmar sua compra.",
       });
 
-      // The chat opens now: a WhatsApp click, not a sale — the sale is the
-      // store confirming this order in the panel. Counted before leaving
-      // the page (the fallback below navigates this tab away).
-      trackWhatsAppClick(
-        window.location.pathname.startsWith("/produto/") ? "produto_comprar" : "sacola_finalizar",
-      );
       if (tab && !tab.closed) {
         tab.location.href = result.url;
       } else {

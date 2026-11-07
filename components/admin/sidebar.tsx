@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Activity,
   House,
   Image as ImageIcon,
   Shirt,
@@ -38,6 +39,7 @@ type StoreBrand = { logoUrl: string | null; name: string };
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/analytics", label: "Analytics", icon: Activity },
   { href: "/admin/pagina-inicial", label: "Página inicial", icon: House },
   { href: "/admin/banners", label: "Banners", icon: ImageIcon },
   { href: "/admin/produtos", label: "Produtos", icon: Shirt },

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderForConfirmation } from "@/lib/data/orders";
-import { ORDER_STATUS_LABEL } from "@/lib/constants";
+import { CONFIRMED_ORDER_STATUSES, ORDER_STATUS_LABEL } from "@/lib/constants";
+import { PurchaseTracker } from "@/components/shop/purchase-tracker";
+import { analyticsItemFromOrderLine } from "@/lib/analytics/items";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
 import { syncOrderPayment } from "@/lib/payments/sync";
@@ -25,6 +27,21 @@ export default async function OrderConfirmationPage({
     if (outcome === "paid") order = (await getOrderForConfirmation(id)) ?? order;
   }
 
+  // GA4 purchase: only for an order confirmed in the database right now
+  // (paid via Mercado Pago, or confirmed by the store) — never for one
+  // still waiting. Product and order data only, nothing about the person.
+  const confirmed = CONFIRMED_ORDER_STATUSES.includes(order.status);
+  const purchase = confirmed
+    ? {
+        transactionId: String(order.order_number),
+        value: order.total,
+        shipping: order.shipping,
+        discount: order.discount,
+        coupon: order.coupon_code,
+        items: order.order_items.map(analyticsItemFromOrderLine),
+      }
+    : null;
+
   const address = order.shipping_address as {
     street?: string;
     number?: string;
@@ -39,6 +56,7 @@ export default async function OrderConfirmationPage({
 
   return (
     <div className="px-8 py-16 md:px-12">
+      {purchase && <PurchaseTracker purchase={purchase} />}
       <div className="mx-auto max-w-2xl">
         <p className="text-label mb-3">
           {order.status === "aguardando_whatsapp" ? "Pedido gerado" : "Pedido confirmado"}

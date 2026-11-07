@@ -14,6 +14,8 @@ import { ShopConfigProvider } from "@/components/shop/shop-config-provider";
 import { shopConfigFromSettings } from "@/lib/shop-config";
 import { getSalesMode } from "@/lib/sales-mode";
 import { CouponFromLink } from "@/components/shop/coupon-from-link";
+import { WhatsAppClickTracker } from "@/components/shop/whatsapp-click-tracker";
+import { gtmBootstrapScript } from "@/lib/analytics/consent";
 
 /**
  * Records which header control was pressed before the page was able to
@@ -90,18 +92,13 @@ export default async function ShopLayout({
             covers has even been parsed. */}
         <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
         {/* Google Tag Manager (GTM-WZ64DZLP). Só na loja: o painel admin
-            não carrega, para os acessos internos não entrarem nas métricas. */}
-        <Script
-          id="gtm"
-          async
-          src="https://www.googletagmanager.com/gtm.js?id=GTM-WZ64DZLP"
-          strategy="afterInteractive"
-        />
-        <Script id="gtm-init" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());`}
+            não carrega, para os acessos internos não entrarem nas métricas.
+            Um script só, em ordem: dataLayer, consentimento padrão (LGPD,
+            lib/analytics/consent.ts) e depois o gtm.js. */}
+        <Script id="gtm" strategy="afterInteractive">
+          {gtmBootstrapScript()}
         </Script>
+        <WhatsAppClickTracker />
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>
         <Footer

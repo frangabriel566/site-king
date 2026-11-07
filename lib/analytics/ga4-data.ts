@@ -3,6 +3,7 @@ import {
   Ga4Error,
   batchRunReports,
   cached,
+  describeBindings,
   readGa4Config,
   readRows,
   runRealtimeReport,
@@ -72,7 +73,15 @@ function failure(error: unknown): Ga4Status {
 function config(): { config: Ga4Config } | { status: Ga4Status } {
   const read = readGa4Config();
   if (!read.ok) {
-    return { status: { ok: false, reason: "not_configured", missing: read.missing, problems: read.problems } };
+    return {
+      status: {
+        ok: false,
+        reason: "not_configured",
+        missing: read.missing,
+        problems: read.problems,
+        bindings: describeBindings(),
+      },
+    };
   }
   return { config: read.config };
 }

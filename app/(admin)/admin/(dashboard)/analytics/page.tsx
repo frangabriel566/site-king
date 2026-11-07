@@ -129,6 +129,18 @@ function GaNotice({ status }: { status: Awaited<ReturnType<typeof getGaOverview>
               <li key={problem}>{problem}</li>
             ))}
           </ul>
+          {status.bindings && (
+            <div className="mt-3 rounded-md border border-line bg-bg p-3 text-xs text-ink-muted">
+              <p className="mb-1 font-semibold text-fg">
+                Diagnóstico: variáveis e bindings que esta versão do site recebeu (só os nomes)
+              </p>
+              <p className="break-words font-mono">
+                {status.bindings.length === 0
+                  ? "nenhum"
+                  : status.bindings.map((b) => `${JSON.stringify(b.name)} (${b.kind})`).join(" · ")}
+              </p>
+            </div>
+          )}
           <p className="mt-2 text-xs text-ink-muted">
             Elas precisam estar em Workers → site-king → Settings → <strong>Variables and Secrets</strong>{" "}
             (ambiente Production). As de Settings → Build → Variables só existem durante o build e

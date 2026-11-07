@@ -6,6 +6,7 @@ import {
   imageUrlForKey,
   keyFromImageUrl,
   storeLogoIconUrls,
+  uploadKeyWithFingerprint,
   thumbnailKey,
   type UploadFolder,
 } from "@/lib/image-url";
@@ -121,7 +122,12 @@ export async function POST(request: NextRequest) {
     return fail("O arquivo não é uma imagem válida.", 415);
   }
 
-  const key = `${folder}/${crypto.randomUUID()}.${extension}`;
+  // The logo keeps a plain random name (STORE_LOGO_KEY); photos carry the
+  // original's fingerprint so duplicates can be spotted (lib/image-url.ts).
+  const sourceHash = form.get("hash");
+  const key = isLogo
+    ? `${folder}/${crypto.randomUUID()}.${extension}`
+    : uploadKeyWithFingerprint(folder, extension, typeof sourceHash === "string" ? sourceHash : null);
   const [fullBytes, thumbBytes, iconBytes, faviconBytes] = bytes;
   const writes = [
     putObject(key, fullBytes, full.type),

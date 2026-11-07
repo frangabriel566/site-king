@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { trackWhatsAppClick } from "@/lib/analytics/events";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,6 +161,12 @@ export function WhatsAppBuyButton({
         description: "Mande a mensagem que abrimos para a loja confirmar sua compra.",
       });
 
+      // The chat opens now: a WhatsApp click, not a sale — the sale is the
+      // store confirming this order in the panel. Counted before leaving
+      // the page (the fallback below navigates this tab away).
+      trackWhatsAppClick(
+        window.location.pathname.startsWith("/produto/") ? "produto_comprar" : "sacola_finalizar",
+      );
       if (tab && !tab.closed) {
         tab.location.href = result.url;
       } else {

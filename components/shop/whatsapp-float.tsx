@@ -50,6 +50,7 @@ export function WhatsAppFloat({
       target="_blank"
       rel="noreferrer"
       aria-label="Falar no WhatsApp"
+      data-wa-origin="botao_flutuante"
       // z-index hierarchy (bottom-right corner, low to high): page content
       // (auto) < sticky header / cookie banner (z-40) < this button (z-45)
       // < drawers/dialogs (z-50, components/ui/sheet.tsx & dialog.tsx). It

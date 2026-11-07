@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
+import { trackBeginCheckout, trackWhatsAppClick } from "@/lib/analytics/events";
+import { analyticsItemFromCart } from "@/lib/analytics/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,6 +104,17 @@ export function CheckoutWizard({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // begin_checkout once the bag is known (it lives in localStorage, read
+  // after hydration). trackBeginCheckout itself skips the same bag seen
+  // again in this tab — a reload, or the way back from the payment page.
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (!isHydrated || items.length === 0 || checkoutTracked.current) return;
+    checkoutTracked.current = true;
+    trackBeginCheckout(items.map(analyticsItemFromCart), coupon.applied?.code ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, items]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -210,6 +223,7 @@ export function CheckoutWizard({
     }
 
     if (result.payment?.kind === "whatsapp") {
+      trackWhatsAppClick("checkout");
       window.open(result.payment.url, "_blank", "noopener,noreferrer");
     }
 

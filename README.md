@@ -89,8 +89,9 @@ ligados em `wrangler.jsonc` como `DB` e `IMAGES_KV`.
    (as variáveis ficam só no painel; `keep_vars` no `wrangler.jsonc` impede
    que o deploy as apague):
    - secrets: `BETTER_AUTH_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`,
-     `MERCADOPAGO_WEBHOOK_SECRET`, `RESEND_API_KEY`, `MELHORENVIO_TOKEN`
-   - variáveis: `BETTER_AUTH_URL` (o domínio final, ex.
+     `MERCADOPAGO_WEBHOOK_SECRET`, `RESEND_API_KEY`, `MELHORENVIO_TOKEN`,
+     `GA4_SERVICE_ACCOUNT_JSON` (Painel → Analytics; veja docs/ANALYTICS.md)
+   - variáveis: `GA4_PROPERTY_ID`, `BETTER_AUTH_URL` (o domínio final, ex.
      `https://www.kingstore.com.br`), `PAYMENT_PROVIDER`,
      `RESEND_FROM_EMAIL`, `MELHORENVIO_URL`, `MELHORENVIO_EMAIL`
 3. Em **Settings → Build → Variables and secrets** (usadas no build):

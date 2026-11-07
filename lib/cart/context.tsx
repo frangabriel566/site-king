@@ -11,6 +11,8 @@ import {
 } from "react";
 import { CART_STORAGE_KEY, COUPON_STORAGE_KEY } from "@/lib/constants";
 import { useCloseOnNavigation } from "@/lib/hooks/use-close-on-navigation";
+import { trackAddToCart } from "@/lib/analytics/events";
+import { analyticsItemFromCart } from "@/lib/analytics/items";
 import type { CartItem } from "./types";
 
 type CartContextValue = {
@@ -86,6 +88,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, isHydrated]);
 
   const addItem = useCallback((item: CartItem) => {
+    // Every way into the bag passes here (product page, "Comprar agora",
+    // product cards), so this is the one place add_to_cart is pushed.
+    // Outside the state updater: React may run that twice.
+    trackAddToCart(analyticsItemFromCart(item));
     setItems((prev) => {
       const existing = prev.find((i) => i.variantId === item.variantId);
       if (existing) {

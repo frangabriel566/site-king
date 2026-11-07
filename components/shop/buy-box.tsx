@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart/context";
+import { setCurrentProduct, trackViewItem } from "@/lib/analytics/events";
+import { analyticsItemFromProduct } from "@/lib/analytics/items";
 import { SIMPLE_VARIANT_SIZE, SIZE_ORDER, isSimpleVariant } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import { discountPercent, installmentText, pixPrice } from "@/lib/shop-config";
@@ -64,6 +66,20 @@ export function BuyBox({
   const [isPending, startTransition] = useTransition();
   const [added, setAdded] = useState(false);
   const variants = product.product_variants;
+
+  // view_item, once per product opened (a color or size change is the same
+  // view). The product is also kept as "on screen", so a WhatsApp click
+  // on this page says which product it was about.
+  const viewedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (viewedRef.current !== product.id) {
+      viewedRef.current = product.id;
+      trackViewItem(analyticsItemFromProduct(product));
+    }
+    setCurrentProduct({ id: product.id, name: product.name });
+    return () => setCurrentProduct(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   useEffect(() => {
     if (!added) return;

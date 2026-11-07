@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { COOKIE_CONSENT_EVENT, COOKIE_CONSENT_KEY } from "@/lib/constants";
+import { grantAnalyticsConsent } from "@/lib/analytics/consent";
 
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
@@ -23,6 +24,9 @@ export function CookieBanner() {
     } catch {
       // ignore
     }
+    // Consent Mode: from now on GA4 (and any ad tag in GTM) may store
+    // cookies — on this page already, not only from the next visit.
+    grantAnalyticsConsent();
     window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT));
     setVisible(false);
   }

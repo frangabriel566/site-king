@@ -41,6 +41,28 @@ export function keyFromImageUrl(url: string): string | null {
   return isImageKey(key) ? key : null;
 }
 
+/**
+ * Uploads since nov/2026 end their name in the first 12 hex digits of the
+ * original file's SHA-256 (`<24 random chars><12 hash digits>`, still 36
+ * chars), so the same photo uploaded into two slots — the cover and a
+ * color's photo, say — gets two keys (deleting one never breaks the other)
+ * that can still be told apart as the same picture. Older uploads end in
+ * random digits, which simply never match anything.
+ */
+export function uploadKeyWithFingerprint(folder: string, extension: string, sourceHash?: string | null): string {
+  const random = crypto.randomUUID();
+  const tail = sourceHash && /^[0-9a-f]{64}$/.test(sourceHash) ? sourceHash.slice(0, 12) : random.slice(24);
+  return `${folder}/${random.slice(0, 24)}${tail}.${extension}`;
+}
+
+/** The photo's fingerprint (see above) or its URL when it is not one of
+ * our uploads — two slides with the same value show the same picture. */
+export function photoIdentity(url: string): string {
+  const key = keyFromImageUrl(url);
+  const match = key?.match(/([0-9a-f]{12})(?:\.sm)?\.(?:webp|jpg|png)$/);
+  return match ? `fp:${match[1]}` : url;
+}
+
 export function thumbnailKey(key: string): string {
   return key.replace(/(\.sm)?\.(webp|jpg|png)$/, ".sm.$2");
 }

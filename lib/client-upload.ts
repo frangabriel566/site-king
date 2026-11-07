@@ -202,6 +202,14 @@ export async function uploadImageToStorage(
 
   const body = new FormData();
   body.set("folder", folder);
+  // Fingerprint of the original, so the same photo in two slots is
+  // recognised as one (lib/image-url.ts). Optional: the upload works
+  // without it.
+  try {
+    body.set("hash", await hashFile(file));
+  } catch {
+    // no crypto.subtle (plain http) — upload without a fingerprint
+  }
   body.set("file", compressed.full.blob, "full");
   body.set("thumb", compressed.thumbnail.blob, "thumb");
 

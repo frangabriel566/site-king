@@ -1,5 +1,6 @@
 import type { Tables } from "@/lib/database.types";
 import { isColorlessVariant } from "@/lib/constants";
+import { photoIdentity } from "@/lib/image-url";
 
 /**
  * How the product page's gallery is put together, kept out of the React
@@ -87,19 +88,32 @@ export function buildGallerySlides(
   // picker scrolls to its own photo instead of filtering the gallery down
   // to it, which is what used to leave a three-color product with a
   // one-thumbnail column.
+  // Deduped by picture, not URL: the same photo uploaded as the cover and
+  // as a color's photo has two URLs but one fingerprint (lib/image-url.ts).
   const seen = new Set<string>();
   const list: GallerySlide[] = [];
+  const colorByPhoto = new Map<string, string>();
+  for (const { color, image_url } of colors) {
+    if (image_url && !colorByPhoto.has(photoIdentity(image_url))) {
+      colorByPhoto.set(photoIdentity(image_url), color);
+    }
+  }
   // The cover (first gallery photo, marked CAPA in the admin) always opens
   // the product page, ahead of the color photos — the store owner picks it
-  // as the product's main shot (nov/2026).
+  // as the product's main shot (nov/2026). When it is also a color's
+  // photo, it stands for that color and the color's copy is skipped.
   const cover = images[0];
   if (cover) {
-    seen.add(cover.url);
-    list.push({ id: cover.id, url: cover.url, alt: cover.alt });
+    const identity = photoIdentity(cover.url);
+    seen.add(identity);
+    const color = colorByPhoto.get(identity);
+    list.push({ id: cover.id, url: cover.url, alt: cover.alt, ...(color ? { color } : {}) });
   }
   for (const { color, image_url } of colors) {
-    if (!image_url || seen.has(image_url)) continue;
-    seen.add(image_url);
+    if (!image_url) continue;
+    const identity = photoIdentity(image_url);
+    if (seen.has(identity)) continue;
+    seen.add(identity);
     list.push({
       id: `color-${color}`,
       url: image_url,
@@ -112,12 +126,14 @@ export function buildGallerySlides(
   // gallery image, once as that color photo — so appending it to a fully
   // photographed set of colors just shows every color twice, and the two
   // copies have different URLs, so no dedupe can catch them.
-  const colorSlides = list.filter((slide) => slide.color).length;
-  const everyColorPhotographed = colors.length > 0 && colorSlides === colors.length;
+  const photographedColors = new Set(list.map((slide) => slide.color).filter(Boolean));
+  const everyColorPhotographed =
+    colors.length > 0 && colors.every(({ color }) => photographedColors.has(color));
   if (!everyColorPhotographed) {
     for (const image of images) {
-      if (seen.has(image.url)) continue;
-      seen.add(image.url);
+      const identity = photoIdentity(image.url);
+      if (seen.has(identity)) continue;
+      seen.add(identity);
       list.push({ id: image.id, url: image.url, alt: image.alt });
     }
   }

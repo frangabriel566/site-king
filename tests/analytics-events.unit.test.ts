@@ -164,6 +164,23 @@ describe("e-commerce events", () => {
   });
 });
 
+describe("tracking never breaks the purchase", () => {
+  it("a dataLayer that throws (a broken tag) is swallowed", () => {
+    win.window.dataLayer = {
+      push: () => {
+        throw new Error("tag quebrada");
+      },
+    } as unknown as unknown[];
+    expect(() => events$.trackAddToCart(item)).not.toThrow();
+    expect(() => events$.trackViewItem(item)).not.toThrow();
+    expect(() => events$.trackWhatsAppClick("checkout")).not.toThrow();
+    expect(() => events$.trackBeginCheckout([item])).not.toThrow();
+    expect(() =>
+      events$.trackPurchase({ transactionId: "9", value: 1, shipping: 0, discount: 0, items: [] }),
+    ).not.toThrow();
+  });
+});
+
 describe("click_whatsapp", () => {
   it("names the spot, the page kind and — on a product page — the product", () => {
     setPath("/produto/moletom-coroa");
@@ -209,13 +226,52 @@ describe("click_whatsapp", () => {
 });
 
 describe("consent", () => {
-  it("the bootstrap sets the default before loading GTM, denied until accepted", async () => {
+  it("the bootstrap, run as the browser would: consent default, then GTM's start, then gtm.js", async () => {
     const { gtmBootstrapScript } = await import("@/lib/analytics/consent");
-    const script = gtmBootstrapScript();
-    expect(script.indexOf('gtag("consent", "default"')).toBeGreaterThan(-1);
-    expect(script.indexOf('gtag("consent", "default"')).toBeLessThan(script.indexOf("gtm.js?id=GTM-WZ64DZLP"));
-    expect(script).toContain('accepted ? "granted" : "denied"');
-    expect(script).toContain("king-store:cookie-consent");
+    const appended: { src: string; async: boolean }[] = [];
+    const fakeWindow: Record<string, unknown> = {
+      localStorage: memoryStorage(),
+      document: {
+        createElement: () => ({ src: "", async: false }),
+        head: { appendChild: (el: { src: string; async: boolean }) => appended.push(el) },
+      },
+    };
+    // A product page that pushed before GTM: the bootstrap must keep it.
+    fakeWindow.dataLayer = [];
+    new Function("window", "localStorage", "document", `with (window) { ${gtmBootstrapScript()} }`)(
+      fakeWindow,
+      fakeWindow.localStorage,
+      fakeWindow.document,
+    );
+    const layer = fakeWindow.dataLayer as unknown[];
+    const consent = Array.from(layer[0] as ArrayLike<unknown>);
+    expect(consent.slice(0, 2)).toEqual(["consent", "default"]);
+    expect(consent[2]).toMatchObject({ analytics_storage: "denied", ad_storage: "denied" });
+    expect(layer[1]).toMatchObject({ event: "gtm.js" });
+    expect(layer).toHaveLength(2);
+    expect(appended).toEqual([{ src: "https://www.googletagmanager.com/gtm.js?id=GTM-WZ64DZLP", async: true }]);
+  });
+
+  it("a returning visitor who accepted starts granted", async () => {
+    const { gtmBootstrapScript } = await import("@/lib/analytics/consent");
+    const storage = memoryStorage();
+    storage.setItem("king-store:cookie-consent", "accepted");
+    const fakeWindow: Record<string, unknown> = {
+      dataLayer: [],
+      document: { createElement: () => ({}), head: { appendChild: () => {} } },
+    };
+    new Function("window", "localStorage", "document", `with (window) { ${gtmBootstrapScript()} }`)(
+      fakeWindow,
+      storage,
+      fakeWindow.document,
+    );
+    const consent = Array.from((fakeWindow.dataLayer as unknown[])[0] as ArrayLike<unknown>);
+    expect(consent[2]).toMatchObject({ analytics_storage: "granted" });
+  });
+
+  it("never calls gtag('js') or gtag('config'): GA4 is loaded once, by GTM", async () => {
+    const { gtmBootstrapScript } = await import("@/lib/analytics/consent");
+    expect(gtmBootstrapScript()).not.toMatch(/gtag\(\s*["'](js|config)["']/);
   });
 
   it("accepting updates consent through gtag", async () => {

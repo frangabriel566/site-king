@@ -9,8 +9,13 @@ import { COOKIE_CONSENT_KEY } from "@/lib/constants";
  * grants them, in this page and in every later visit (the choice lives in
  * localStorage, where the banner already kept it).
  *
- * `consentDefaultScript` runs inline before GTM loads — Consent Mode's
- * default must be in the dataLayer before the container's first tag.
+ * `gtmBootstrapScript` runs inline, while the page is parsed (before any
+ * component can push an event), so the dataLayer always starts with the
+ * consent default and then GTM's own start event — the order Google
+ * documents for Consent Mode with Tag Manager. The start event is the
+ * official snippet's `{'gtm.start', event: 'gtm.js'}`; `gtag` is defined
+ * only for the consent commands, never to load or configure GA4 (the
+ * Google tag inside GTM does that, once).
  */
 
 export const GTM_ID = "GTM-WZ64DZLP";
@@ -40,7 +45,7 @@ function gtag(){dataLayer.push(arguments);}
     wait_for_update: 500
   });
 })();
-gtag('js', new Date());
+dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
 (function(){
   var s = document.createElement("script");
   s.async = true;
@@ -56,6 +61,10 @@ export function grantAnalyticsConsent() {
   // Defined by the bootstrap on every store page. Without it GTM never
   // loaded here, and there is nothing to grant.
   if (typeof w.gtag !== "function") return;
-  w.gtag("consent", "update", GRANTED);
-  w.dataLayer?.push({ event: "cookie_consent_granted" });
+  try {
+    w.gtag("consent", "update", GRANTED);
+    w.dataLayer?.push({ event: "cookie_consent_granted" });
+  } catch {
+    // The banner still closes and the choice is still saved.
+  }
 }

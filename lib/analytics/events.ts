@@ -62,10 +62,25 @@ export function variantLabel(color?: string | null, size?: string | null): strin
  * as Google asks, so one event's items never leak into the next.
  */
 function pushEcommerce(event: string, ecommerce: Record<string, unknown>) {
-  const layer = dataLayer();
-  if (!layer) return;
-  layer.push({ ecommerce: null });
-  layer.push({ event, ecommerce });
+  safely(() => {
+    const layer = dataLayer();
+    if (!layer) return;
+    layer.push({ ecommerce: null });
+    layer.push({ event, ecommerce });
+  });
+}
+
+/**
+ * Tracking must never break what it tracks: these calls sit inside "add to
+ * bag", the checkout and the WhatsApp order. Once GTM loads it replaces
+ * `dataLayer.push` with its own, and a tag error must not reach the shopper.
+ */
+function safely(run: () => void) {
+  try {
+    run();
+  } catch {
+    // Lost event, kept sale.
+  }
 }
 
 export function trackViewItem(item: AnalyticsItem) {
@@ -94,7 +109,7 @@ export function bagSignature(items: Pick<AnalyticsItem, "item_id" | "item_varian
  * Returns whether the event was pushed.
  */
 export function trackBeginCheckout(items: AnalyticsItem[], coupon?: string | null): boolean {
-  if (items.length === 0) return false;
+  if (typeof window === "undefined" || items.length === 0) return false;
   const signature = bagSignature(items);
   try {
     if (window.sessionStorage.getItem(CHECKOUT_KEY) === signature) return false;
@@ -144,6 +159,7 @@ export type PurchaseData = {
  * Returns whether the event was pushed.
  */
 export function trackPurchase(data: PurchaseData): boolean {
+  if (typeof window === "undefined") return false;
   const tracked = readTracked();
   if (tracked.includes(data.transactionId)) return false;
   try {
@@ -204,17 +220,19 @@ export function setCurrentProduct(product: { id: string; name: string } | null) 
 }
 
 export function trackWhatsAppClick(origin: WhatsAppOrigin, product?: { id: string; name: string } | null) {
-  const layer = dataLayer();
-  if (!layer) return;
-  const path = window.location.pathname;
-  const onProduct = product ?? (pageType(path) === "produto" ? currentProduct : null);
-  layer.push({
-    event: "click_whatsapp",
-    link_location: origin,
-    page_type: pageType(path),
-    page_path: path,
-    product_id: onProduct?.id ?? undefined,
-    product_name: onProduct?.name ?? undefined,
+  safely(() => {
+    const layer = dataLayer();
+    if (!layer) return;
+    const path = window.location.pathname;
+    const onProduct = product ?? (pageType(path) === "produto" ? currentProduct : null);
+    layer.push({
+      event: "click_whatsapp",
+      link_location: origin,
+      page_type: pageType(path),
+      page_path: path,
+      product_id: onProduct?.id ?? undefined,
+      product_name: onProduct?.name ?? undefined,
+    });
   });
 }
 

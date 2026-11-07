@@ -157,16 +157,16 @@ export function WhatsAppBuyButton({
         });
       }
 
-      // The chat opens now: a WhatsApp click, not a sale — the sale is the
-      // store confirming this order in the panel.
-      trackWhatsAppClick(
-        window.location.pathname.startsWith("/produto/") ? "produto_comprar" : "sacola_finalizar",
-      );
-
       toast.success(`Pedido #${result.code} criado`, {
         description: "Mande a mensagem que abrimos para a loja confirmar sua compra.",
       });
 
+      // The chat opens now: a WhatsApp click, not a sale — the sale is the
+      // store confirming this order in the panel. Counted before leaving
+      // the page (the fallback below navigates this tab away).
+      trackWhatsAppClick(
+        window.location.pathname.startsWith("/produto/") ? "produto_comprar" : "sacola_finalizar",
+      );
       if (tab && !tab.closed) {
         tab.location.href = result.url;
       } else {

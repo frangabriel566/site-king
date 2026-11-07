@@ -1,4 +1,3 @@
-import Script from "next/script";
 import { CartProvider } from "@/lib/cart/context";
 import { getSiteSettings } from "@/lib/data/settings";
 import { getCategoriesWithImages } from "@/lib/data/categories";
@@ -93,11 +92,13 @@ export default async function ShopLayout({
         <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
         {/* Google Tag Manager (GTM-WZ64DZLP). Só na loja: o painel admin
             não carrega, para os acessos internos não entrarem nas métricas.
-            Um script só, em ordem: dataLayer, consentimento padrão (LGPD,
-            lib/analytics/consent.ts) e depois o gtm.js. */}
-        <Script id="gtm" strategy="afterInteractive">
-          {gtmBootstrapScript()}
-        </Script>
+            Inline e não next/script: roda enquanto o HTML é lido, antes da
+            hidratação. Com afterInteractive, o view_item da página de
+            produto (um useEffect) entrava no dataLayer antes do
+            consentimento padrão e do gtm.js — o GA4 o processaria sem
+            consentimento definido. Ordem: dataLayer, consentimento padrão
+            (LGPD, lib/analytics/consent.ts), início do GTM, gtm.js. */}
+        <script dangerouslySetInnerHTML={{ __html: gtmBootstrapScript() }} />
         <WhatsAppClickTracker />
         <Header settings={settings} categories={categories} />
         <main className="flex-1">{children}</main>

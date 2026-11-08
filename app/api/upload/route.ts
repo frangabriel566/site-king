@@ -24,10 +24,10 @@ import {
  * its lack of upload progress were what broke phone-photo uploads before.
  */
 
-// The client aims for ≤500 KB and ~100 KB; these leave room for its
+// The client aims for ≤1.5 MB and ≤420 KB; these leave room for its
 // rounding without letting an unprocessed original through.
-const MAX_FULL_BYTES = 600 * 1024;
-const MAX_THUMB_BYTES = 250 * 1024;
+const MAX_FULL_BYTES = 1800 * 1024;
+const MAX_THUMB_BYTES = 500 * 1024;
 // 512px and 48px squares (lib/client-upload.ts), PNG.
 const MAX_ICON_BYTES = 400 * 1024;
 const MAX_FAVICON_BYTES = 40 * 1024;

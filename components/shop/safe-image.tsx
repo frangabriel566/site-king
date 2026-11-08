@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  *   2. the same request with `?retry=1` — a different URL, so the
  *      browser's cached failure cannot hand back the same error;
  *   3. `unoptimized` — the plain /img URL, i.e. the full-size file. It is
- *      capped at 1600px/≤500 KB at upload (lib/client-upload.ts), so it is
+ *      capped at 2000px/≤1.5 MB at upload (lib/client-upload.ts), so it is
  *      a fair last resort.
  * Only after all three does the gray "Sem imagem" box take over, which is
  * at least a deliberate empty state instead of a broken icon.

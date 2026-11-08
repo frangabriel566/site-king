@@ -3,7 +3,7 @@ import { IMAGE_ROUTE_PREFIX } from "./image-url";
 
 /** Up to this rendered width the thumbnail is enough (lib/client-upload.ts
  * makes it exactly this wide). */
-const THUMBNAIL_MAX_WIDTH = 640;
+const THUMBNAIL_MAX_WIDTH = 800;
 
 /**
  * next/image loader for photos served by /img (Workers KV).

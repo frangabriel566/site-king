@@ -4,32 +4,32 @@ import type { UploadFolder } from "@/lib/image-url";
 
 export type { UploadFolder };
 
-// Checked before compression. The browser shrinks the photo to ≤500 KB
+// Checked before compression. The browser shrinks the photo to ≤1.5 MB
 // anyway, so this only guards against files a phone cannot decode — a
 // full-resolution phone photo (48 MP, "Máxima" quality) easily passes 10 MB.
 export const MAX_SOURCE_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 
 // The stored photo is the ceiling for every size the storefront shows — the
 // gallery zooms it 1.8x on hover — but Workers KV and a phone on 4G both
-// want it small. 1600px on the longest side, ≤500 KB: quality steps down
+// want it reasonably small. 2000px on the longest side, ≤1.5 MB: quality steps down
 // until it fits, and only if even the lowest step is too big does the
 // photo shrink further.
-const MAX_DIMENSION = 1600;
-const MAX_FULL_BYTES = 500 * 1024;
-const QUALITY_STEPS = [0.9, 0.84, 0.78, 0.72, 0.66, 0.6];
+const MAX_DIMENSION = 2000;
+const MAX_FULL_BYTES = 1536 * 1024;
+const QUALITY_STEPS = [0.92, 0.88, 0.84, 0.8, 0.76, 0.72];
 const SHRINK_FACTOR = 0.85;
 const MAX_SHRINKS = 4;
 
 // What cards, rails and admin lists load (lib/image-loader.ts picks it for
 // any rendered width up to this). Width, not longest side: product photos
 // are portrait, and a 640px-wide slot needs 640 real pixels across.
-const THUMBNAIL_WIDTH = 640;
-const THUMBNAIL_QUALITY_STEPS = [0.8, 0.72, 0.64, 0.56];
+const THUMBNAIL_WIDTH = 800;
+const THUMBNAIL_QUALITY_STEPS = [0.9, 0.85, 0.8, 0.75];
 // The thumbnail never needs more than 2x its width in height (cards are
 // portrait at most 3:4); capping it keeps tall screenshots small.
 const THUMBNAIL_MAX_HEIGHT = THUMBNAIL_WIDTH * 2;
-// Server rejects thumbnails over 250 KB (app/api/upload/route.ts).
-const MAX_THUMB_BYTES = 200 * 1024;
+// Server rejects thumbnails over 500 KB (app/api/upload/route.ts).
+const MAX_THUMB_BYTES = 420 * 1024;
 
 export type CompressedImage = { blob: Blob; width: number; height: number };
 
@@ -86,7 +86,7 @@ async function compressFull(bitmap: ImageBitmap, maxDimension = MAX_DIMENSION): 
     }
     scale *= SHRINK_FACTOR;
   }
-  throw new Error("Não foi possível reduzir a imagem para 500 KB.");
+  throw new Error("Não foi possível reduzir a imagem para 1,5 MB.");
 }
 
 async function compressThumbnail(bitmap: ImageBitmap, type: string): Promise<CompressedImage> {
@@ -113,7 +113,7 @@ async function compressThumbnail(bitmap: ImageBitmap, type: string): Promise<Com
 
 /**
  * Resizes and re-encodes entirely in the browser, into the two files the
- * storefront serves: the full photo and a 640px-wide thumbnail.
+ * storefront serves: the full photo and an 800px-wide thumbnail.
  */
 export async function compressImage(
   file: File,

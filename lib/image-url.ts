@@ -3,8 +3,8 @@
  * previews) and the server (the /img route, deletes) — no bindings here.
  *
  * Every upload is stored twice under related keys:
- *   products/<uuid>.webp      full size (≤1600px, ≤~500 KB)
- *   products/<uuid>.sm.webp   thumbnail (640px wide) for cards and lists
+ *   products/<uuid>.webp      full size (≤2000px, ≤~1.5 MB)
+ *   products/<uuid>.sm.webp   thumbnail (800px wide) for cards and lists
  * The database only ever stores the full-size URL; the thumbnail key is
  * derived from it.
  *

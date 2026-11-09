@@ -16,12 +16,11 @@ const BOX = 9;
 const LINE_HEIGHT = 1.28;
 const BLACK = rgb(0, 0, 0);
 /**
- * A impressora da loja usa um papel fixo (cerca de 240 mm) e deixa mais
- * sobra em cima que embaixo. Papel em branco no fim do PDF sobe a nota e
- * iguala as duas sobras; some em nota longa, para não passar do papel.
+ * O driver da térmica usa papel de 80 x 297 mm e centraliza nele qualquer
+ * página menor, o que abria um vão em cima da nota. Com a página nessa
+ * altura, a nota começa no topo; o papel em branco fica todo no fim.
  */
-const PAPER_HEIGHT = 240 * MM;
-const BALANCE_BOTTOM = 54 * MM;
+const PAPER_HEIGHT = 297 * MM;
 
 /** Helvetica só tem o alfabeto latino: emoji e afins somem em vez de quebrar a nota. */
 function printable(text: string, font: PDFFont) {
@@ -144,11 +143,10 @@ function layout(blocks: TicketBlock[], font: PDFFont) {
       }
     }
   }
-  const height = y + MARGIN_Y + 3 * MM;
-  return { draws, height: height + Math.min(BALANCE_BOTTOM, Math.max(0, PAPER_HEIGHT - height)) };
+  return { draws, height: Math.max(y + MARGIN_Y, PAPER_HEIGHT) };
 }
 
-/** PDF do tamanho exato da notinha: 80 mm de largura e nenhuma sobra de papel. */
+/** PDF da notinha: 80 mm de largura, começando no topo do papel. */
 export async function buildTicketPdf(blocks: TicketBlock[], title: string) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(title);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getOrderByIdAdmin, getOrderItemPhotos } from "@/lib/data/orders";
+import { getOrderByIdAdmin } from "@/lib/data/orders";
 import { getSiteSettings } from "@/lib/data/settings";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import {
@@ -12,16 +12,15 @@ import {
 } from "@/lib/format";
 import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
 import { formatCpf } from "@/lib/validations/cpf";
-import { OrderItemThumb } from "@/components/admin/order-item-thumb";
-import { PrintButton } from "./print-button";
+import { PrintButton, ThermalPageSize } from "./print-button";
 
 export const metadata: Metadata = { title: "Imprimir pedido — Painel" };
 
 /**
- * A folha do pedido para imprimir (ou salvar em PDF): fica fora do layout
- * do painel, sem menu, em preto no branco, para ir junto com a separação
- * e a embalagem. Cada peça tem foto, cor, tamanho e um quadrado para
- * marcar quando for separada.
+ * A notinha do pedido, para a impressora térmica de bobina 80 mm: fica fora
+ * do layout do painel, sem menu, em preto puro e letra grande — a térmica
+ * não imprime cinza. Sem foto (na térmica vira um borrão preto). Cada peça
+ * tem cor, tamanho e um quadrado para marcar quando for separada.
  *
  * O acesso é o mesmo do painel: getOrderByIdAdmin exige admin.
  */
@@ -33,7 +32,6 @@ export default async function PrintOrderPage({
   const { id } = await params;
   const [order, settings] = await Promise.all([getOrderByIdAdmin(id), getSiteSettings()]);
   if (!order) notFound();
-  const photos = await getOrderItemPhotos(order.order_items);
 
   const customer = order.customer_snapshot as {
     name?: string;
@@ -54,130 +52,120 @@ export default async function PrintOrderPage({
   const phone = customer?.phone ?? order.customer_phone ?? null;
   const units = order.order_items.reduce((sum, item) => sum + item.qty, 0);
 
+  const label = "text-[12px] font-extrabold uppercase tracking-wide";
+  const divider = "border-t-2 border-dashed border-black";
+
   return (
     <div className="min-h-dvh bg-white text-black print:min-h-0">
-      <style>{`@page { size: A4; margin: 12mm; } @media print { html, body { background: #fff !important; } }`}</style>
+      <ThermalPageSize ticketId="notinha" />
 
-      <div className="mx-auto max-w-[760px] px-4 py-6 print:max-w-none print:p-0">
-        <div className="mb-6 flex items-center justify-end gap-3 print:hidden">
-          <PrintButton />
-        </div>
+      <div className="flex justify-center py-4 print:hidden">
+        <PrintButton />
+      </div>
 
-        <header className="flex items-start justify-between gap-4 border-b-2 border-black pb-4">
-          <div>
-            <p className="text-xl font-bold uppercase tracking-wide">{settings.store_name}</p>
-            {settings.whatsapp && (
-              <p className="text-xs">WhatsApp {formatPhone(settings.whatsapp)}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">Pedido #{order.code ?? order.order_number}</p>
-            <p className="text-xs">{formatDateTime(order.created_at)}</p>
-            <p className="text-xs">
-              {ORDER_STATUS_LABEL[order.status] ?? order.status}
-              {order.payment_method ? ` · ${order.payment_method}` : ""}
-            </p>
-          </div>
+      <main
+        id="notinha"
+        className="mx-auto box-border w-[80mm] px-[4mm] py-[3mm] text-[14px] leading-snug font-semibold [overflow-wrap:anywhere]"
+      >
+        <header className="pb-2 text-center">
+          <p className="text-[22px] font-black tracking-wide uppercase">{settings.store_name}</p>
+          {settings.whatsapp && <p>WhatsApp {formatPhone(settings.whatsapp)}</p>}
         </header>
 
-        <section className="grid grid-cols-2 gap-6 border-b border-black/30 py-4 text-sm">
-          <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider">Cliente</p>
-            <p className="font-medium">{customer?.name ?? "—"}</p>
-            {phone && <p>{formatPhone(phone)}</p>}
-            {customer?.email && <p>{customer.email}</p>}
-            {customer?.document && <p>CPF {formatCpf(customer.document)}</p>}
-          </div>
-          <div>
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider">Entrega</p>
-            {address?.street ? (
-              <>
-                <p>
-                  {address.street}, {address.number}
-                  {address.complement ? ` — ${address.complement}` : ""}
-                </p>
-                <p>
-                  {address.district} · {address.city}/{address.state}
-                </p>
-                {address.cep && <p>CEP {formatCep(address.cep)}</p>}
-                {address.freight && (
-                  <p className="mt-1">
-                    Envio: {[address.freight.company, address.freight.name].filter(Boolean).join(" ")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p>A combinar</p>
-            )}
-            {order.tracking_code && <p className="mt-1">Rastreio: {order.tracking_code}</p>}
-          </div>
+        <section className={`${divider} py-2 text-center`}>
+          <p className="text-[22px] font-black">Pedido #{order.code ?? order.order_number}</p>
+          <p>{formatDateTime(order.created_at)}</p>
+          <p>
+            {ORDER_STATUS_LABEL[order.status] ?? order.status}
+            {order.payment_method ? ` · ${order.payment_method}` : ""}
+          </p>
         </section>
 
-        <section className="py-4">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wider">
+        <section className={`${divider} py-2`}>
+          <p className={label}>Cliente</p>
+          <p className="font-bold">{customer?.name ?? "—"}</p>
+          {phone && <p>{formatPhone(phone)}</p>}
+          {customer?.email && <p>{customer.email}</p>}
+          {customer?.document && <p>CPF {formatCpf(customer.document)}</p>}
+        </section>
+
+        <section className={`${divider} py-2`}>
+          <p className={label}>Entrega</p>
+          {address?.street ? (
+            <>
+              <p>
+                {address.street}, {address.number}
+                {address.complement ? ` — ${address.complement}` : ""}
+              </p>
+              <p>
+                {address.district} · {address.city}/{address.state}
+              </p>
+              {address.cep && <p>CEP {formatCep(address.cep)}</p>}
+              {address.freight && (
+                <p>
+                  Envio: {[address.freight.company, address.freight.name].filter(Boolean).join(" ")}
+                </p>
+              )}
+            </>
+          ) : (
+            <p>A combinar</p>
+          )}
+          {order.tracking_code && <p>Rastreio: {order.tracking_code}</p>}
+        </section>
+
+        <section className={`${divider} py-2`}>
+          <p className={`${label} mb-1`}>
             Itens ({units} {units === 1 ? "peça" : "peças"})
           </p>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-black text-left text-[11px] uppercase">
-                <th className="w-6 py-1" />
-                <th className="py-1">Produto</th>
-                <th className="py-1 text-center">Qtd.</th>
-                <th className="py-1 text-right">Unit.</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.order_items.map((item) => {
-                const variant = formatVariantLabel(item.color, item.size);
-                return (
-                  <tr key={item.id} className="break-inside-avoid border-b border-black/20">
-                    <td className="py-2 align-middle">
-                      <span className="block size-4 border border-black" aria-label="Separado" />
-                    </td>
-                    <td className="py-2">
-                      <div className="flex items-center gap-3">
-                        <OrderItemThumb url={photos.get(item.id)} alt={item.name} size={48} />
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          {variant && <p className="text-xs">{variant}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2 text-center text-base font-bold">{item.qty}</td>
-                    <td className="py-2 text-right">{formatCurrency(item.unit_price)}</td>
-                    <td className="py-2 text-right">
-                      {formatCurrency(item.unit_price * item.qty)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div className="ml-auto mt-3 flex w-64 flex-col gap-1 text-sm">
-            {orderSummaryLines(summaryFromOrder(order)).map((line) => (
-              <div
-                key={line.kind}
-                className={
-                  line.kind === "total"
-                    ? "mt-1 flex justify-between border-t border-black pt-1 text-base font-bold"
-                    : "flex justify-between"
-                }
-              >
-                <span>{line.label}</span>
-                <span>{line.value}</span>
-              </div>
-            ))}
-          </div>
+          <ul className="flex flex-col gap-2">
+            {order.order_items.map((item) => {
+              const variant = formatVariantLabel(item.color, item.size);
+              return (
+                <li key={item.id} className="flex items-start gap-2 break-inside-avoid">
+                  <span
+                    className="mt-0.5 block size-4 shrink-0 border-2 border-black"
+                    aria-label="Separado"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">
+                      {item.qty}x {item.name}
+                    </p>
+                    {variant && <p>{variant}</p>}
+                    <div className="flex justify-between gap-2">
+                      <span>{formatCurrency(item.unit_price)} un.</span>
+                      <span className="font-bold whitespace-nowrap">
+                        {formatCurrency(item.unit_price * item.qty)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
-        <section className="mt-2 border-t border-black/30 pt-3 text-sm">
-          <p className="mb-6 text-[11px] font-bold uppercase tracking-wider">Observações</p>
-          <div className="mb-5 border-b border-black/30" />
-          <div className="border-b border-black/30" />
+        <section className={`${divider} flex flex-col gap-0.5 py-2`}>
+          {orderSummaryLines(summaryFromOrder(order)).map((line) => (
+            <div
+              key={line.kind}
+              className={
+                line.kind === "total"
+                  ? "mt-1 flex justify-between gap-2 border-t-2 border-black pt-1 text-[17px] font-black"
+                  : "flex justify-between gap-2"
+              }
+            >
+              <span>{line.label}</span>
+              <span className="whitespace-nowrap">{line.value}</span>
+            </div>
+          ))}
         </section>
-      </div>
+
+        <section className={`${divider} pt-2 pb-[6mm]`}>
+          <p className={`${label} mb-6`}>Observações</p>
+          <div className="mb-6 border-b-2 border-black" />
+          <div className="border-b-2 border-black" />
+        </section>
+      </main>
     </div>
   );
 }

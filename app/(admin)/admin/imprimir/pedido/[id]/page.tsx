@@ -12,14 +12,15 @@ import {
 } from "@/lib/format";
 import { orderSummaryLines, summaryFromOrder } from "@/lib/orders/summary";
 import { formatCpf } from "@/lib/validations/cpf";
-import { PrintButton, ThermalPageSize } from "./print-button";
+import { TICKET_FONT, type TicketBlock } from "@/lib/orders/ticket";
+import { PrintButton } from "./print-button";
 
 export const metadata: Metadata = { title: "Imprimir pedido — Painel" };
 
 /**
  * A notinha do pedido, para a impressora térmica de bobina 80 mm: fica fora
  * do layout do painel, sem menu, em preto puro e letra grande — a térmica
- * não imprime cinza. Sem foto (na térmica vira um borrão preto). Cada peça
+ * não imprime cinza. O botão imprime um PDF gerado destes mesmos blocos. Sem foto (na térmica vira um borrão preto). Cada peça
  * tem cor, tamanho e um quadrado para marcar quando for separada.
  *
  * O acesso é o mesmo do painel: getOrderByIdAdmin exige admin.
@@ -30,7 +31,10 @@ export default async function PrintOrderPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [order, settings] = await Promise.all([getOrderByIdAdmin(id), getSiteSettings()]);
+  const [order, settings] = await Promise.all([
+    getOrderByIdAdmin(id),
+    getSiteSettings(),
+  ]);
   if (!order) notFound();
 
   const customer = order.customer_snapshot as {
@@ -52,120 +56,162 @@ export default async function PrintOrderPage({
   const phone = customer?.phone ?? order.customer_phone ?? null;
   const units = order.order_items.reduce((sum, item) => sum + item.qty, 0);
 
-  const label = "text-[12px] font-extrabold uppercase tracking-wide";
-  const divider = "border-t-2 border-dashed border-black";
+  const { small, body, total, title } = TICKET_FONT;
+  const orderCode = `${order.code ?? order.order_number}`;
+  const line = (text: string): TicketBlock => ({ kind: "text", text });
+  const center = (text: string, size: number = body): TicketBlock => ({
+    kind: "text",
+    text,
+    size,
+    align: "center",
+  });
+  const heading = (text: string): TicketBlock => ({
+    kind: "text",
+    text,
+    size: small,
+  });
+
+  const blocks: TicketBlock[] = [
+    center(settings.store_name.toUpperCase(), title),
+    ...(settings.whatsapp
+      ? [center(`WhatsApp ${formatPhone(settings.whatsapp)}`)]
+      : []),
+    { kind: "divider" },
+    center(`Pedido #${orderCode}`, title),
+    center(formatDateTime(order.created_at)),
+    center(
+      `${ORDER_STATUS_LABEL[order.status] ?? order.status}${
+        order.payment_method ? ` · ${order.payment_method}` : ""
+      }`,
+    ),
+    { kind: "divider" },
+    heading("CLIENTE"),
+    line(customer?.name ?? "—"),
+    ...(phone ? [line(formatPhone(phone))] : []),
+    ...(customer?.email ? [line(customer.email)] : []),
+    ...(customer?.document
+      ? [line(`CPF ${formatCpf(customer.document)}`)]
+      : []),
+    { kind: "divider" },
+    heading("ENTREGA"),
+    ...(address?.street
+      ? [
+          line(
+            `${address.street}, ${address.number}${
+              address.complement ? ` — ${address.complement}` : ""
+            }`,
+          ),
+          line(`${address.district} · ${address.city}/${address.state}`),
+          ...(address.cep ? [line(`CEP ${formatCep(address.cep)}`)] : []),
+          ...(address.freight
+            ? [
+                line(
+                  `Envio: ${[address.freight.company, address.freight.name]
+                    .filter(Boolean)
+                    .join(" ")}`,
+                ),
+              ]
+            : []),
+        ]
+      : [line("A combinar")]),
+    ...(order.tracking_code ? [line(`Rastreio: ${order.tracking_code}`)] : []),
+    { kind: "divider" },
+    heading(`ITENS (${units} ${units === 1 ? "PEÇA" : "PEÇAS"})`),
+    { kind: "space", height: 3 },
+    ...order.order_items.flatMap((item): TicketBlock[] => {
+      const variant = formatVariantLabel(item.color, item.size);
+      return [
+        { kind: "text", text: `${item.qty}x ${item.name}`, checkbox: true },
+        ...(variant
+          ? [{ kind: "text", text: variant, indent: true } as const]
+          : []),
+        {
+          kind: "row",
+          left: `${formatCurrency(item.unit_price)} un.`,
+          right: formatCurrency(item.unit_price * item.qty),
+          indent: true,
+        },
+        { kind: "space", height: 6 },
+      ];
+    }),
+    { kind: "divider" },
+    ...orderSummaryLines(summaryFromOrder(order)).flatMap(
+      (summary): TicketBlock[] =>
+        summary.kind === "total"
+          ? [
+              { kind: "rule" },
+              {
+                kind: "row",
+                left: summary.label,
+                right: summary.value,
+                size: total,
+              },
+            ]
+          : [{ kind: "row", left: summary.label, right: summary.value }],
+    ),
+    { kind: "divider" },
+    heading("OBSERVAÇÕES"),
+    { kind: "writeLine" },
+    { kind: "writeLine" },
+  ];
 
   return (
-    <div className="min-h-dvh bg-white text-black print:min-h-0">
-      <ThermalPageSize ticketId="notinha" />
-
-      <div className="flex justify-center py-4 print:hidden">
-        <PrintButton />
+    <div className="min-h-dvh bg-white text-black">
+      <div className="flex justify-center py-4">
+        <PrintButton blocks={blocks} title={`Pedido ${orderCode}`} />
       </div>
 
       <main
         id="notinha"
-        className="mx-auto box-border w-[80mm] px-[4mm] py-[3mm] text-[14px] leading-snug font-semibold [overflow-wrap:anywhere]"
+        className="mx-auto box-border w-[80mm] px-[4mm] py-[3mm] leading-snug font-bold [overflow-wrap:anywhere]"
       >
-        <header className="pb-2 text-center">
-          <p className="text-[22px] font-black tracking-wide uppercase">{settings.store_name}</p>
-          {settings.whatsapp && <p>WhatsApp {formatPhone(settings.whatsapp)}</p>}
-        </header>
-
-        <section className={`${divider} py-2 text-center`}>
-          <p className="text-[22px] font-black">Pedido #{order.code ?? order.order_number}</p>
-          <p>{formatDateTime(order.created_at)}</p>
-          <p>
-            {ORDER_STATUS_LABEL[order.status] ?? order.status}
-            {order.payment_method ? ` · ${order.payment_method}` : ""}
-          </p>
-        </section>
-
-        <section className={`${divider} py-2`}>
-          <p className={label}>Cliente</p>
-          <p className="font-bold">{customer?.name ?? "—"}</p>
-          {phone && <p>{formatPhone(phone)}</p>}
-          {customer?.email && <p>{customer.email}</p>}
-          {customer?.document && <p>CPF {formatCpf(customer.document)}</p>}
-        </section>
-
-        <section className={`${divider} py-2`}>
-          <p className={label}>Entrega</p>
-          {address?.street ? (
-            <>
-              <p>
-                {address.street}, {address.number}
-                {address.complement ? ` — ${address.complement}` : ""}
-              </p>
-              <p>
-                {address.district} · {address.city}/{address.state}
-              </p>
-              {address.cep && <p>CEP {formatCep(address.cep)}</p>}
-              {address.freight && (
-                <p>
-                  Envio: {[address.freight.company, address.freight.name].filter(Boolean).join(" ")}
-                </p>
-              )}
-            </>
-          ) : (
-            <p>A combinar</p>
-          )}
-          {order.tracking_code && <p>Rastreio: {order.tracking_code}</p>}
-        </section>
-
-        <section className={`${divider} py-2`}>
-          <p className={`${label} mb-1`}>
-            Itens ({units} {units === 1 ? "peça" : "peças"})
-          </p>
-          <ul className="flex flex-col gap-2">
-            {order.order_items.map((item) => {
-              const variant = formatVariantLabel(item.color, item.size);
-              return (
-                <li key={item.id} className="flex items-start gap-2 break-inside-avoid">
-                  <span
-                    className="mt-0.5 block size-4 shrink-0 border-2 border-black"
-                    aria-label="Separado"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold">
-                      {item.qty}x {item.name}
-                    </p>
-                    {variant && <p>{variant}</p>}
-                    <div className="flex justify-between gap-2">
-                      <span>{formatCurrency(item.unit_price)} un.</span>
-                      <span className="font-bold whitespace-nowrap">
-                        {formatCurrency(item.unit_price * item.qty)}
-                      </span>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-        <section className={`${divider} flex flex-col gap-0.5 py-2`}>
-          {orderSummaryLines(summaryFromOrder(order)).map((line) => (
-            <div
-              key={line.kind}
-              className={
-                line.kind === "total"
-                  ? "mt-1 flex justify-between gap-2 border-t-2 border-black pt-1 text-[17px] font-black"
-                  : "flex justify-between gap-2"
-              }
-            >
-              <span>{line.label}</span>
-              <span className="whitespace-nowrap">{line.value}</span>
-            </div>
-          ))}
-        </section>
-
-        <section className={`${divider} pt-2 pb-[6mm]`}>
-          <p className={`${label} mb-6`}>Observações</p>
-          <div className="mb-6 border-b-2 border-black" />
-          <div className="border-b-2 border-black" />
-        </section>
+        {blocks.map((block, index) => (
+          <TicketPreviewBlock key={index} block={block} />
+        ))}
       </main>
     </div>
+  );
+}
+
+function TicketPreviewBlock({ block }: { block: TicketBlock }) {
+  if (block.kind === "divider")
+    return <div className="my-2 border-t-2 border-dashed border-black" />;
+  if (block.kind === "rule")
+    return <div className="my-1 border-t-2 border-black" />;
+  if (block.kind === "space")
+    return <div style={{ height: `${block.height}pt` }} />;
+  if (block.kind === "writeLine")
+    return <div className="h-8 border-b-2 border-black" />;
+  const fontSize = `${block.size ?? TICKET_FONT.body}pt`;
+  const indent = block.indent ? "ml-6" : "";
+  if (block.kind === "row") {
+    return (
+      <div
+        className={`flex justify-between gap-2 ${indent}`}
+        style={{ fontSize }}
+      >
+        <span>{block.left}</span>
+        <span className="whitespace-nowrap">{block.right}</span>
+      </div>
+    );
+  }
+  if (block.checkbox) {
+    return (
+      <div className="flex items-start gap-2" style={{ fontSize }}>
+        <span
+          className="mt-0.5 block size-4 shrink-0 border-2 border-black"
+          aria-label="Separado"
+        />
+        <span>{block.text}</span>
+      </div>
+    );
+  }
+  return (
+    <p
+      className={`${indent} ${block.align === "center" ? "text-center" : ""}`}
+      style={{ fontSize }}
+    >
+      {block.text}
+    </p>
   );
 }

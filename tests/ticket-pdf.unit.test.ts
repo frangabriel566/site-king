@@ -23,12 +23,12 @@ describe("buildTicketPdf", () => {
     expect((await pageOf(base)).getWidth()).toBeCloseTo((80 * 72) / 25.4);
   });
 
-  it("grows the paper with the content", async () => {
-    const small = (await pageOf(base)).getHeight();
-    const long: TicketBlock[] = [
-      ...base,
-      { kind: "text", text: "a@".repeat(200) },
-    ];
-    expect((await pageOf(long)).getHeight()).toBeGreaterThan(small);
+  it("fills the 297 mm paper, so the driver has nothing to centre", async () => {
+    expect((await pageOf(base)).getHeight()).toBeCloseTo((297 * 72) / 25.4);
+  });
+
+  it("grows past the paper for a long order instead of cutting it", async () => {
+    const long: TicketBlock[] = [...base, ...Array<TicketBlock>(80).fill(base[2])];
+    expect((await pageOf(long)).getHeight()).toBeGreaterThan((297 * 72) / 25.4);
   });
 });

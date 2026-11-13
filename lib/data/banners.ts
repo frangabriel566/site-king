@@ -75,12 +75,7 @@ export function toHeroBanner(row: Tables<"banners">): HeroBannerData {
     badge: row.badge ?? "",
     imageUrl: row.image_url,
     mobileImageUrl: row.mobile_image_url,
-    // One phrase for the whole banner (nov/2026): every photo shows the
-    // banner's texts, whatever an older save kept per photo.
-    extraSlides:
-      row.kind === "pronto"
-        ? []
-        : parseExtraSlides(row.extra_images, first).map((slide) => ({ ...first, image: slide.image })),
+    extraSlides: row.kind === "pronto" ? [] : parseExtraSlides(row.extra_images, first),
     style: parseBannerStyle(row.style),
   };
 }

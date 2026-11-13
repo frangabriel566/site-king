@@ -106,7 +106,11 @@ export function BannerForm({
       ctaLabel: text(banner?.cta_label, DEFAULT_BANNER_TEXTS.ctaLabel),
       ctaHref: banner?.cta_href ?? DEFAULT_BANNER_TEXTS.ctaHref,
     };
-    const extra = banner?.kind === "pronto" ? [] : parseExtraSlides(banner?.extra_images, first);
+    // One phrase for the whole banner: every photo takes the first's texts.
+    const extra =
+      banner?.kind === "pronto"
+        ? []
+        : parseExtraSlides(banner?.extra_images, first).map((item) => ({ ...first, image: item.image }));
     return [{ ...first, image: banner?.image_url ?? null }, ...extra].map((slide, key) => ({
       ...slide,
       key,
@@ -147,6 +151,22 @@ export function BannerForm({
 
   const updateSlide = (key: number, patch: Partial<BannerSlide>) =>
     setSlides((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+
+  /** The texts of one photo, as a patch for the others. */
+  const textsOf = (item: BannerSlide) =>
+    Object.fromEntries(TEXT_KEYS.map((key) => [key, item[key]])) as Pick<
+      BannerSlide,
+      (typeof TEXT_KEYS)[number]
+    >;
+
+  /** A text change goes to every photo: the banner has one phrase. */
+  const updateText = (key: number, patch: Partial<BannerSlide>) =>
+    setSlides((list) => {
+      const source = list.find((item) => item.key === key);
+      if (!source) return list;
+      const texts = { ...textsOf(source), ...patch };
+      return list.map((item) => ({ ...item, ...texts }));
+    });
 
   const addSlide = () => {
     // The new photo starts with this one's texts: change only what differs.
@@ -308,7 +328,8 @@ export function BannerForm({
           <>
             <Section title="Fotos e frases">
               <p className="text-xs text-ink-muted">
-                Cada foto tem as suas frases e elas passam em carrossel, uma a cada 6 segundos.
+                As fotos passam em carrossel, uma a cada 6 segundos, todas com as mesmas frases:
+                mudou a frase aqui, muda em todas as fotos.
                 No computador o banner aparece com a foto à direita e as frases à esquerda,
                 como na arte.
               </p>
@@ -403,14 +424,14 @@ export function BannerForm({
                   <Input
                     id="eyebrow"
                     value={slide.eyebrow}
-                    onChange={(e) => updateSlide(slide.key, { eyebrow: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { eyebrow: e.target.value })}
                   />
                 </Field>
                 <Field id="eyebrowHighlight" label="Em destaque">
                   <Input
                     id="eyebrowHighlight"
                     value={slide.eyebrowHighlight}
-                    onChange={(e) => updateSlide(slide.key, { eyebrowHighlight: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { eyebrowHighlight: e.target.value })}
                   />
                 </Field>
               </div>
@@ -419,14 +440,14 @@ export function BannerForm({
                   <Input
                     id="headline"
                     value={slide.headline}
-                    onChange={(e) => updateSlide(slide.key, { headline: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { headline: e.target.value })}
                   />
                 </Field>
                 <Field id="highlight" label="Final em destaque">
                   <Input
                     id="highlight"
                     value={slide.highlight}
-                    onChange={(e) => updateSlide(slide.key, { highlight: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { highlight: e.target.value })}
                   />
                 </Field>
               </div>
@@ -435,7 +456,7 @@ export function BannerForm({
                   id="subtitle"
                   rows={3}
                   value={slide.subtitle}
-                  onChange={(e) => updateSlide(slide.key, { subtitle: e.target.value })}
+                  onChange={(e) => updateText(slide.key, { subtitle: e.target.value })}
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
@@ -443,39 +464,18 @@ export function BannerForm({
                   <Input
                     id="ctaLabel"
                     value={slide.ctaLabel}
-                    onChange={(e) => updateSlide(slide.key, { ctaLabel: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { ctaLabel: e.target.value })}
                   />
                 </Field>
                 <Field id="ctaHref" label="Link do botão">
                   <Input
                     id="ctaHref"
                     value={slide.ctaHref}
-                    onChange={(e) => updateSlide(slide.key, { ctaHref: e.target.value })}
+                    onChange={(e) => updateText(slide.key, { ctaHref: e.target.value })}
                     placeholder="/colecao"
                   />
                 </Field>
               </div>
-              {slides.length > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="self-start"
-                  onClick={() =>
-                    setSlides((list) =>
-                      list.map((item) =>
-                        item.key === slide.key
-                          ? item
-                          : {
-                              ...item,
-                              ...Object.fromEntries(TEXT_KEYS.map((key) => [key, slide[key]])),
-                            },
-                      ),
-                    )
-                  }
-                >
-                  Usar estas frases em todas as fotos
-                </Button>
-              )}
             </Section>
 
             <Section title="Botão do WhatsApp e selo">

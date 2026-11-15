@@ -606,7 +606,7 @@ export function StoreSaleForm({
       </aside>
 
       <AlertDialog open={confirming} onOpenChange={(open) => !pending && setConfirming(open)}>
-        <AlertDialogContent className="border-line bg-card text-fg">
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] border-line bg-card text-fg data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>
               {reactivating

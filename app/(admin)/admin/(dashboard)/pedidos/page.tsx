@@ -5,6 +5,8 @@ import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { formatCurrency, formatDateTime, formatVariantLabel } from "@/lib/format";
 import { StatusBadge, ORDER_STATUS_TONE } from "@/components/admin/status-badge";
 import { OrderItemThumb } from "@/components/admin/order-item-thumb";
+import { DeleteButton } from "@/components/admin/delete-button";
+import { deleteOrderAction } from "@/lib/actions/orders";
 import { OrdersFilterBar } from "./orders-filter-bar";
 
 export const metadata: Metadata = { title: "Pedidos — Painel" };
@@ -78,7 +80,7 @@ export default async function AdminOrdersPage({
                   </ul>
                 </div>
 
-                <div className="flex gap-4 border-t border-line px-4 py-2 text-sm">
+                <div className="flex items-center gap-4 border-t border-line px-4 py-2 text-sm">
                   <Link
                     href={`/admin/pedidos/${order.id}`}
                     className="text-accent-light hover:underline"
@@ -92,6 +94,17 @@ export default async function AdminOrdersPage({
                   >
                     Imprimir
                   </Link>
+                  <div className="ml-auto">
+                    <DeleteButton
+                      itemLabel={`o pedido #${order.code ?? order.order_number}`}
+                      description={
+                        order.stock_decremented_at
+                          ? `As peças voltam ao estoque e o pedido de ${formatCurrency(order.total)} sai da lista e dos totais de vez. Pagamento no Mercado Pago e etiqueta do Melhor Envio não são cancelados por aqui. Não dá para recuperar.`
+                          : `O pedido de ${formatCurrency(order.total)} sai da lista de vez. Não dá para recuperar.`
+                      }
+                      action={deleteOrderAction.bind(null, order.id)}
+                    />
+                  </div>
                 </div>
               </li>
             );

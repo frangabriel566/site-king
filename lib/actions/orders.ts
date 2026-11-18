@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { orderStatusSchema } from "@/lib/validations/order";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getDb, schema } from "@/lib/db";
@@ -110,4 +110,61 @@ export async function syncOrderPaymentAction(orderId: string): Promise<ActionRes
     ok: outcome === "paid" || outcome === "already_paid",
     message: SYNC_MESSAGE[outcome] ?? outcome,
   };
+}
+
+/**
+ * Lixeira da lista de pedidos: apaga o pedido de vez. Se a baixa de estoque
+ * já tinha sido feita (pedido pago), as peças voltam ao estoque; se o cupom
+ * tinha sido contado, o uso é devolvido. Tudo num batch só — ou vai tudo,
+ * ou nada muda.
+ */
+export async function deleteOrderAction(orderId: unknown): Promise<ActionResult> {
+  if (typeof orderId !== "string" || !orderId) {
+    return { ok: false, message: "Pedido inválido." };
+  }
+
+  await requireAdmin();
+  const db = getDb();
+  const { orders, order_items, product_variants } = schema;
+  try {
+    const order = await db.query.orders.findFirst({
+      columns: { id: true, code: true, order_number: true, stock_decremented_at: true },
+      where: eq(orders.id, orderId),
+      with: { order_items: { columns: { variant_id: true, qty: true } } },
+    });
+    if (!order) return { ok: false, message: "Pedido não encontrado." };
+
+    const restock = order.stock_decremented_at
+      ? order.order_items.filter((item) => item.variant_id)
+      : [];
+    const stillDecremented = sql`exists (select 1 from ${orders} where ${orders.id} = ${orderId} and ${orders.stock_decremented_at} is not null)`;
+
+    await runBatch(db, [
+      ...releaseCouponUse(db, orderId),
+      ...restock.map((item) =>
+        db
+          .update(product_variants)
+          .set({ stock: sql`${product_variants.stock} + ${item.qty}` })
+          .where(and(eq(product_variants.id, item.variant_id!), stillDecremented)),
+      ),
+      db.delete(order_items).where(eq(order_items.order_id, orderId)),
+      db.delete(orders).where(eq(orders.id, orderId)),
+    ]);
+
+    revalidatePath("/admin/pedidos");
+    revalidatePath("/admin/estoque");
+    revalidatePath("/admin");
+    const label = `#${order.code ?? order.order_number}`;
+    const pieces = restock.reduce((sum, item) => sum + item.qty, 0);
+    return {
+      ok: true,
+      message:
+        pieces > 0
+          ? `Pedido ${label} excluído. ${pieces} ${pieces === 1 ? "peça voltou" : "peças voltaram"} ao estoque.`
+          : `Pedido ${label} excluído.`,
+    };
+  } catch (error) {
+    console.error("[deleteOrderAction]", error);
+    return { ok: false, message: "Não foi possível excluir o pedido." };
+  }
 }

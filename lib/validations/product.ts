@@ -140,13 +140,6 @@ export const publishableProductSchema = productSchema.superRefine((data, ctx) =>
       message: "Selecione uma categoria",
     });
   }
-  if (!data.description || data.description.trim().length < 30) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["description"],
-      message: "Descrição completa precisa de pelo menos 30 caracteres",
-    });
-  }
   if (!data.weight_grams || !data.length_cm || !data.width_cm || !data.height_cm) {
     ctx.addIssue({
       code: "custom",

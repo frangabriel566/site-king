@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { InlineBrandCreator } from "@/components/admin/inline-brand-creator";
 import { AttributesEditor, type AttributeRow } from "@/components/admin/attributes-editor";
-import { selectOnFocus } from "@/lib/utils";
 import { isColorlessVariant } from "@/lib/constants";
 import type { VariantDraft } from "@/lib/variants";
 import type { AdminBrandListItem } from "@/lib/data/brands";
@@ -27,15 +26,12 @@ export function ProductAdvancedSettings({
   open,
   onOpenChange,
   description,
-  onDescriptionChange,
   videoUrl,
-  onVideoUrlChange,
   brands,
   brandId,
   onBrandChange,
   onBrandCreated,
   manufacturerRef,
-  onManufacturerRefChange,
   tags,
   onTagsChange,
   attributeRows,
@@ -43,7 +39,6 @@ export function ProductAdvancedSettings({
   status,
   onStatusChange,
   position,
-  onPositionChange,
   shippingNote,
   onShippingNoteChange,
   exchangeInfo,
@@ -56,7 +51,6 @@ export function ProductAdvancedSettings({
   variants,
   onVariantSkuChange,
   existingSkus,
-  invalidAnchors,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -128,7 +122,7 @@ export function ProductAdvancedSettings({
         <span className="min-w-0 flex-1">
           <span className="block text-base font-semibold text-fg">Configurações avançadas</span>
           <span className="mt-1 block text-xs text-ink-muted">
-            Vídeo, ficha técnica, marca, tags, envio, troca e cuidados.
+            Marca, situação, tags, ficha técnica, envio, troca e cuidados.
           </span>
         </span>
         <ChevronDown
@@ -147,36 +141,15 @@ export function ProductAdvancedSettings({
         id={contentId}
         className={`flex flex-col gap-6 border-t border-line p-4 md:p-6 ${open ? "" : "hidden"}`}
       >
-        <div id="field-description" className="flex scroll-mt-24 flex-col gap-2">
-          <Label htmlFor="description">Descrição completa</Label>
-          <Textarea
-            id="description"
-            name="description"
-            rows={5}
-            value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
-            placeholder="Detalhes, materiais, caimento…"
-            aria-invalid={invalidAnchors.has("field-description")}
-          />
-          <p className="text-xs text-ink-muted">
-            Precisa de pelo menos 30 caracteres para publicar o produto.
-          </p>
-        </div>
+        {/* Campos removidos da tela (descrição, vídeo, referência do
+            fabricante e posição): seguem como hidden para não apagar o que
+            já estava salvo em produtos antigos. */}
+        <input type="hidden" name="description" value={description} />
+        <input type="hidden" name="video_url" value={videoUrl} />
+        <input type="hidden" name="manufacturer_ref" value={manufacturerRef} />
+        <input type="hidden" name="position" value={position} />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="video_url">Vídeo do produto</Label>
-            <Input
-              id="video_url"
-              name="video_url"
-              type="url"
-              value={videoUrl}
-              onChange={(e) => onVideoUrlChange(e.target.value)}
-              placeholder="Link do YouTube, Vimeo ou arquivo .mp4"
-              className="h-10"
-            />
-          </div>
-
           <div className="flex flex-col gap-2">
             <Label htmlFor="brand_id">Marca</Label>
             <Select
@@ -216,17 +189,6 @@ export function ProductAdvancedSettings({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="manufacturer_ref">Referência do fabricante</Label>
-            <Input
-              id="manufacturer_ref"
-              name="manufacturer_ref"
-              value={manufacturerRef}
-              onChange={(e) => onManufacturerRefChange(e.target.value)}
-              className="h-10"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
             <Label htmlFor="status">Situação do produto</Label>
             <Select
               name="status"
@@ -247,19 +209,6 @@ export function ProductAdvancedSettings({
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="position">Posição na listagem</Label>
-            <Input
-              id="position"
-              name="position"
-              type="number"
-              min={0}
-              value={position}
-              onChange={(e) => onPositionChange(e.target.value)}
-              onFocus={selectOnFocus}
-              className="h-10"
-            />
-          </div>
         </div>
 
         <div className="flex flex-col gap-2">

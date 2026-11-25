@@ -23,7 +23,7 @@ export function CategoryStrip({ categories }: { categories: CategoryShowcase[] }
                 href={`/colecao?categoria=${category.slug}`}
                 className="group flex w-[130px] flex-col gap-2.5 md:w-[150px]"
               >
-                <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[14px] border border-line bg-card text-3xl font-bold text-gold transition-[border-color,box-shadow] duration-200 ease-out group-hover:border-gold group-hover:shadow-[0_0_24px_rgba(205,169,107,0.25)]">
+                <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[14px] border border-line bg-card text-3xl font-bold text-gold transition-[border-color,box-shadow] duration-200 ease-out group-hover:border-gold group-hover:shadow-[0_0_24px_rgba(255,255,255,0.18)]">
                   {category.image ? (
                     <SafeImage
                       src={category.image.url}

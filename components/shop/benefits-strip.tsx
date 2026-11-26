@@ -48,7 +48,7 @@ export function BenefitsStrip({ settings }: { settings: SiteSettings }) {
   }
 
   return (
-    <section aria-label="Vantagens da loja" className="border-y border-line bg-[#111111]">
+    <section aria-label="Vantagens da loja" className="border-y border-line bg-surface">
       <ul className="mx-auto grid max-w-[1400px] grid-cols-1 gap-x-6 gap-y-4 px-4 py-5 min-[460px]:grid-cols-2 md:px-8 lg:grid-cols-4">
         {benefits.map((benefit) => {
           const content = (

@@ -39,7 +39,7 @@ export function SizeGuideModal({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85dvh] max-w-lg overflow-y-auto border-line bg-card text-fg">
+        <DialogContent className="storefront-theme max-h-[85dvh] max-w-lg overflow-y-auto border-line bg-card text-fg">
           <DialogTitle className="text-lg font-bold">Guia de medidas</DialogTitle>
           {guide.note ? (
             <DialogDescription className="text-sm text-muted-foreground">{guide.note}</DialogDescription>

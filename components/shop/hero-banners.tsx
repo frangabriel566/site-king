@@ -102,7 +102,7 @@ export function HeroBanners({
             <span
               className={cn(
                 "block h-1.5 rounded-full transition-all duration-200",
-                index === selected ? "w-5 bg-gold" : "w-1.5 bg-white/40",
+                index === selected ? "w-5 bg-white" : "w-1.5 bg-white/40",
               )}
             />
           </button>

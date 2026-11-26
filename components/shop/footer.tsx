@@ -43,7 +43,7 @@ export function Footer({
   const companyLine = [cnpj && `CNPJ ${cnpj}`, cityLine].filter(Boolean).join(" · ");
 
   return (
-    <footer className="bg-black text-fg">
+    <footer className="storefront-invert bg-bg text-fg">
       <div className="mx-auto max-w-[1400px] px-4 pt-10 pb-6 sm:pt-14 sm:pb-8 md:px-8">
         <div className="divide-y divide-white/10 pb-2 lg:grid lg:grid-cols-5 lg:gap-10 lg:divide-y-0 lg:pb-12">
           <div className="pb-5 lg:col-span-2 lg:pb-0">

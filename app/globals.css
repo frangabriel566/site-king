@@ -122,55 +122,56 @@
 /* layout's root wrapper; the admin panel never receives this class.    */
 /* ------------------------------------------------------------------ */
 .storefront-theme {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --fg: #f5f5f5;
-  --muted: #a3a3a3;
-  --line: #2a2a2a;
+  /* GC Concept (nov/2026): the logo is black on white, so the whole shop
+     is white with black ink. The old "gold" tokens now carry black; the
+     names stay so no component has to change. */
+  --bg: #ffffff;
+  --surface: #f5f5f5;
+  --fg: #0a0a0a;
+  --muted: #5c5c5c;
+  --line: #e5e5e5;
 
-  /* GC Concept (nov/2026): the logo is pure black and white, so the
-     old gold tokens now carry white. Names kept so no component changes. */
-  --gold: #ffffff;
-  --gold-soft: #262626;
-  --gold-text: #ffffff;
-  --chrome: #d4d4d4;
+  --gold: #0a0a0a;
+  --gold-soft: #f0f0f0;
+  --gold-text: #0a0a0a;
+  --chrome: #404040;
 
-  --cta: #ffffff;
-  --cta-gold: #ffffff;
+  --cta: #0a0a0a;
+  --cta-gold: #0a0a0a;
   /* The single "buy" accent: purchase buttons, prices, the -X% badge and
      the Pix price. Fills take --on-buy for their text. */
-  --buy: #ffffff;
-  --buy-hover: #e5e5e5;
-  --on-buy: #0a0a0a;
-  --price: #ffffff;
-  --discount: #ffffff;
+  --buy: #0a0a0a;
+  --buy-hover: #2a2a2a;
+  --on-buy: #ffffff;
+  --price: #0a0a0a;
+  --discount: #0a0a0a;
   --alert: #c0392b;
 
   --accent: var(--gold-text);
-  --accent-hover: #e5e5e5;
+  --accent-hover: #2a2a2a;
   --accent-active: var(--gold-text);
   --accent-light: var(--gold-soft);
-  --accent-soft: rgba(255, 255, 255, 0.08);
-  --accent-soft-hover: rgba(255, 255, 255, 0.14);
-  --accent-ring: rgba(255, 255, 255, 0.3);
+  --accent-soft: rgba(0, 0, 0, 0.05);
+  --accent-soft-hover: rgba(0, 0, 0, 0.08);
+  --accent-ring: rgba(0, 0, 0, 0.2);
 
   --field: transparent;
-  --line-soft: #1f1f1f;
-  --line-strong: #3a3a3a;
-  --ink-subtle: #7a7a7a;
+  --line-soft: #efefef;
+  --line-strong: #cfcfcf;
+  --ink-subtle: #737373;
 
-  --surface-2: #1a1a1a;
-  --surface-muted: #1a1a1a;
-  --surface-hover: #1f1f1f;
-  --danger: #e2685a;
+  --surface-2: #f5f5f5;
+  --surface-muted: #f5f5f5;
+  --surface-hover: #ededed;
+  --danger: #c0392b;
   --success: var(--gold-text);
-  --warning: #e8a23a;
+  --warning: #b45309;
 
   --background: var(--bg);
   --foreground: var(--fg);
-  --card: #141414;
+  --card: #ffffff;
   --card-foreground: var(--fg);
-  --popover: #141414;
+  --popover: #ffffff;
   --popover-foreground: var(--fg);
   --primary: var(--cta);
   --primary-foreground: var(--on-buy);
@@ -186,6 +187,38 @@
   --ring: var(--gold);
   --radius: 0.5rem;
 
+  color-scheme: light;
+}
+
+/* The footer stays black: the logo's other colour. Same tokens, inverted,
+   so everything inside reads white on black. */
+.storefront-theme .storefront-invert {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --fg: #f5f5f5;
+  --muted: #a3a3a3;
+  --line: #2a2a2a;
+  --gold: #ffffff;
+  --gold-soft: #262626;
+  --gold-text: #ffffff;
+  --chrome: #d4d4d4;
+  --buy: #ffffff;
+  --buy-hover: #e5e5e5;
+  --on-buy: #0a0a0a;
+  --cta: #ffffff;
+  --accent: #ffffff;
+  --accent-hover: #e5e5e5;
+  --line-strong: #3a3a3a;
+  --ink-subtle: #8a8a8a;
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: #141414;
+  --primary: var(--cta);
+  --primary-foreground: var(--on-buy);
+  --muted-foreground: var(--muted);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--gold);
   color-scheme: dark;
 }
 
@@ -200,7 +233,7 @@
 
 /* The soft glow on buy buttons. */
 .storefront-theme .bg-buy:is(a, button) {
-  box-shadow: 0 0 22px rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 }
 
 /* Room for the product page's mobile buy bar while it is up, so it never

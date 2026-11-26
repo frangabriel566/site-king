@@ -118,7 +118,7 @@ export function Header({
       <header
         ref={headerRef}
         onFocusCapture={expand}
-        className="sticky top-0 z-40 w-full transform-gpu bg-black text-fg transition-transform duration-200 ease-out motion-reduce:transition-none"
+        className="sticky top-0 z-40 w-full transform-gpu border-b border-line bg-bg text-fg transition-transform duration-200 ease-out motion-reduce:transition-none"
         style={{ transform: `translate3d(0, ${collapsed ? -hideBy : 0}px, 0)` }}
       >
         {/* `select-none` here is load-bearing on iOS, not cosmetic: with
@@ -248,7 +248,7 @@ export function Header({
         </div>
 
         {/* mobile search — its own row, always visible */}
-        <div ref={searchRowRef} className="border-t border-white/10 px-4 py-2 md:hidden">
+        <div ref={searchRowRef} className="border-t border-line px-4 py-2 md:hidden">
           <HeaderSearch />
         </div>
       </header>
@@ -258,7 +258,7 @@ export function Header({
           header naturally; no JS, no height animation, no reflow risk. */}
       {/* On phones too, as a row that scrolls sideways (King Store layout,
           out/2026); the wide Michroma labels are the look's signature. */}
-      <nav aria-label="Categorias" className="border-t border-white/10 bg-black text-fg">
+      <nav aria-label="Categorias" className="border-t border-line bg-bg text-fg">
         {/* ScrollRail: a mouse can drag the row too, not only a finger. */}
         <ScrollRail className="mx-auto h-12 max-w-[1400px] items-center gap-7 px-4 font-label text-[11px] uppercase tracking-[0.1em] md:px-8">
           {categories.map((category) => (
@@ -287,7 +287,7 @@ export function Header({
           className="storefront-theme w-[calc(100%-3.5rem)] max-w-sm gap-0 border-r border-line bg-card p-0 text-fg"
         >
           <SheetTitle className="sr-only">Menu</SheetTitle>
-          <div className="flex h-16 items-center justify-between bg-black px-6 text-fg">
+          <div className="flex h-16 items-center justify-between border-b border-line bg-bg px-6 text-fg">
             <Link href="/" onClick={closeMenu} className="select-none">
               <StoreLogo
                 logoUrl={settings.logo_url}
@@ -328,7 +328,7 @@ export function Header({
                       onClick={closeMenu}
                       className="flex min-h-[4.5rem] items-center gap-4 px-5 py-2 active:bg-surface"
                     >
-                      <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/40 bg-black text-lg font-bold text-gold">
+                      <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gold/40 bg-surface text-lg font-bold text-gold">
                         {category.image ? (
                           <SafeImage
                             src={category.image.url}

@@ -32,7 +32,7 @@ export function KitBanner({
 
   return (
     <section className="mx-auto max-w-[1400px] px-4 pt-12 pb-2 md:px-8">
-      <div className="flex flex-wrap items-center gap-8 rounded-[18px] border border-gold bg-card p-6 shadow-[0_0_48px_rgba(255,255,255,0.12)] md:p-9">
+      <div className="flex flex-wrap items-center gap-8 rounded-[18px] border border-gold bg-card p-6 shadow-[0_0_48px_rgba(0,0,0,0.06)] md:p-9">
         <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-3.5">
           <p className="font-label text-[11px] tracking-[0.2em] text-gold-text">MONTE O LOOK</p>
           {/* overflow-wrap:anywhere — names like "A+B+C" have no space to break at. */}

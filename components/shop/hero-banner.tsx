@@ -147,10 +147,10 @@ function EditableBanner({
             // fades it into the background under them so they always read.
             <div
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 -z-10 h-[70%] @3xl:hidden"
+              className="absolute inset-x-0 bottom-0 -z-10 h-[58%] @3xl:hidden"
               style={{
                 background:
-                  "linear-gradient(to top, var(--bn-bg) 0%, var(--bn-bg) 50%, color-mix(in srgb, var(--bn-bg) 82%, transparent) 64%, color-mix(in srgb, var(--bn-bg) 35%, transparent) 84%, transparent 100%)",
+                  "linear-gradient(to top, var(--bn-bg) 0%, var(--bn-bg) 45%, color-mix(in srgb, var(--bn-bg) 80%, transparent) 60%, color-mix(in srgb, var(--bn-bg) 30%, transparent) 82%, transparent 100%)",
               }}
             />
           )}

@@ -51,7 +51,7 @@ export function Footer({
               <StoreLogo
                 logoUrl={settings.logo_url}
                 name={settings.store_name}
-                imageClassName="h-9 max-w-[200px]"
+                imageClassName="h-9 max-w-[200px] brightness-0 invert"
                 textClassName="text-sm font-extrabold uppercase tracking-[0.08em] text-gold"
               />
             </Link>

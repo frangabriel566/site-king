@@ -243,15 +243,14 @@ const LOGO_HEIGHT = 240;
 const LOGO_MAX_WIDTH = 1200;
 /** An SVG is drawn this tall before trimming, so the trim loses nothing. */
 const SVG_DRAW_HEIGHT = 2 * LOGO_HEIGHT;
-const LOGO_TYPES = new Set(["image/png", "image/webp", "image/svg+xml"]);
-/** Icons sit on black, like every place the logo appears (header, footer,
- * menu, panel) — a logo made for a dark background stays legible. */
-const ICON_BACKGROUND = "#000000";
+const LOGO_TYPES = new Set(["image/png", "image/webp", "image/svg+xml", "image/jpeg"]);
+/** Icons sit on white, like the shop's header: the logo is dark. */
+const ICON_BACKGROUND = "#ffffff";
 const ICON_PADDING = 0.12;
 const ICON_SIZE = 512;
 const FAVICON_SIZE = 48;
 
-export const LOGO_ACCEPT = "image/png,image/webp,image/svg+xml,.svg";
+export const LOGO_ACCEPT = "image/png,image/webp,image/jpeg,image/svg+xml,.svg,.jpg,.jpeg";
 
 function isSvg(file: File): boolean {
   return file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
@@ -297,6 +296,21 @@ async function drawSvg(file: File): Promise<HTMLCanvasElement> {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/** A JPEG has no transparency: its white (or near-white) background is
+ * turned transparent, with a soft edge so the letters stay smooth. */
+function clearWhiteBackground(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = image;
+  for (let i = 0; i < data.length; i += 4) {
+    const lightest = Math.min(data[i], data[i + 1], data[i + 2]);
+    if (lightest >= 245) data[i + 3] = 0;
+    else if (lightest > 215) data[i + 3] = Math.round((data[i + 3] * (245 - lightest)) / 30);
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 /** The logo without the transparent margin around it — a file exported
@@ -375,6 +389,7 @@ async function processLogo(file: File): Promise<{
     } finally {
       bitmap.close();
     }
+    if (file.type === "image/jpeg") clearWhiteBackground(source);
   }
   const trimmed = trimTransparent(source);
 
@@ -413,7 +428,7 @@ export async function uploadLogoToStorage(
   } = {},
 ): Promise<UploadResult> {
   if (!LOGO_TYPES.has(file.type) && !isSvg(file)) {
-    return { ok: false, error: "Envie a logo em PNG (fundo transparente), SVG ou WebP." };
+    return { ok: false, error: "Envie a logo em PNG, JPG, SVG ou WebP." };
   }
   if (file.size > MAX_SOURCE_FILE_BYTES) {
     return { ok: false, error: "Arquivo maior que 50MB." };

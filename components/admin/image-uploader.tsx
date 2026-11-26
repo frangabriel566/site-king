@@ -113,7 +113,7 @@ export function ImageUploader({
       <p className="text-label mb-3">{label}</p>
       <div
         className={`relative ${aspect} w-full overflow-hidden rounded-lg border border-dashed border-line ${
-          kind === "logo" ? "bg-black" : "bg-field"
+          kind === "logo" ? "bg-white" : "bg-field"
         }`}
       >
         {progress !== null ? (
@@ -164,7 +164,7 @@ export function ImageUploader({
           >
             <Upload className="size-5" />
             <span className="text-xs">
-              {kind === "logo" ? "Enviar logo (PNG transparente, SVG ou WebP)" : "Enviar imagem"}
+              {kind === "logo" ? "Enviar logo (PNG, JPG, SVG ou WebP)" : "Enviar imagem"}
             </span>
           </button>
         )}

@@ -64,9 +64,10 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
               savingRef={savingRef}
             />
             <p className="mt-2 text-xs text-ink-muted">
-              Aparece no lugar do nome no cabeçalho, no menu do celular, no
-              rodapé e no painel — todos com fundo escuro, então use uma logo
-              clara ou colorida. Sem logo, o nome da loja aparece em texto.
+              Aparece no lugar do nome no cabeçalho (fundo branco), no menu
+              do celular, no rodapé e no painel (nesses dois, desenhada em
+              branco). Use uma logo escura; em JPG o fundo branco é removido
+              sozinho. Sem logo, o nome da loja aparece em texto.
             </p>
             {logoIcons && (
               <div className="mt-4 flex items-center gap-4">

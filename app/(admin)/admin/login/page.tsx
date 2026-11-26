@@ -29,7 +29,7 @@ export default async function AdminLoginPage({
         <StoreLogo
           logoUrl={settings.logo_url}
           name={settings.store_name}
-          imageClassName="h-10 max-w-[220px]"
+          imageClassName="h-10 max-w-[220px] brightness-0 invert"
           textClassName="text-sm font-extrabold uppercase tracking-[0.1em]"
         />
         <h1 className="text-heading mt-2 text-3xl">Painel administrativo</h1>

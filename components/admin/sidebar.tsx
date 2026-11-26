@@ -90,7 +90,7 @@ export function AdminSidebar({
           <StoreLogo
             logoUrl={brand.logoUrl}
             name={brand.name}
-            imageClassName="h-7 max-w-[160px]"
+            imageClassName="h-7 max-w-[160px] brightness-0 invert"
             textClassName="text-sm font-extrabold uppercase tracking-[0.1em] text-fg"
           />
         </Link>
@@ -148,7 +148,7 @@ function SidebarPanel({
             <StoreLogo
               logoUrl={brand.logoUrl}
               name={brand.name}
-              imageClassName="h-8 max-w-[180px]"
+              imageClassName="h-8 max-w-[180px] brightness-0 invert"
               textClassName="text-sm font-extrabold uppercase tracking-[0.1em] text-fg"
             />
           </Link>

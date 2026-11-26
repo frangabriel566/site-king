@@ -61,7 +61,8 @@ const color = (fallback: string) =>
     .regex(/^#[0-9a-fA-F]{6}$/)
     .catch(fallback);
 
-/** Defaults = the approved art. Every field falls back on its own. */
+/** Defaults = the approved art, in GC Concept black and white (nov/2026).
+ * Every field falls back on its own. */
 export const bannerStyleSchema = z.object({
   headlineFont: z.enum(FONT_KEYS).catch("saira"),
   eyebrowFont: z.enum(FONT_KEYS).catch("michroma"),
@@ -69,13 +70,13 @@ export const bannerStyleSchema = z.object({
   buttonFont: z.enum(FONT_KEYS).catch("saira"),
   headlineSize: z.enum(["p", "m", "g", "gg"]).catch("g"),
   uppercase: z.boolean().catch(true),
-  bgColor: color("#0B0B0C"),
-  textColor: color("#F4EFE6"),
-  highlightColor: color("#E8D39A"),
-  eyebrowColor: color("#C9AA6E"),
-  subtitleColor: color("#C9C3B8"),
-  buttonColor: color("#C9AA6E"),
-  buttonTextColor: color("#111214"),
+  bgColor: color("#0A0A0A"),
+  textColor: color("#FFFFFF"),
+  highlightColor: color("#FFFFFF"),
+  eyebrowColor: color("#FFFFFF"),
+  subtitleColor: color("#D4D4D4"),
+  buttonColor: color("#FFFFFF"),
+  buttonTextColor: color("#0A0A0A"),
   /** 0–80: how much the photo is darkened. */
   overlay: z.number().int().min(0).max(80).catch(0),
   /** Vertical focus of the photo, 0 (top) – 100 (bottom). */

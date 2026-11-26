@@ -26,57 +26,48 @@
 /* storefront styling here; add it to the scoped block instead.         */
 /* ------------------------------------------------------------------ */
 :root {
+  /* GC Concept (nov/2026): the panel matches the shop and the logo, white
+     grounds with black ink and black as the accent. Black fills carry
+     white text (--on-accent). */
   /* ---- grounds ---------------------------------------------------- */
-  --bg: #0e1113;
-  --sidebar-bg: #121619;
-  --header-bg: #101315;
-  /* cards, and the nested "card inside a card" one step lighter */
-  --surface: #171b1e;
-  --surface-2: #1c2125;
-  /* Inputs sit *below* the card they're on, not above it. */
-  --field: #121518;
+  --bg: #f6f6f6;
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffff;
+  /* cards, and the nested "card inside a card" one step darker */
+  --surface: #ffffff;
+  --surface-2: #f3f3f3;
+  /* Inputs sit on white. */
+  --field: #ffffff;
 
   /* ---- ink -------------------------------------------------------- */
-  --fg: #f4efe6;
-  --on-buy: #101315;
-  /* Text on a solid gold fill (selected chips, primary buttons). */
-  --on-accent: #101315;
-  --muted: #aba69c;
-  --ink-subtle: #807b73;
+  --fg: #0a0a0a;
+  --on-buy: #ffffff;
+  /* Text on a solid black fill (selected chips, primary buttons). */
+  --on-accent: #ffffff;
+  --muted: #5c5c5c;
+  --ink-subtle: #737373;
 
   /* ---- lines ------------------------------------------------------ */
-  --line: #2c3034;
-  --line-soft: #22272b;
-  /* One step brighter than --line: secondary-button borders and the
-     scrollbar thumb on hover, where a hairline would disappear. */
-  --line-strong: #3a3f44;
+  --line: #e2e2e2;
+  --line-soft: #ededed;
+  --line-strong: #cfcfcf;
 
-  /* ---- gold (the logo's) ------------------------------------------ */
-  --accent: #cda96b;
-  --accent-hover: #ddbb7e;
-  --accent-active: #b8945a;
-  --accent-light: #f0d48e;
-  /* Translucent golds carry every "this is active/hovered" state. They
-     stay translucent on purpose: over a card or the sidebar each one
-     tints whatever it sits on instead of punching a flat gold rectangle
-     into the layout. */
-  --accent-soft: rgba(205, 169, 107, 0.12);
-  --accent-soft-hover: rgba(205, 169, 107, 0.2);
-  --accent-ring: rgba(205, 169, 107, 0.3);
-  /* The shop's brand gold, as a fallback for any storefront component
-     rendered outside `.storefront-theme` (a portal, say). */
+  /* ---- accent (the logo's black) ---------------------------------- */
+  --accent: #0a0a0a;
+  --accent-hover: #2a2a2a;
+  --accent-active: #000000;
+  --accent-light: #404040;
+  --accent-soft: rgba(0, 0, 0, 0.05);
+  --accent-soft-hover: rgba(0, 0, 0, 0.08);
+  --accent-ring: rgba(0, 0, 0, 0.2);
   --gold: var(--accent);
 
   /* ---- semantic --------------------------------------------------- */
-  --danger: #e2685a;
-  --success: #22c55e;
-  --warning: #e8a23a;
+  --danger: #c0392b;
+  --success: #15803d;
+  --warning: #b45309;
 
-  /* Hover/selected surfaces are a gold wash rather than a lighter grey,
-     which is what makes every hover in the panel read as the same
-     gesture — table rows, ghost buttons and dropdown items all land on
-     `bg-muted` / `bg-accent`. */
-  --surface-muted: rgba(205, 169, 107, 0.08);
+  --surface-muted: rgba(0, 0, 0, 0.04);
   --surface-hover: var(--accent-soft-hover);
 
   --background: var(--bg);
@@ -95,13 +86,13 @@
   --accent-foreground: var(--fg);
   --destructive: var(--danger);
   --border: var(--line);
-  --input: var(--line);
+  --input: var(--line-strong);
   --ring: var(--accent);
   --chart-1: var(--accent);
-  --chart-2: var(--accent-light);
-  --chart-3: #807b73;
-  --chart-4: #3a3f44;
-  --chart-5: #22272b;
+  --chart-2: #737373;
+  --chart-3: #a3a3a3;
+  --chart-4: #cfcfcf;
+  --chart-5: #e2e2e2;
   --radius: 0.5rem;
   --sidebar: var(--sidebar-bg);
   --sidebar-foreground: var(--fg);
@@ -282,7 +273,7 @@
 /* Native widgets the panel can't reach with a class: the date picker's
    calendar button, the colour swatch in the variant editor. */
 .admin-theme ::-webkit-calendar-picker-indicator {
-  filter: invert(1) opacity(0.5);
+  filter: opacity(0.5);
 }
 
 .admin-theme ::selection {
@@ -401,7 +392,7 @@
   }
   html {
     @apply font-sans scroll-smooth;
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground antialiased;

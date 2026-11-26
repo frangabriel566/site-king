@@ -17,7 +17,7 @@ import { formatCurrency } from "@/lib/format";
 
 /** Same two colors as Relatórios: gold for the main series, grey for the
  * one beside it — told apart by lightness too, not only hue. */
-export const CHART_COLORS = { primary: "#CDA96B", secondary: "#9AA0A8" } as const;
+export const CHART_COLORS = { primary: "#0A0A0A", secondary: "#9AA0A8" } as const;
 
 const compact = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 const pct = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 2 });

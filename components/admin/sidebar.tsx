@@ -37,28 +37,56 @@ import { StoreLogo } from "@/components/store-logo";
  * the store. */
 type StoreBrand = { logoUrl: string | null; name: string };
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/analytics", label: "Analytics", icon: Activity },
-  { href: "/admin/pagina-inicial", label: "Página inicial", icon: House },
-  { href: "/admin/banners", label: "Banners", icon: ImageIcon },
-  { href: "/admin/produtos", label: "Produtos", icon: Shirt },
-  { href: "/admin/categorias", label: "Categorias", icon: Tag },
-  { href: "/admin/marcas", label: "Marcas", icon: Award },
-  { href: "/admin/estoque", label: "Estoque", icon: Boxes },
-  { href: "/admin/pedidos", label: "Pedidos", icon: Package },
-  { href: "/admin/pedidos-whatsapp", label: "Pedidos WhatsApp", icon: MessageCircle },
-  { href: "/admin/vendas-loja", label: "Vendas na loja", icon: Store },
-  { href: "/admin/relatorios", label: "Relatórios", icon: ChartColumn },
-  { href: "/admin/clientes", label: "Clientes", icon: Users },
-  { href: "/admin/cupons", label: "Cupons", icon: Ticket },
-  { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
-  { href: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquareQuote },
-  { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
-  { href: "/admin/integracoes", label: "Integrações", icon: Plug },
-  { href: "/admin/faxina", label: "Faxina de imagens", icon: Eraser },
-  { href: "/admin/conta", label: "Conta", icon: UserCog },
+/** The panel's pages, grouped by what the operator is doing, so twenty
+ * links read as five short lists instead of one long column. */
+const NAV_GROUPS = [
+  {
+    title: "Visão geral",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/analytics", label: "Analytics", icon: Activity },
+      { href: "/admin/relatorios", label: "Relatórios", icon: ChartColumn },
+    ],
+  },
+  {
+    title: "Vendas",
+    items: [
+      { href: "/admin/pedidos", label: "Pedidos", icon: Package },
+      { href: "/admin/pedidos-whatsapp", label: "Pedidos WhatsApp", icon: MessageCircle },
+      { href: "/admin/vendas-loja", label: "Vendas na loja", icon: Store },
+      { href: "/admin/clientes", label: "Clientes", icon: Users },
+      { href: "/admin/cupons", label: "Cupons", icon: Ticket },
+    ],
+  },
+  {
+    title: "Catálogo",
+    items: [
+      { href: "/admin/produtos", label: "Produtos", icon: Shirt },
+      { href: "/admin/estoque", label: "Estoque", icon: Boxes },
+      { href: "/admin/categorias", label: "Categorias", icon: Tag },
+      { href: "/admin/marcas", label: "Marcas", icon: Award },
+    ],
+  },
+  {
+    title: "Loja online",
+    items: [
+      { href: "/admin/pagina-inicial", label: "Página inicial", icon: House },
+      { href: "/admin/banners", label: "Banners", icon: ImageIcon },
+      { href: "/admin/avaliacoes", label: "Avaliações", icon: Star },
+      { href: "/admin/feedbacks", label: "Feedbacks", icon: MessageSquareQuote },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
+      { href: "/admin/integracoes", label: "Integrações", icon: Plug },
+      { href: "/admin/faxina", label: "Faxina de imagens", icon: Eraser },
+      { href: "/admin/conta", label: "Conta", icon: UserCog },
+    ],
+  },
 ];
+
 
 export function AdminSidebar({
   email,
@@ -166,55 +194,50 @@ function SidebarPanel({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
-            // `startsWith(href)` cru acendia dois itens de uma vez desde
-            // que "/admin/pedidos-whatsapp" entrou na lista — ele começa
-            // com "/admin/pedidos". Exigir a barra mantém a ficha do
-            // pedido ("/admin/pedidos/<id>") acesa sob "Pedidos" sem
-            // pegar a aba vizinha.
-            const isActive =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`relative flex items-center gap-3 overflow-hidden rounded-lg border px-3 py-3 text-sm transition-colors duration-150 ease-out md:py-2.5 ${
-                    isActive
-                      ? "border-[color-mix(in_srgb,var(--accent-hover)_30%,transparent)] bg-[var(--accent-soft-hover)] font-medium text-fg"
-                      : "border-transparent text-ink-muted hover:bg-[var(--accent-soft)] hover:text-fg"
-                  }`}
-                >
-                  {isActive && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-accent-solid"
-                    />
-                  )}
-                  <Icon
-                    className={`size-4 shrink-0 ${isActive ? "text-accent-light" : ""}`}
-                    aria-hidden="true"
-                  />
-                  {item.label}
-                  {item.href === "/admin/pedidos-whatsapp" && pendingWhatsApp > 0 && (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--warning)] px-1.5 text-[11px] font-semibold text-black">
-                      <span className="sr-only">
-                        {pendingWhatsApp} pedidos aguardando WhatsApp
-                      </span>
-                      <span aria-hidden="true">{pendingWhatsApp}</span>
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title} className="mb-4 last:mb-0">
+            <p className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
+              {group.title}
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                // Exigir a barra mantém a ficha do pedido ("/admin/pedidos/<id>")
+                // acesa sob "Pedidos" sem acender "Pedidos WhatsApp".
+                const isActive =
+                  item.href === "/admin"
+                    ? pathname === "/admin"
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const Icon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ease-out md:py-2 ${
+                        isActive
+                          ? "bg-fg font-semibold text-bg"
+                          : "text-ink-muted hover:bg-[var(--accent-soft-hover)] hover:text-fg"
+                      }`}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      {item.label}
+                      {item.href === "/admin/pedidos-whatsapp" && pendingWhatsApp > 0 && (
+                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--warning)] px-1.5 text-[11px] font-semibold text-white">
+                          <span className="sr-only">
+                            {pendingWhatsApp} pedidos aguardando WhatsApp
+                          </span>
+                          <span aria-hidden="true">{pendingWhatsApp}</span>
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-line px-3 py-4">

@@ -33,7 +33,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 // time there is no production database to prerender from. So nothing is
 // static: each request renders with live data. (ISR would not help either:
 // without an OpenNext incremental cache configured, it caches nothing.)
-// Storefront display + label faces (King Store look): Saira for headings,
+// Storefront display + label faces (GC Concept look): Saira for headings,
 // Michroma for the wide uppercase labels. Self-hosted for the same reason
 // as Archivo. Licenses: app/fonts/OFL-saira.txt, app/fonts/OFL-michroma.txt.
 const saira = localFont({
@@ -59,15 +59,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(siteUrl),
     title: {
-      default: "King Store — Roupa Masculina",
-      template: "%s — King Store",
+      default: "GC Concept — Roupa Masculina",
+      template: "%s — GC Concept",
     },
     description:
-      "King Store. Vista-se como um rei: moletons, camisetas, calças e acessórios.",
+      "GC Concept. Roupa masculina: moletons, camisetas, calças e acessórios.",
     openGraph: {
       type: "website",
       locale: "pt_BR",
-      siteName: "King Store",
+      siteName: "GC Concept",
     },
     robots: {
       index: true,

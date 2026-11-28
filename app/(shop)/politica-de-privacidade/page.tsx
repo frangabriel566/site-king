@@ -3,7 +3,7 @@ import { getSiteSettings } from "@/lib/data/settings";
 
 export const metadata: Metadata = {
   title: "Política de privacidade",
-  description: "Como a King Store coleta, usa e protege seus dados.",
+  description: "Como a GC Concept coleta, usa e protege seus dados.",
 };
 
 export default async function PrivacyPolicyPage() {

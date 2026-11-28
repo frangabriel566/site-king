@@ -48,7 +48,7 @@ export function InlineBrandCreator({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: King Store"
+              placeholder="Ex: GC Concept"
             />
           </div>
           <Button type="submit" disabled={pending || !name.trim()} className="w-fit">

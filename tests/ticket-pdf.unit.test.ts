@@ -4,7 +4,7 @@ import { buildTicketPdf } from "@/lib/orders/ticket-pdf";
 import type { TicketBlock } from "@/lib/orders/ticket";
 
 const base: TicketBlock[] = [
-  { kind: "text", text: "KING STORE", align: "center" },
+  { kind: "text", text: "GC CONCEPT", align: "center" },
   { kind: "divider" },
   { kind: "text", text: "1x CAMISA LACOSTE 👕 GOLA LISTRADA", checkbox: true },
   { kind: "row", left: "R$ 129,90 un.", right: "R$ 129,90", indent: true },

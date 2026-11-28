@@ -12,7 +12,7 @@ const HIDDEN_ON = ["/sacola", "/checkout"];
 
 export function WhatsAppFloat({
   phone,
-  message = "Olá! Vim do site da King Store.",
+  message = "Olá! Vim do site da GC Concept.",
 }: {
   phone: string | null;
   message?: string;

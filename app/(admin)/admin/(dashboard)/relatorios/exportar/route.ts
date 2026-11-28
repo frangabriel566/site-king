@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   const report = await getSalesReport(period);
 
   const rows: string[] = [
-    line(["Relatório de vendas — King Store"]),
+    line(["Relatório de vendas — GC Concept"]),
     line(["Origem", REPORT_SOURCES[period.source]]),
     line(["Período", `${REPORT_RANGES[period.range].label} (${period.label})`]),
     line(["Faturamento", money(report.totals.revenue)]),

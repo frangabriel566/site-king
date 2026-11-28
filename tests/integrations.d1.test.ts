@@ -66,7 +66,7 @@ async function row(provider: "mercadopago" | "melhorenvio") {
 beforeAll(async () => {
   ({ db: state.db, dispose } = await createTestDb());
   process.env.INTEGRATIONS_KEY = Buffer.alloc(32, 3).toString("base64");
-  await state.db.insert(site_settings).values({ id: 1, store_name: "King Store", origin_cep: "01310100" });
+  await state.db.insert(site_settings).values({ id: 1, store_name: "GC Concept", origin_cep: "01310100" });
 });
 
 afterAll(async () => {
@@ -165,7 +165,7 @@ describe("Melhor Envio no painel", () => {
       { status: "idle" },
       form({ environment: "test", token: ME_TOKEN, email: "contato@kingstore.test" }),
     );
-    const calls = mockFetch(200, { firstname: "King", lastname: "Store", email: "contato@kingstore.test" });
+    const calls = mockFetch(200, { firstname: "GC", lastname: "Concept", email: "contato@kingstore.test" });
     expect((await actions.testIntegrationAction("melhorenvio")).ok).toBe(true);
     return calls;
   }
@@ -173,7 +173,7 @@ describe("Melhor Envio no painel", () => {
   it("testa no host do ambiente escolhido, com o e-mail no User-Agent", async () => {
     const calls = await saveAndTest();
     expect(calls[0].url).toBe("https://sandbox.melhorenvio.com.br/api/v2/me");
-    expect(calls[0].headers["User-Agent"]).toBe("King Store (contato@kingstore.test)");
+    expect(calls[0].headers["User-Agent"]).toBe("GC Concept (contato@kingstore.test)");
   });
 
   it("não ativa com produto ativo sem peso ou medidas; completo, ativa", async () => {

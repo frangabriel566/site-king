@@ -80,7 +80,7 @@ export async function testMelhorEnvio(credentials: MelhorEnvioCredentials): Prom
   try {
     result = await getJson(`${credentials.baseUrl}/api/v2/me`, {
       Authorization: `Bearer ${credentials.token}`,
-      "User-Agent": `King Store (${credentials.email})`,
+      "User-Agent": `GC Concept (${credentials.email})`,
     });
   } catch {
     return unreachable("Melhor Envio");

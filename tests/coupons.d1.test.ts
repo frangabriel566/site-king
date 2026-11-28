@@ -45,7 +45,7 @@ beforeAll(async () => {
   ({ db: state.db, dispose } = await createTestDb());
   await state.db.insert(products).values({ id: PRODUCT, name: "Moletom", slug: "moletom-cupom", price: PRICE, status: "active" });
   await state.db.insert(product_variants).values({ id: VARIANT, product_id: PRODUCT, color: "Preto", size: "M", stock: 100 });
-  await state.db.insert(site_settings).values({ id: 1, store_name: "King Store", whatsapp: "5511999999999", free_shipping_threshold: 399 });
+  await state.db.insert(site_settings).values({ id: 1, store_name: "GC Concept", whatsapp: "5511999999999", free_shipping_threshold: 399 });
 });
 
 afterAll(async () => {

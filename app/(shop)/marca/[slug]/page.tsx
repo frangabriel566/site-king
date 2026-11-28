@@ -18,7 +18,7 @@ export async function generateMetadata({
 
   return {
     title: brand.name,
-    description: brand.description ?? `Produtos ${brand.name} na King Store.`,
+    description: brand.description ?? `Produtos ${brand.name} na GC Concept.`,
   };
 }
 

@@ -457,7 +457,7 @@ export function CheckoutWizard({
             ) : (
               <p className="max-w-sm text-sm text-ink-muted">
                 Ao confirmar, você será direcionado ao WhatsApp para concluir o
-                pagamento com a King Store.
+                pagamento com a GC Concept.
               </p>
             )}
 

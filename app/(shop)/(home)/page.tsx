@@ -41,14 +41,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const [banners, settings] = await Promise.all([activeBanners(), getSiteSettings()]);
   const ogImage = banners.find((banner) => banner.image_url)?.image_url ?? settings.logo_url;
   return {
-    // absolute: the root layout's "%s — King Store" template would
-    // otherwise repeat the store name ("King Store — … — King Store").
-    title: { absolute: "King Store — Vestuário Masculino" },
+    // absolute: the root layout's "%s — GC Concept" template would
+    // otherwise repeat the store name ("GC Concept — … — GC Concept").
+    title: { absolute: "GC Concept — Vestuário Masculino" },
     description: HOME_DESCRIPTION,
     openGraph: {
-      title: "King Store — Vestuário Masculino",
+      title: "GC Concept — Vestuário Masculino",
       description: HOME_DESCRIPTION,
-      ...(ogImage ? { images: [{ url: ogImage, alt: "King Store" }] } : {}),
+      ...(ogImage ? { images: [{ url: ogImage, alt: "GC Concept" }] } : {}),
     },
     twitter: { card: ogImage ? "summary_large_image" : "summary" },
   };
@@ -133,10 +133,10 @@ export default async function HomePage() {
       : [fallbackBanner];
   const whatsappDigits = settings.whatsapp?.replace(/\D/g, "") ?? "";
   const whatsappHref = whatsappDigits
-    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da King Store.")}`
+    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent("Olá! Vim do site da GC Concept.")}`
     : null;
 
-  // The King Store layout (out/2026), top to bottom: hero, benefits,
+  // The GC Concept layout (out/2026), top to bottom: hero, benefits,
   // categories, the shelves with the kit banner between "Mais vendidos" and
   // "Ofertas" (Ofertas stays last, store owner's choice), reviews and the
   // newsletter. Each shelf renders nothing while empty.

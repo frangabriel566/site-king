@@ -231,7 +231,7 @@ describe("GA4 reports → panel", () => {
           [["page_view"], [47]],
           [["view_item"], [19]],
         ]),
-        pages: report(["unifiedScreenName"], ["screenPageViews", "activeUsers"], [[["Moletom Coroa — King Store"], [9, 4]]]),
+        pages: report(["unifiedScreenName"], ["screenPageViews", "activeUsers"], [[["Moletom Coroa — GC Concept"], [9, 4]]]),
         locations: report(["country", "city"], ["activeUsers"], [
           [["Brazil", "Teresina"], [6]],
           [["Brazil", "(not set)"], [2]],

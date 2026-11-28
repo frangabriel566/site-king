@@ -5,7 +5,7 @@ import { installmentText } from "@/lib/shop-config";
 import type { ProductListItem } from "@/lib/data/products";
 
 /**
- * "Monte o look" (King Store layout, out/2026): the first product marked for
+ * "Monte o look" (GC Concept layout, out/2026): the first product marked for
  * the KITS shelf, shown big between "Mais vendidos" and "Ofertas". The
  * button opens that product, or the whole shelf when there are several.
  */

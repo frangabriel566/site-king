@@ -11,7 +11,7 @@ export type HomeSettingsRow = Tables<"home_settings">;
 
 /**
  * The texts the home's hero shows when the panel leaves a field empty —
- * the approved King Store copy (out/2026). Painel → Página inicial
+ * the approved GC Concept copy (out/2026). Painel → Página inicial
  * overrides each one.
  */
 export const HOME_DEFAULTS = {

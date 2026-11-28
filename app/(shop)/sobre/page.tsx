@@ -3,7 +3,7 @@ import { getSiteSettings } from "@/lib/data/settings";
 
 export const metadata: Metadata = {
   title: "Sobre",
-  description: "Conheça a King Store: vestuário masculino de qualidade, feito para durar.",
+  description: "Conheça a GC Concept: vestuário masculino de qualidade, feito para durar.",
 };
 
 export default async function AboutPage() {

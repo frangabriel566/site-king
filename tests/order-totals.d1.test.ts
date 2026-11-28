@@ -79,7 +79,7 @@ beforeAll(async () => {
   ]);
   await db.insert(site_settings).values({
     id: 1,
-    store_name: "King Store",
+    store_name: "GC Concept",
     whatsapp: "5511999999999",
     free_shipping_threshold: THRESHOLD,
   });

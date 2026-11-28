@@ -5,7 +5,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
  * Google Analytics Data API (GA4), from the Worker.
  *
  * Authenticates as a Google Cloud service account that was given read
- * access (Leitor) to the KING STORE property: the Worker signs a JWT with
+ * access (Leitor) to the GC CONCEPT property: the Worker signs a JWT with
  * the account's private key (WebCrypto, RS256), trades it for an OAuth
  * access token and calls the API with it. The key and the token never
  * leave the server — the panel's browser only ever sees the numbers.

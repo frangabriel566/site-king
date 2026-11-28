@@ -17,7 +17,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* :root — admin panel palette. King Store logo colours (out/2026):    */
+/* :root — admin panel palette. GC Concept logo colours (out/2026):    */
 /* graphite grounds and brushed gold, the same family as the shop, kept */
 /* in the panel's soft-cornered dense layout. Gold fills carry dark ink */
 /* (--on-accent), never white. This is ONLY the admin theme (and the    */
@@ -105,7 +105,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* .storefront-theme — public storefront palette. King Store look       */
+/* .storefront-theme — public storefront palette. GC Concept look       */
 /* (out/2026): the logo's graphite ground and brushed gold, laid out    */
 /* in the bold "neon" style — gold is the buy colour (buttons, price,   */
 /* -X% badge) with dark ink on it, so --on-buy, not white, goes on any  */

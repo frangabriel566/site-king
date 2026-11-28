@@ -4,7 +4,7 @@ import { ScrollRail } from "@/components/shop/scroll-rail";
 import type { CategoryShowcase } from "@/lib/data/categories";
 
 /**
- * "Compre por categoria" (King Store layout, out/2026): a titled row of
+ * "Compre por categoria" (GC Concept layout, out/2026): a titled row of
  * rounded square tiles that scrolls sideways. The photo is the one the
  * category already shows (its first product's); without one, the tile
  * shows the initial in gold.

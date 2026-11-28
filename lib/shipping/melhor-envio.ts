@@ -51,7 +51,7 @@ async function request<T>(
         Accept: "application/json",
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "User-Agent": `King Store (${email})`,
+        "User-Agent": `GC Concept (${email})`,
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       cache: "no-store",

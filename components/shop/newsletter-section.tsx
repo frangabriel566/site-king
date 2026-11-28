@@ -1,6 +1,6 @@
 import { Newsletter } from "./newsletter";
 
-/** "Fique por dentro" (King Store layout, out/2026): title on the left, the
+/** "Fique por dentro" (GC Concept layout, out/2026): title on the left, the
  * sign-up form on the right, between two hairlines. */
 export function NewsletterSection() {
   return (

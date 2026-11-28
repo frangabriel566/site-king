@@ -119,7 +119,7 @@ function EditableBanner({
   });
   const hasPhoto = photos[current] !== null;
   const alt =
-    [slide.headline, slide.highlight].filter(Boolean).join(" ") || "King Store";
+    [slide.headline, slide.highlight].filter(Boolean).join(" ") || "GC Concept";
   const Heading = asHeading ? "h1" : "h2";
 
   return (
@@ -312,7 +312,7 @@ function ReadyBanner({
 }) {
   const desktop = banner.imageUrl ?? banner.mobileImageUrl;
   const mobile = banner.mobileImageUrl ?? banner.imageUrl;
-  const alt = banner.headline || "Banner King Store";
+  const alt = banner.headline || "Banner GC Concept";
   if (!desktop || !mobile) return null;
   const loading = priority ? "eager" : "lazy";
   const fetchPriority = priority ? "high" : "auto";

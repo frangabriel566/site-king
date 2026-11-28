@@ -112,7 +112,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
             <Input
               id="instagram"
               name="instagram"
-              placeholder="@kingstore"
+              placeholder="@gcconcept"
               defaultValue={settings.instagram ?? ""}
             />
           </div>
@@ -121,7 +121,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
             <Input
               id="tiktok"
               name="tiktok"
-              placeholder="@kingstore"
+              placeholder="@gcconcept"
               defaultValue={settings.tiktok ?? ""}
             />
           </div>
@@ -130,7 +130,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
             <Input
               id="youtube"
               name="youtube"
-              placeholder="@kingstore"
+              placeholder="@gcconcept"
               defaultValue={settings.youtube ?? ""}
             />
           </div>

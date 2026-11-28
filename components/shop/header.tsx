@@ -256,7 +256,7 @@ export function Header({
       {/* category nav row — plain document flow, right after the sticky
           header. Scrolling past it makes it slide up behind the pinned
           header naturally; no JS, no height animation, no reflow risk. */}
-      {/* On phones too, as a row that scrolls sideways (King Store layout,
+      {/* On phones too, as a row that scrolls sideways (GC Concept layout,
           out/2026); the wide Michroma labels are the look's signature. */}
       <nav aria-label="Categorias" className="border-t border-line bg-bg text-fg">
         {/* ScrollRail: a mouse can drag the row too, not only a finger. */}

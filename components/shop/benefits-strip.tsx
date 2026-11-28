@@ -6,7 +6,7 @@ import { WhatsAppIcon } from "./whatsapp-icon";
 type Benefit = { key: string; title: string; note: string; icon: React.ReactNode; href?: string };
 
 /**
- * The benefits row right under the home's hero (King Store layout, out/2026):
+ * The benefits row right under the home's hero (GC Concept layout, out/2026):
  * a short title and a one-line note per item. Each one only when the store
  * has it — free shipping and installments come from Configurações, the
  * WhatsApp item from the store's number; "Compra segura" always shows.

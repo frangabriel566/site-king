@@ -13,7 +13,7 @@ export class WhatsAppProvider implements PaymentProvider {
     }
 
     const lines = [
-      `Olá! Quero pagar o pedido *#${input.orderNumber}* da King Store.`,
+      `Olá! Quero pagar o pedido *#${input.orderNumber}* da GC Concept.`,
       "",
       ...input.items.map(
         (item) => `• ${item.qty}x ${item.name} — ${formatCurrency(item.unitPrice * item.qty)}`,

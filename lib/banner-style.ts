@@ -4,7 +4,7 @@ import { z } from "zod";
  * The home's top banners (Painel → Banners), shared by the storefront and
  * the panel's live preview. Two kinds:
  *
- * - "editavel": the approved King Store art (nov/2026) — background photo,
+ * - "editavel": the approved GC Concept art (nov/2026) — background photo,
  *   texts, fonts and colours all set in the panel;
  * - "pronto": a finished image made elsewhere (Canva…), one for the phone
  *   and one for the computer, shown whole and linking somewhere.

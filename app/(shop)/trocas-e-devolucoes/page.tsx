@@ -3,7 +3,7 @@ import { getSiteSettings } from "@/lib/data/settings";
 
 export const metadata: Metadata = {
   title: "Trocas e devoluções",
-  description: "Política de trocas e devoluções da King Store.",
+  description: "Política de trocas e devoluções da GC Concept.",
 };
 
 export default async function ExchangesPage() {

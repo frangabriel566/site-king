@@ -57,9 +57,9 @@ describe("birthdays", () => {
   });
 
   it("fills in the message", () => {
-    expect(buildBirthdayMessage("Oi {nome}, presente da {loja}!", { name: "Ana Clara Souza", storeName: "King Store" })).toBe(
-      "Oi Ana, presente da King Store!",
+    expect(buildBirthdayMessage("Oi {nome}, presente da {loja}!", { name: "Ana Clara Souza", storeName: "GC Concept" })).toBe(
+      "Oi Ana, presente da GC Concept!",
     );
-    expect(buildBirthdayMessage(null, { name: "Ana", storeName: "King Store" })).toMatch(/^Feliz aniversário, Ana!/);
+    expect(buildBirthdayMessage(null, { name: "Ana", storeName: "GC Concept" })).toMatch(/^Feliz aniversário, Ana!/);
   });
 });

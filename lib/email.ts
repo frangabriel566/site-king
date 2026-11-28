@@ -20,7 +20,7 @@ export async function sendOrderConfirmationEmail(
   }
 
   const resend = new Resend(apiKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "King Store <pedidos@kingstore.com.br>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "GC Concept <pedidos@kingstore.com.br>";
 
   const itemsHtml = input.items
     .map(
@@ -33,10 +33,10 @@ export async function sendOrderConfirmationEmail(
     await resend.emails.send({
       from,
       to: input.to,
-      subject: `Pedido #${input.orderNumber} confirmado — King Store`,
+      subject: `Pedido #${input.orderNumber} confirmado — GC Concept`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#0A0A0A;">
-          <h1 style="font-size:20px;letter-spacing:-0.02em;text-transform:uppercase;">King Store</h1>
+          <h1 style="font-size:20px;letter-spacing:-0.02em;text-transform:uppercase;">GC Concept</h1>
           <p>Olá, ${input.customerName}. Seu pagamento foi confirmado.</p>
           <table style="width:100%;border-collapse:collapse;margin:16px 0;">${itemsHtml}</table>
           <p style="font-weight:bold;">Total: ${formatCurrency(input.total)}</p>
@@ -73,17 +73,17 @@ export async function sendPasswordResetEmail(input: {
   }
 
   const resend = new Resend(apiKey);
-  const from = process.env.RESEND_FROM_EMAIL ?? "King Store <pedidos@kingstore.com.br>";
+  const from = process.env.RESEND_FROM_EMAIL ?? "GC Concept <pedidos@kingstore.com.br>";
   const firstName = input.name.split(" ")[0] || "cliente";
 
   try {
     await resend.emails.send({
       from,
       to: input.to,
-      subject: "Redefinir sua senha — King Store",
+      subject: "Redefinir sua senha — GC Concept",
       html: `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#0A0A0A;">
-          <h1 style="font-size:20px;letter-spacing:-0.02em;text-transform:uppercase;">King Store</h1>
+          <h1 style="font-size:20px;letter-spacing:-0.02em;text-transform:uppercase;">GC Concept</h1>
           <p>Olá, ${firstName}. Recebemos um pedido para redefinir a senha da sua conta.</p>
           <p style="margin:24px 0;">
             <a href="${input.url}" style="background:#0A0A0A;color:#FFFFFF;padding:12px 20px;text-decoration:none;font-weight:bold;">Criar nova senha</a>

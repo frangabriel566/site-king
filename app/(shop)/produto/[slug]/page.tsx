@@ -55,7 +55,7 @@ export async function generateMetadata({
   return {
     title: product.name,
     description:
-      product.description ?? `${product.name} — King Store.`,
+      product.description ?? `${product.name} — GC Concept.`,
     openGraph: {
       title: product.name,
       description: product.description ?? undefined,

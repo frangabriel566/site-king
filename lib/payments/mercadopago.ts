@@ -35,7 +35,7 @@ export class MercadoPagoProvider implements PaymentProvider {
         },
         auto_return: "approved",
         notification_url: `${siteUrl}/api/webhooks/mercadopago`,
-        statement_descriptor: "KING STORE",
+        statement_descriptor: "GC CONCEPT",
       },
     });
 

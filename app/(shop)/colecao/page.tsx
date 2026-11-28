@@ -26,7 +26,7 @@ import { SECTION_LABEL } from "@/lib/sections";
 
 export const metadata: Metadata = {
   title: "Coleção",
-  description: "Explore a coleção completa da King Store.",
+  description: "Explore a coleção completa da GC Concept.",
 };
 
 export default async function CollectionPage({

@@ -11,7 +11,7 @@ import { hashPassword, verifyPassword } from "./password";
 
 function createAuth(database: D1Database, baseURL: string) {
   return betterAuth({
-    appName: "King Store",
+    appName: "GC Concept",
     baseURL,
     secret: process.env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(drizzle(database, { schema }), {

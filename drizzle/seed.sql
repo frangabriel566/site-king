@@ -1,4 +1,4 @@
--- King Store — seed.sql (Cloudflare D1)
+-- GC Concept — seed.sql (Cloudflare D1)
 -- Brings a fresh database to a demo-ready state: site settings, 5
 -- categories, 1 brand, 3 products with photos and variants (one on each
 -- home rail), 1 active banner and a welcome coupon. Photos are picsum
@@ -15,7 +15,7 @@
 -- Selling promises (parcelas, Pix, selo "Novo", frases de troca/segurança)
 -- are left empty on purpose: the store fills them in Configurações → Vitrine.
 INSERT OR IGNORE INTO site_settings (id, store_name, shipping_note, free_shipping_note, free_shipping_threshold, low_stock_units, footer_payment_text, footer_security_text, footer_privacy_text)
-VALUES (1, 'King Store', 'Envio em até 2 dias úteis após a confirmação do pagamento.', 'Frete grátis acima de R$ 399', 399, 3, 'Cartão, Pix e boleto', 'Compra segura', 'Dados protegidos');
+VALUES (1, 'GC Concept', 'Envio em até 2 dias úteis após a confirmação do pagamento.', 'Frete grátis acima de R$ 399', 399, 3, 'Cartão, Pix e boleto', 'Compra segura', 'Dados protegidos');
 
 INSERT OR IGNORE INTO categories (id, name, slug, position, active) VALUES
   ('11111111-1111-1111-1111-111111111101', 'Moletons', 'moletons', 1, 1),
@@ -25,7 +25,7 @@ INSERT OR IGNORE INTO categories (id, name, slug, position, active) VALUES
   ('11111111-1111-1111-1111-111111111105', 'Calçados', 'calcados', 5, 1);
 
 INSERT OR IGNORE INTO brands (id, name, slug, description, position, active) VALUES
-  ('55555555-5555-5555-5555-555555555501', 'King Store', 'king-store', 'Linha própria da casa.', 1, 1);
+  ('55555555-5555-5555-5555-555555555501', 'GC Concept', 'king-store', 'Linha própria da casa.', 1, 1);
 
 -- search_text = name + brand + category, lowercase and without accents
 -- (lib/search-text.ts); the app keeps it up to date on every save.

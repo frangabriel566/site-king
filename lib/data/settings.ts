@@ -13,7 +13,7 @@ const DEFAULT_SUPPORT_EMAIL = "suporteoficialkingstore@gmail.com";
 
 const FALLBACK_SETTINGS: SiteSettings = {
   id: 1,
-  store_name: "King Store",
+  store_name: "GC Concept",
   logo_url: null,
   whatsapp: null,
   email: DEFAULT_SUPPORT_EMAIL,

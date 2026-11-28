@@ -11,6 +11,8 @@ import { OrderStatusForm } from "./order-status-form";
 import { ShippingLabel } from "./shipping-label";
 import { SyncPaymentButton } from "./sync-payment-button";
 import { formatCpf } from "@/lib/validations/cpf";
+import { RecoveryWhatsAppButton } from "@/components/admin/recovery-whatsapp-button";
+import { isRecoverableOrder } from "@/lib/orders/recovery-message";
 
 export const metadata: Metadata = { title: "Pedido — Painel" };
 
@@ -156,6 +158,25 @@ export default async function AdminOrderDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
+          {isRecoverableOrder(order.status) && (
+            <div className="rounded-lg border border-line bg-card p-5 print:hidden">
+              <p className="text-label mb-2">Compra não finalizada</p>
+              <p className="mb-4 text-sm text-ink-muted">
+                Chame o cliente com uma mensagem pronta perguntando o que o fez
+                parar (frete, pagamento, tamanho, preço) e tente fechar a venda.
+              </p>
+              <RecoveryWhatsAppButton
+                variant="block"
+                status={order.status}
+                phone={snapshot?.phone}
+                customerName={snapshot?.name}
+                storeName={settings.store_name}
+                orderCode={String(order.code ?? order.order_number)}
+                items={order.order_items}
+                total={formatCurrency(order.total)}
+              />
+            </div>
+          )}
           {order.status === "aguardando_whatsapp" ? (
             // O formulário genérico levaria este pedido a "Pago" por
             // fulfill_order_stock(), que ignora em silêncio uma variação

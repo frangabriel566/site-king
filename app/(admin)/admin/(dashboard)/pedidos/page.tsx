@@ -8,6 +8,8 @@ import { OrderItemThumb } from "@/components/admin/order-item-thumb";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { deleteOrderAction } from "@/lib/actions/orders";
 import { OrdersFilterBar } from "./orders-filter-bar";
+import { RecoveryWhatsAppButton } from "@/components/admin/recovery-whatsapp-button";
+import { getSiteSettings } from "@/lib/data/settings";
 
 export const metadata: Metadata = { title: "Pedidos — Painel" };
 
@@ -21,7 +23,10 @@ export default async function AdminOrdersPage({
   searchParams: Promise<{ status?: string; busca?: string }>;
 }) {
   const { status, busca } = await searchParams;
-  const orders = await getAllOrdersAdmin({ status, search: busca });
+  const [orders, settings] = await Promise.all([
+    getAllOrdersAdmin({ status, search: busca }),
+    getSiteSettings(),
+  ]);
   const photos = await getOrderItemPhotos(orders.flatMap((order) => order.order_items));
 
   return (
@@ -38,7 +43,7 @@ export default async function AdminOrdersPage({
       ) : (
         <ul className="mt-6 flex flex-col gap-3">
           {orders.map((order) => {
-            const snapshot = order.customer_snapshot as { name?: string } | null;
+            const snapshot = order.customer_snapshot as { name?: string; phone?: string } | null;
             const units = order.order_items.reduce((sum, item) => sum + item.qty, 0);
             return (
               <li key={order.id} className="rounded-lg border border-line bg-card">
@@ -94,6 +99,15 @@ export default async function AdminOrdersPage({
                   >
                     Imprimir
                   </Link>
+                  <RecoveryWhatsAppButton
+                    status={order.status}
+                    phone={snapshot?.phone}
+                    customerName={snapshot?.name}
+                    storeName={settings.store_name}
+                    orderCode={String(order.code ?? order.order_number)}
+                    items={order.order_items}
+                    total={formatCurrency(order.total)}
+                  />
                   <div className="ml-auto">
                     <DeleteButton
                       itemLabel={`o pedido #${order.code ?? order.order_number}`}

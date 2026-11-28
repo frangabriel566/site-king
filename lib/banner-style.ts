@@ -77,6 +77,10 @@ export const bannerStyleSchema = z.object({
   subtitleColor: color("#D4D4D4"),
   buttonColor: color("#FFFFFF"),
   buttonTextColor: color("#0A0A0A"),
+  /** On (default): text, highlight, line, subtitle and button colours are
+   * worked out from the background so they always read — the store only
+   * edits the texts. Off: the colours picked one by one are used. */
+  autoColors: z.boolean().catch(true),
   /** 0–80: how much the photo is darkened. */
   overlay: z.number().int().min(0).max(80).catch(0),
   /** Vertical focus of the photo, 0 (top) – 100 (bottom). */
@@ -87,6 +91,67 @@ export const bannerStyleSchema = z.object({
 });
 
 export type BannerStyle = z.infer<typeof bannerStyleSchema>;
+
+/** True for a background where dark text reads better than white
+ * (WCAG relative luminance above the black/white midpoint). */
+export function isLightColor(hex: string): boolean {
+  const channel = (i: number) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return luminance > 0.179;
+}
+
+export type BannerColors = Pick<
+  BannerStyle,
+  | "bgColor"
+  | "textColor"
+  | "highlightColor"
+  | "eyebrowColor"
+  | "subtitleColor"
+  | "buttonColor"
+  | "buttonTextColor"
+> & { light: boolean };
+
+/** The colours the banner is drawn with: automatic from the background,
+ * or the ones picked in the panel when automatic is off. */
+export function resolveBannerColors(style: BannerStyle): BannerColors {
+  const light = isLightColor(style.bgColor);
+  if (!style.autoColors) {
+    return {
+      light,
+      bgColor: style.bgColor,
+      textColor: style.textColor,
+      highlightColor: style.highlightColor,
+      eyebrowColor: style.eyebrowColor,
+      subtitleColor: style.subtitleColor,
+      buttonColor: style.buttonColor,
+      buttonTextColor: style.buttonTextColor,
+    };
+  }
+  return light
+    ? {
+        light,
+        bgColor: style.bgColor,
+        textColor: "#0A0A0A",
+        highlightColor: "#0A0A0A",
+        eyebrowColor: "#0A0A0A",
+        subtitleColor: "#3F3F3F",
+        buttonColor: "#0A0A0A",
+        buttonTextColor: "#FFFFFF",
+      }
+    : {
+        light,
+        bgColor: style.bgColor,
+        textColor: "#FFFFFF",
+        highlightColor: "#FFFFFF",
+        eyebrowColor: "#FFFFFF",
+        subtitleColor: "#D4D4D4",
+        buttonColor: "#FFFFFF",
+        buttonTextColor: "#0A0A0A",
+      };
+}
 
 export const DEFAULT_BANNER_STYLE: BannerStyle = bannerStyleSchema.parse({});
 

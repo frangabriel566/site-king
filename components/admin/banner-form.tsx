@@ -579,8 +579,25 @@ export function BannerForm({
             </Section>
 
             <Section title="Cores">
+              <div className="flex items-start gap-3">
+                <Switch
+                  id="autoColors"
+                  checked={style.autoColors}
+                  onCheckedChange={(value) => setStyleField("autoColors", value)}
+                />
+                <div className="flex flex-col gap-0.5">
+                  <Label htmlFor="autoColors">Cores automáticas (recomendado)</Label>
+                  <p className="text-xs text-ink-muted">
+                    O site escolhe sozinho as cores dos textos e do botão para
+                    ficarem sempre legíveis. Você só muda os textos.
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {COLOR_FIELDS.map(({ key, label }) => (
+                {(style.autoColors
+                  ? COLOR_FIELDS.filter(({ key }) => key === "bgColor")
+                  : COLOR_FIELDS
+                ).map(({ key, label }) => (
                   <ColorField
                     key={key}
                     id={key}

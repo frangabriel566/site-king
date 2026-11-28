@@ -12,6 +12,7 @@ import {
   BANNER_FONTS,
   HEADLINE_SIZES,
   mainSlide,
+  resolveBannerColors,
   type BannerSlide,
   type HeroBannerData,
 } from "@/lib/banner-style";
@@ -98,14 +99,18 @@ function EditableBanner({
   const { style } = banner;
   const size = HEADLINE_SIZES[style.headlineSize];
   const headlineFont = BANNER_FONTS[style.headlineFont];
+  const colors = resolveBannerColors(style);
+  // Automatic colours on a light background: darkening the photo would put
+  // the dark texts on grey, so it is skipped.
+  const overlay = style.autoColors && colors.light ? 0 : style.overlay;
   const vars = {
-    "--bn-bg": style.bgColor,
-    "--bn-text": style.textColor,
-    "--bn-highlight": style.highlightColor,
-    "--bn-eyebrow": style.eyebrowColor,
-    "--bn-subtitle": style.subtitleColor,
-    "--bn-button": style.buttonColor,
-    "--bn-button-text": style.buttonTextColor,
+    "--bn-bg": colors.bgColor,
+    "--bn-text": colors.textColor,
+    "--bn-highlight": colors.highlightColor,
+    "--bn-eyebrow": colors.eyebrowColor,
+    "--bn-subtitle": colors.subtitleColor,
+    "--bn-button": colors.buttonColor,
+    "--bn-button-text": colors.buttonTextColor,
     "--bn-hs-m": `${size.mobile}px`,
     "--bn-hs-d": `clamp(${size.mobile}px, 6.2cqw, ${size.desktop}px)`,
   } as CSSProperties;
@@ -147,18 +152,24 @@ function EditableBanner({
             // fades it into the background under them so they always read.
             <div
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 -z-10 h-[58%] @3xl:hidden"
+              className={cn(
+                "absolute inset-x-0 bottom-0 -z-10 @3xl:hidden",
+                style.autoColors ? "h-[66%]" : "h-[58%]",
+              )}
               style={{
-                background:
-                  "linear-gradient(to top, var(--bn-bg) 0%, var(--bn-bg) 45%, color-mix(in srgb, var(--bn-bg) 80%, transparent) 60%, color-mix(in srgb, var(--bn-bg) 30%, transparent) 82%, transparent 100%)",
+                background: style.autoColors
+                  ? // Automatic: solid under every line of text, so the
+                    // title never lands on a busy part of the photo.
+                    "linear-gradient(to top, var(--bn-bg) 0%, var(--bn-bg) 58%, color-mix(in srgb, var(--bn-bg) 85%, transparent) 70%, color-mix(in srgb, var(--bn-bg) 35%, transparent) 86%, transparent 100%)"
+                  : "linear-gradient(to top, var(--bn-bg) 0%, var(--bn-bg) 45%, color-mix(in srgb, var(--bn-bg) 80%, transparent) 60%, color-mix(in srgb, var(--bn-bg) 30%, transparent) 82%, transparent 100%)",
               }}
             />
           )}
-          {style.overlay > 0 && (
+          {overlay > 0 && (
             <div
               aria-hidden="true"
               className="absolute inset-0 -z-10 bg-black"
-              style={{ opacity: style.overlay / 100 }}
+              style={{ opacity: overlay / 100 }}
             />
           )}
           {!split && hasPhoto && (
@@ -173,7 +184,7 @@ function EditableBanner({
           )}
 
           {banner.badge && (
-            <p className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--bn-eyebrow)_55%,transparent)] bg-black/60 px-3 py-1.5 text-[11px] font-semibold text-[var(--bn-highlight)] @3xl:bottom-11 @3xl:right-12 @3xl:top-auto @3xl:px-[18px] @3xl:py-2.5 @3xl:text-sm">
+            <p className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-white/40 bg-black/70 px-3 py-1.5 text-[11px] font-semibold text-white @3xl:bottom-11 @3xl:right-12 @3xl:top-auto @3xl:px-[18px] @3xl:py-2.5 @3xl:text-sm">
               <Truck className="size-3.5 @3xl:size-[18px]" aria-hidden="true" />
               {banner.badge}
             </p>
